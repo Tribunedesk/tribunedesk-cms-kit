@@ -1,0 +1,14 @@
+{
+  "name": "tribunedesk",
+  "description": "Tribune Desk tools for Claude Code: build, update and check a CMS integration with the Tribune Desk CMS API",
+  "owner": {
+    "name": "Tribune Desk"
+  },
+  "plugins": [
+    {
+      "name": "tribunedesk-integration",
+      "source": "./plugins/tribunedesk-integration",
+      "description": "Build, update and check a CMS integration with the Tribune Desk CMS API"
+    }
+  ]
+}
