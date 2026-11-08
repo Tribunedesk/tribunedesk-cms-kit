@@ -32,7 +32,8 @@ TDKIT check --levels 1,2 --mode webhook \
   --webhook http://127.0.0.1:8000/td/webhook \
   --inspect-cmd "python manage.py td_inspect {article_id}" \
   --publish-cmd "python manage.py td_publish {article_id}" \
-  --json tdkit-report.json
+  --docs .tribunedesk/cms-api@v3.4.1-draft \
+  --json .tribunedesk/tdkit-report.json
 ```
 
 - `--mode read` with `--poll-cmd "…"` instead of `--webhook`.

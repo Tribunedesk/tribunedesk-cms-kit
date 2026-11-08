@@ -188,5 +188,8 @@ def test_manifest_write_refuses_a_report_of_another_contract_or_mode() -> None:
         )
     with pytest.raises(UsageError, match="mode"):
         build_manifest(
-            contract="3.4.1-draft", delivery="webhook", report=_report("3.4.1-draft", "read"), **common
+            contract="3.4.1-draft",
+            delivery="webhook",
+            report=_report("3.4.1-draft", "read"),
+            **common,
         )

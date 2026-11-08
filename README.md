@@ -47,8 +47,8 @@ project (git-ignored), and cites it.
 production, and never writes secret values into tracked files or reads your `.env` values. Level 4
 (media library) is built from the guide without a conformance test in tdkit 1.0.
 
-**Needs** [uv](https://docs.astral.sh/uv/) and, preferably, git (without git the documentation is
-downloaded as a tarball from GitHub). **Privacy:** `tdkit` never connects to Tribune Desk; the
+**Needs** [uv](https://docs.astral.sh/uv/) and git (`uvx` installs `tdkit` from this git
+repository). **Privacy:** `tdkit` never connects to Tribune Desk; the
 mock runs on `127.0.0.1`.
 
 ### Po polsku
@@ -65,7 +65,7 @@ zwrotne”, „Zaktualizuj integrację z Tribune Desk” albo „Sprawdź integr
 Skill rozpozna projekt, zapyta o zakres, przygotuje wiadomość do kontaktu w Tribune Desk,
 zbuduje integrację poziom po poziomie i przetestuje ją lokalną atrapą (`tdkit check`). Nie
 zamawia tokenów, nie wdraża na produkcję i nie wpisuje sekretów do repozytorium. Wymaga `uv`
-i najlepiej gita.
+i gita.
 
 ## Run it
 
