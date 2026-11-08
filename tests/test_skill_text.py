@@ -1,0 +1,89 @@
+"""Rules the skill's text must keep (plan E9.5, Task 3-5)."""
+
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+
+from tdkit.cli import build_parser
+
+ROOT = Path(__file__).resolve().parents[1]
+SKILL_DIR = ROOT / "plugins" / "tribunedesk-integration" / "skills" / "tribunedesk-integration"
+SKILL = SKILL_DIR / "SKILL.md"
+REFERENCES = SKILL_DIR / "references"
+FIXTURE = Path(__file__).parent / "fixtures" / "cms-api"
+
+CMS_SECTIONS = (
+    "## 1. Raw body and the webhook route",
+    "## 2. Secret and token",
+    "## 3. Unique key and lock",
+    "## 4. Publish hook and link back",
+    "## 5. Edit URL",
+    "## 6. Images",
+    "## 7. Developer commands",
+    "## 8. Running the project's tests",
+    "## 9. Pitfalls",
+)
+
+
+def skill_text() -> str:
+    return SKILL.read_text(encoding="utf-8")
+
+
+def test_skill_under_500_lines() -> None:
+    assert len(skill_text().splitlines()) <= 500
+
+
+def test_skill_has_preapproval_rule() -> None:
+    text = skill_text()
+    assert "approved the plan in the request" in text
+
+
+def test_skill_states_level_4_not_covered() -> None:
+    text = skill_text()
+    assert re.search(r"tdkit 1\.0 does not test level 4", text)
+    assert "photos only" in text.lower() or "only photos" in text.lower()
+
+
+def test_skill_lists_every_cms_reference_and_generic() -> None:
+    text = skill_text()
+    files = sorted(p.name for p in (REFERENCES / "cms").glob("*.md"))
+    assert "generic.md" in files
+    for name in files:
+        assert f"references/cms/{name}" in text, name
+    for path in REFERENCES.glob("*.md"):
+        assert f"references/{path.name}" in text, path.name
+
+
+def test_skill_never_names_contract_fields_without_docs_pointer() -> None:
+    for number, line in enumerate(skill_text().splitlines(), 1):
+        if "/v3/cms/" in line:
+            assert re.search(r"guide/\S+\.md|README\.md", line), f"line {number}: {line}"
+
+
+def test_tdkit_commands_in_skill_exist() -> None:
+    parser = build_parser()
+    sub = next(a for a in parser._actions if a.dest == "command")
+    commands = set(sub.choices)  # type: ignore[union-attr]
+    used = set(re.findall(r"TDKIT ([a-z][a-z-]*)", skill_text()))
+    assert used, "the skill names no TDKIT command"
+    assert used <= commands, used - commands
+
+
+def test_every_cms_reference_has_all_sections() -> None:
+    for path in sorted((REFERENCES / "cms").glob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        for section in CMS_SECTIONS:
+            assert section in text, f"{path.name}: {section}"
+
+
+def test_references_have_no_contract_copies() -> None:
+    """No JSON blocks of delivery bodies: the contract is read from the downloaded docs."""
+    openapi = json.loads((FIXTURE / "openapi.json").read_text(encoding="utf-8"))
+    fields = set(openapi["components"]["schemas"]["ArticleDelivery"]["properties"])
+    for path in [*REFERENCES.glob("*.md"), *(REFERENCES / "cms").glob("*.md"), SKILL]:
+        text = path.read_text(encoding="utf-8")
+        for block in re.findall(r"```(?:json)?\n(.*?)```", text, re.S):
+            named = {f for f in fields if f'"{f}"' in block}
+            assert len(named) < 3, f"{path.name} copies delivery fields: {sorted(named)}"
