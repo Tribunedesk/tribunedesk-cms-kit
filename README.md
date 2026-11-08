@@ -12,11 +12,60 @@ that it works, before you have any access to Tribune Desk itself.
 
 The contract itself (the guide, the OpenAPI document, examples) lives in
 [`Tribunedesk/tribunedesk-cms-api`](https://github.com/Tribunedesk/tribunedesk-cms-api). This
-kit reads it from a tag of that repository and never copies it. A Claude Code plugin that builds
-an integration with these tools is coming to this repository next.
+kit reads it from a tag of that repository and never copies it. The **Claude Code plugin**
+`tribunedesk-integration` builds an integration with these tools (below).
 
 `tdkit` never connects to `api.tribunedesk.com`. The only network host it talks to is GitHub,
 to fetch the contract documentation, and not even that when you give it a local copy.
+
+## Claude Code plugin
+
+This repository is also a Claude Code plugin marketplace. In Claude Code:
+
+```
+/plugin marketplace add Tribunedesk/tribunedesk-cms-kit
+/plugin install tribunedesk-integration@tribunedesk
+```
+
+Then, in your CMS project, ask for example:
+
+- "Build me an integration with Tribune Desk: articles and links back."
+- "Our CMS is not reachable from the internet; integrate it with Tribune Desk."
+- "Update my Tribune Desk integration to the newest contract."
+- "Check my Tribune Desk integration."
+
+**What it does.** It looks at your project, asks what should happen between Tribune Desk and your
+CMS (one question at a time), tells you what to request from your Tribune Desk contact (a ready
+message), proposes a plan and waits for your approval, then builds the integration level by
+level in your code and tests every level with `tdkit check`. At the end it writes
+`tribunedesk.json` (contract version, levels, conformance result), which later updates start
+from. For PHP projects it uses [`tribunedesk/cms-protocol`](https://github.com/Tribunedesk/tribunedesk-cms-php).
+It reads the contract from the documentation of a tag, downloaded into `.tribunedesk/` of your
+project (git-ignored), and cites it.
+
+**What it does not do.** It does not order tokens or secrets from Tribune Desk, does not deploy to
+production, and never writes secret values into tracked files or reads your `.env` values. Level 4
+(media library) is built from the guide without a conformance test in tdkit 1.0.
+
+**Needs** [uv](https://docs.astral.sh/uv/) and, preferably, git (without git the documentation is
+downloaded as a tarball from GitHub). **Privacy:** `tdkit` never connects to Tribune Desk; the
+mock runs on `127.0.0.1`.
+
+### Po polsku
+
+W Claude Code:
+
+```
+/plugin marketplace add Tribunedesk/tribunedesk-cms-kit
+/plugin install tribunedesk-integration@tribunedesk
+```
+
+Potem w projekcie CMS-a napisz na przykład „Zbuduj mi integrację z Tribune Desk: artykuły i linki
+zwrotne”, „Zaktualizuj integrację z Tribune Desk” albo „Sprawdź integrację z Tribune Desk”.
+Skill rozpozna projekt, zapyta o zakres, przygotuje wiadomość do kontaktu w Tribune Desk,
+zbuduje integrację poziom po poziomie i przetestuje ją lokalną atrapą (`tdkit check`). Nie
+zamawia tokenów, nie wdraża na produkcję i nie wpisuje sekretów do repozytorium. Wymaga `uv`
+i najlepiej gita.
 
 ## Run it
 
@@ -213,6 +262,11 @@ uv run pytest -q
 ```
 
 `ci/example_harness.py` wraps the official examples for the CI job `examples`.
+
+The plugin is validated in CI (job `plugin`) with `claude plugin validate --strict .` and
+`claude plugin validate --strict plugins/tribunedesk-integration`; run both before a PR that
+touches `.claude-plugin/` or `plugins/`. To try the skill with a local `tdkit` before a release,
+set `TDKIT_CMD="uv run --project <this checkout> tdkit" (`--project`, not `--directory`: the command must run in the integration's folder)`.
 
 ## License
 
