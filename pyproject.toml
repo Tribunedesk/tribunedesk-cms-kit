@@ -43,7 +43,7 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.pyright]
-include = ["src", "tests"]
+include = ["src", "tests", "ci"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
 venvPath = "."
