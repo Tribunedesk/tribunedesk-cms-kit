@@ -104,3 +104,18 @@ def test_skill_keeps_env_and_report_out_of_git() -> None:
     text = skill_text()
     assert re.search(r"`\.env`[^\n]*\.gitignore", text)
     assert ".tribunedesk/tdkit-report.json" in text
+
+
+def test_skill_reads_eval_env_vars() -> None:
+    text = skill_text()
+    assert "EVAL_TDKIT_CMD" in text
+    assert "EVAL_TRIBUNEDESK_DOCS_DIR" in text
+
+
+def test_skill_stage_7_is_scoped() -> None:
+    text = skill_text()
+    stage = text.split("### Stage 7.", 1)[1].split("\n## ", 1)[0]
+    for heading in ("**Webhook mode", "**Read mode", "**Level 4 only"):
+        assert heading in stage, heading
+    level4 = stage.split("**Level 4 only", 1)[1].split("\n**", 1)[0]
+    assert "webhook" not in level4.lower()

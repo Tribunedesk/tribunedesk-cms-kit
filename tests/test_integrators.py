@@ -49,3 +49,15 @@ def test_integrators_skips_nothing_to_do() -> None:
         CHANGELOG, "3.4.0-draft", "3.4.1-draft", levels=[1, 2, 3, 4], mode="webhook"
     )
     assert items == []
+
+
+def test_integrators_compares_draft_versions() -> None:
+    """A draft comes before the release of the same three numbers."""
+    text = (
+        "# Changelog\n\n## 3.4.1 — 2026-12-01\n\n**Integrators:**\n\n"
+        "- `L1`: released change.\n\n" + CHANGELOG.split("\n", 1)[1]
+    )
+    items = integrators(text, "3.4.1-draft", "3.4.1", levels=[1], mode="webhook")
+    assert [item["version"] for item in items] == ["3.4.1"]
+    assert integrators(text, "3.4.1", "3.4.1", levels=[1], mode="webhook") == []
+    assert integrators(text, "3.4.0", "3.4.1-draft", levels=[1], mode="webhook") == []

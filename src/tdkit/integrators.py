@@ -18,11 +18,12 @@ _VERSION = re.compile(r"^## (\d+)\.(\d+)\.(\d+)(-draft)?\b")
 _ITEM = re.compile(r"^- ((?:`[^`]+`(?:,\s*|\s+)?)+):\s*(.+)$")
 
 
-def version_key(version: str) -> tuple[int, int, int]:
+def version_key(version: str) -> tuple[int, int, int, int]:
+    """Order of contract versions: a draft comes before the release of the same numbers."""
     match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)(-draft)?", version.strip())
     if not match:
         raise ValueError(f"not a contract version: {version!r}")
-    return int(match[1]), int(match[2]), int(match[3])
+    return int(match[1]), int(match[2]), int(match[3]), 0 if match[4] else 1
 
 
 def integrators(

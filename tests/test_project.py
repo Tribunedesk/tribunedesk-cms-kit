@@ -193,3 +193,22 @@ def test_manifest_write_refuses_a_report_of_another_contract_or_mode() -> None:
             report=_report("3.4.1-draft", "read"),
             **common,
         )
+
+
+def test_docs_cli_honours_eval_docs_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`claude plugin eval` passes only EVAL_* variables to the agent (plan E9.6, Task 2)."""
+    monkeypatch.delenv("TRIBUNEDESK_DOCS_DIR", raising=False)
+    monkeypatch.setenv("EVAL_TRIBUNEDESK_DOCS_DIR", str(FIXTURE))
+    monkeypatch.setattr(project, "_download", _no_network)
+    monkeypatch.setattr(project.shutil, "which", lambda name: None)
+    monkeypatch.chdir(tmp_path)
+    assert main(["docs"]) == 0
+    printed = json.loads(capsys.readouterr().out)
+    assert printed["version"] == "3.4.1-draft"
+    assert (Path(printed["path"]) / "openapi.json").is_file()
+
+
+def _no_network(url: str) -> bytes:
+    raise AssertionError(f"tdkit docs went to the network: {url}")

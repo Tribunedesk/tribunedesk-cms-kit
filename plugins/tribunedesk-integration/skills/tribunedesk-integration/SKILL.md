@@ -19,8 +19,10 @@ means:
 uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@main tdkit
 ```
 
-If the environment variable `TDKIT_CMD` is set, use its value instead (kit developers and evals
-point it at a local checkout). Before the first use check that `uv` is installed (`uv --version`);
+If the environment variable `TDKIT_CMD` (or `EVAL_TDKIT_CMD`) is set, use its value instead: kit
+developers and evals point it at a local checkout. `tdkit docs` likewise takes the documentation
+from `TRIBUNEDESK_DOCS_DIR` (or `EVAL_TRIBUNEDESK_DOCS_DIR`) when set; check with `echo` before
+the first run. Before the first use check that `uv` is installed (`uv --version`);
 if it is not, explain in one sentence what `uv` is (a Python package runner) and walk the user
 through installing it from https://docs.astral.sh/uv/getting-started/installation/ .
 git is required too (`git --version`): `uvx` installs tdkit from its git repository. If it is missing,
@@ -177,15 +179,35 @@ tell the user which contract version you build against.
 
 ### Stage 7. Launch steps
 
-Give the user a numbered list:
+Give the user the numbered list for the scope chosen in stage 2, and only that list.
+
+**Webhook mode (levels 1-3):**
 
 1. Put the signing secret and the token into the production environment (names from
    `.env.example`).
-2. Give the Tribune Desk contact the webhook address (read mode: ask them to switch it on).
+2. Give the Tribune Desk contact the webhook address.
 3. Keep the server clock in sync (NTP): a clock more than 5 minutes off makes the signature check
    fail (`guide/1-article-delivery.md`, Article delivery webhook, "Your answer").
 4. Ask for the integration to be enabled where the README table says it is needed.
 5. Make a first real "Send to CMS" and open "Edit in CMS" from Tribune Desk.
+
+**Read mode (levels 1-3 without a public address):**
+
+1. Put the token into the production environment (name from `.env.example`).
+2. Ask the Tribune Desk contact to switch on read mode for your organisation.
+3. Schedule the poll (cron, a scheduler or a worker). The guide sets no interval; agree one with
+   the newsroom, since an article waits in Tribune Desk until the next poll
+   (`guide/1-article-delivery.md`, "Level 1 without a public endpoint: read mode").
+4. Make a first real "Send to CMS", wait for one poll, and open "Edit in CMS" from Tribune Desk.
+
+**Level 4 only (photos):**
+
+1. Put the token into the production environment (name from `.env.example`).
+2. Ask for the integration to be enabled where the README table says it is needed.
+3. Upload one photo in the CMS and find it in Tribune Desk's photo picker. tdkit 1.0 does not
+   test level 4, so this manual check is the only proof that it works.
+
+When the scope adds level 4 to levels 1-3, append the last two steps of the level 4 list.
 
 End with a summary of the whole build and one line on updates: "When Tribune Desk publishes a
 new contract version, ask me to update the integration."

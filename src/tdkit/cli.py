@@ -91,7 +91,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _docs_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--docs", type=Path, help="local copy of tribunedesk-cms-api (else TRIBUNEDESK_DOCS_DIR)"
+        "--docs",
+        type=Path,
+        help="local copy of tribunedesk-cms-api (else [EVAL_]TRIBUNEDESK_DOCS_DIR)",
     )
     parser.add_argument(
         "--contract", help="contract tag, e.g. v3.4.1-draft (default: the newest tag)"

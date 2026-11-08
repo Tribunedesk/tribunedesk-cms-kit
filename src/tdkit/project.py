@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import io
 import json
-import os
 import shutil
 import subprocess
 import tarfile
@@ -19,7 +18,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from tdkit.docs import REPO_URL, latest_tag, load_docs
+from tdkit.docs import REPO_URL, env_docs_dir, latest_tag, load_docs
 from tdkit.errors import UsageError
 
 Transport = Callable[[str], bytes]
@@ -50,8 +49,7 @@ def fetch_docs(
     """Make sure the docs of `tag` (default: the newest) are in the project; return
     `{"tag", "version", "path"}`."""
     transport = transport or _download
-    env_dir = os.environ.get("TRIBUNEDESK_DOCS_DIR")
-    local = source or (Path(env_dir) if env_dir else None)
+    local = source or env_docs_dir()
     if local is not None:
         version = load_docs(local).version
         if tag is not None and tag.removeprefix("v") != version:

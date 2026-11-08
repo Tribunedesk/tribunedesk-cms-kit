@@ -1,6 +1,6 @@
 """The contract documentation (`tribunedesk-cms-api`) of one tag, from a local copy or GitHub.
 
-Sources, first found wins: `--docs DIR`, `TRIBUNEDESK_DOCS_DIR`, the cache
+Sources, first found wins: `--docs DIR`, `TRIBUNEDESK_DOCS_DIR` (or `EVAL_TRIBUNEDESK_DOCS_DIR`), the cache
 `~/.cache/tdkit/cms-api@<tag>`, then a shallow `git clone` of the tag into that cache.
 GitHub is the only network host `tdkit` ever talks to, and only here.
 """
@@ -57,7 +57,7 @@ def latest_tag(lines: list[str]) -> str:
 
 def resolve_docs(tag: str | None, docs_dir: Path | None) -> ContractDocs:
     """Load the documentation of `tag` (or the newest tag) and check tdkit supports it."""
-    local = docs_dir or _env_dir()
+    local = docs_dir or env_docs_dir()
     if local is not None:
         docs = load_docs(local)
         if tag is not None and docs.version != tag.removeprefix("v"):
@@ -98,8 +98,9 @@ def load_docs(root: Path) -> ContractDocs:
     )
 
 
-def _env_dir() -> Path | None:
-    value = os.environ.get("TRIBUNEDESK_DOCS_DIR")
+def env_docs_dir() -> Path | None:
+    # `claude plugin eval` passes only EVAL_* variables to the agent under test.
+    value = os.environ.get("TRIBUNEDESK_DOCS_DIR") or os.environ.get("EVAL_TRIBUNEDESK_DOCS_DIR")
     return Path(value) if value else None
 
 
