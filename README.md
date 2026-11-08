@@ -189,9 +189,12 @@ answers `401` to real deliveries and loses articles: keep it in sync.
 
 - Level 4 (media library, held batches, resync, backfill) is not covered: those routes answer
   `501` and `--levels 4` is a usage error. It comes in tdkit 1.1. Build level 4 from the guide.
-- The mock does not retry a delivery on its own; scenarios send each attempt explicitly.
-- No rate limit (`429`), no frozen organization (`project_deactivated`), and no command line
-  switch to disable the integration.
+- Planned for tdkit 1.1, together with level 4:
+  - the mock retrying a delivery on its own, on the guide's schedule shortened to seconds
+    (in 1.0 scenarios send each attempt explicitly);
+  - a switch to disable and enable the integration (`state_conflict`);
+  - tokens and scopes from a configuration file (in 1.0: one token, `--token-scopes`).
+- No rate limit (`429`) and no frozen organization (`project_deactivated`).
 
 ## How close the mock is to production
 
