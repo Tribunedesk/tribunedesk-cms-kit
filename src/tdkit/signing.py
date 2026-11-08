@@ -1,0 +1,48 @@
+"""Standard Webhooks signatures, as guide 1 "Verifying the signature" describes them."""
+
+from __future__ import annotations
+
+import base64
+import hashlib
+import hmac
+from collections.abc import Mapping
+
+SECRET_PREFIX = "whsec_"
+
+
+def _key(secret: str) -> bytes:
+    if not secret.startswith(SECRET_PREFIX):
+        raise ValueError("a signing secret starts with whsec_")
+    return base64.b64decode(secret.removeprefix(SECRET_PREFIX), validate=True)
+
+
+def _signature(secret: str, msg_id: str, timestamp: int | str, body: bytes) -> str:
+    signed = f"{msg_id}.{timestamp}.".encode() + body
+    return base64.b64encode(hmac.new(_key(secret), signed, hashlib.sha256).digest()).decode()
+
+
+def sign(secrets: list[str], msg_id: str, timestamp: int, body: bytes) -> str:
+    """The `webhook-signature` header: one `v1,<base64>` per secret, separated by spaces."""
+    return " ".join(f"v1,{_signature(s, msg_id, timestamp, body)}" for s in secrets)
+
+
+def verify(
+    secret: str, headers: Mapping[str, str], body: bytes, now: int, tolerance: int = 300
+) -> bool:
+    """True when `body` carries a valid signature by `secret` within `tolerance` seconds."""
+    lower = {key.lower(): value for key, value in headers.items()}
+    msg_id = lower.get("webhook-id")
+    timestamp = lower.get("webhook-timestamp")
+    signatures = lower.get("webhook-signature")
+    if not msg_id or not timestamp or not signatures:
+        return False
+    if not (timestamp.isascii() and timestamp.isdigit()):
+        return False
+    if abs(now - int(timestamp)) > tolerance:
+        return False
+    expected = _signature(secret, msg_id, timestamp, body).encode()
+    for entry in signatures.split(" "):
+        version, _, value = entry.partition(",")
+        if version == "v1" and hmac.compare_digest(value.encode(), expected):
+            return True
+    return False
