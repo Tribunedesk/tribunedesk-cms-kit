@@ -142,6 +142,7 @@ def run_checks(args: argparse.Namespace) -> int:
         inspect_cmd=args.inspect_cmd,
         publish_cmd=args.publish_cmd,
         poll_cmd=args.poll_cmd,
+        secret=args.secret,
     )
     opts = CheckOptions(
         docs=resolve_docs(args.contract, args.docs),

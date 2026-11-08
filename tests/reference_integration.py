@@ -4,7 +4,7 @@ Standard library only. Posts live in a JSON file shared by the webhook server an
 developer commands:
 
     python reference_integration.py serve --port 8080 --store store.json [--no-verify]
-        [--overwrite-older] [--empty-answer] [--any-image-host]
+        [--overwrite-older] [--empty-answer] [--any-image-host] [--answer-500]
     python reference_integration.py inspect --store store.json <article_id>
     python reference_integration.py publish --store store.json <article_id>
     python reference_integration.py poll --store store.json
@@ -242,6 +242,9 @@ def serve(args: argparse.Namespace) -> None:
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:
             body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
+            if args.answer_500:
+                self._reply(500, {"error": "broken"})
+                return
             if not args.no_verify and not verify(
                 secret, dict(self.headers), body, now=int(time.time())
             ):
@@ -283,6 +286,7 @@ def main() -> None:
     s.add_argument("--overwrite-older", action="store_true")
     s.add_argument("--empty-answer", action="store_true")
     s.add_argument("--any-image-host", action="store_true")
+    s.add_argument("--answer-500", action="store_true")
     for name in ("inspect", "publish"):
         sub.add_parser(name).add_argument("article_id")
     sub.add_parser("poll")

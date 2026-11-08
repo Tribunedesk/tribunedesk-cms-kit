@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import shlex
+import shutil
 import subprocess
 from collections.abc import Mapping
 
@@ -64,6 +65,12 @@ def render(template: str, **values: str) -> list[str]:
 def run_template(template: str, *, env: Mapping[str, str] | None = None, **values: str) -> str:
     """Run the command and return its stdout; `CommandError` unless it exits with 0."""
     args = render(template, **values)
+    # Without a shell, Windows does not try PATHEXT (.cmd, .bat): resolve the program first.
+    search = (env if env is not None else os.environ).get("PATH")
+    program = shutil.which(args[0], path=search)
+    if program is None:
+        raise CommandError(f"{args[0]}: command not found")
+    args = [program, *args[1:]]
     try:
         done = subprocess.run(
             args,

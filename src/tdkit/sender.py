@@ -37,7 +37,8 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-_OPENER = urllib.request.build_opener(_NoRedirect)
+# No proxy: deliveries go straight to the integration, never through HTTP(S)_PROXY.
+_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect)
 
 
 def deliver(

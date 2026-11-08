@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import hmac
 from collections.abc import Mapping
@@ -12,15 +13,19 @@ SECRET_PREFIX = "whsec_"
 MOCK_SECRET = SECRET_PREFIX + base64.b64encode(b"tdkit-mock-signing-secret-000000").decode()
 
 
-def _key(secret: str) -> bytes:
+def signing_key(secret: str) -> bytes:
+    """The HMAC key of a `whsec_` secret; `ValueError` when it is not one."""
     if not secret.startswith(SECRET_PREFIX):
         raise ValueError("a signing secret starts with whsec_")
-    return base64.b64decode(secret.removeprefix(SECRET_PREFIX), validate=True)
+    try:
+        return base64.b64decode(secret.removeprefix(SECRET_PREFIX), validate=True)
+    except binascii.Error as exc:
+        raise ValueError("a signing secret is base64 after whsec_") from exc
 
 
 def _signature(secret: str, msg_id: str, timestamp: int | str, body: bytes) -> str:
     signed = f"{msg_id}.{timestamp}.".encode() + body
-    return base64.b64encode(hmac.new(_key(secret), signed, hashlib.sha256).digest()).decode()
+    return base64.b64encode(hmac.new(signing_key(secret), signed, hashlib.sha256).digest()).decode()
 
 
 def sign(secrets: list[str], msg_id: str, timestamp: int, body: bytes) -> str:

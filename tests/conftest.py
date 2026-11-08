@@ -9,6 +9,8 @@ from pathlib import Path
 import pytest
 
 from tdkit.docs import ContractDocs, load_docs
+from tdkit.mock.server import MockServer
+from tdkit.mock.state import MockState
 
 FIXTURE = Path(__file__).parent / "fixtures" / "cms-api"
 
@@ -29,3 +31,18 @@ def serve(handler: type[BaseHTTPRequestHandler]) -> Iterator[str]:
     finally:
         server.shutdown()
         server.server_close()
+
+
+@pytest.fixture
+def state() -> MockState:
+    return MockState(read_mode=True)
+
+
+@pytest.fixture
+def base(state: MockState, docs: ContractDocs) -> Iterator[str]:
+    server = MockServer(state, docs)
+    host, port = server.start()
+    try:
+        yield f"http://{host}:{port}"
+    finally:
+        server.stop()

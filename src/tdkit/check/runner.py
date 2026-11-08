@@ -14,6 +14,7 @@ from tdkit.check.scenarios import SCENARIOS, Scenario
 from tdkit.errors import UsageError
 from tdkit.mock.server import MockServer
 from tdkit.mock.state import MockState
+from tdkit.signing import signing_key
 
 COVERED_LEVELS = (1, 2, 3)
 MODES = ("webhook", "read")
@@ -57,8 +58,16 @@ def validate(
     inspect_cmd: str | None,
     publish_cmd: str | None,
     poll_cmd: str | None,
+    secret: str | None = None,
 ) -> None:
     """Usage errors (exit code 2), checked before anything runs."""
+    if secret is not None:
+        try:
+            signing_key(secret)
+        except ValueError:
+            raise UsageError(
+                "--secret must be a signing secret: whsec_ followed by base64 (not shown)"
+            ) from None
     if not levels:
         raise UsageError("--levels names no level")
     for level in levels:
@@ -90,6 +99,7 @@ def run_check(levels: list[int], mode: str, opts: CheckOptions) -> Report:
         inspect_cmd=opts.inspect_cmd,
         publish_cmd=opts.publish_cmd,
         poll_cmd=opts.poll_cmd,
+        secret=opts.secret,
     )
     state = MockState(read_mode=mode == "read")
     server = MockServer(state, opts.docs, opts.port)

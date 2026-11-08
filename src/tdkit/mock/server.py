@@ -13,11 +13,12 @@ import re
 import threading
 import uuid
 from collections.abc import Callable
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry
 from referencing.jsonschema import DRAFT202012
 
@@ -41,7 +42,20 @@ JPEG = bytes.fromhex(
     "010100003f00fbd3ffd9"
 )
 
-_UUID = r"[0-9a-fA-F-]{36}"
+FORMATS = FormatChecker()
+
+
+@FORMATS.checks("date-time", raises=ValueError)
+def _date_time(value: object) -> bool:
+    """RFC 3339 date-time: jsonschema checks it only with an optional extra package."""
+    if not isinstance(value, str):
+        return True
+    if "T" not in value.upper():
+        raise ValueError("not a date-time")
+    moment = datetime.fromisoformat(value.replace("z", "Z"))
+    if moment.tzinfo is None:
+        raise ValueError("a date-time needs a time zone")
+    return True
 
 
 class ApiError(Exception):
@@ -92,7 +106,7 @@ class MockServer:
             self._validators[name] = Draft202012Validator(
                 {"$ref": f"{OPENAPI_URI}#/components/schemas/{name}"},
                 registry=registry,
-                format_checker=Draft202012Validator.FORMAT_CHECKER,
+                format_checker=FORMATS,
             )
         self._result_fields = set(
             docs.openapi["components"]["schemas"]["ArticleResultReport"]["properties"]
@@ -319,14 +333,18 @@ class MockServer:
         self._require(request, "articles:read")
         limit = self._int_param(request, "limit", 100, 100)
         cursor = (request.query.get("cursor") or [None])[0]
-        offset = 0
-        if cursor is not None:
-            if not re.fullmatch(r"a\d+", cursor):
-                raise ApiError(422, "validation_error", "cursor: not a cursor of this list")
-            offset = int(cursor[1:])
         waiting = self.state.awaiting()
-        page = waiting[offset : offset + limit]
-        more = offset + limit < len(waiting)
+        if cursor is not None:
+            # The cursor names the last send of the previous page, not an offset: sends
+            # reported meanwhile leave the list without moving the next page.
+            last = (
+                self.state.send_by_seq(int(cursor[1:])) if re.fullmatch(r"a\d+", cursor) else None
+            )
+            if last is None:
+                raise ApiError(422, "validation_error", "cursor: not a cursor of this list")
+            waiting = [s for s in waiting if s.key > last.key]
+        page = waiting[:limit]
+        more = len(waiting) > limit
         return Answer(
             200,
             {
@@ -334,7 +352,7 @@ class MockServer:
                     {"article_id": s.article_id, "delivery_id": s.delivery_id, "sent_at": s.sent_at}
                     for s in page
                 ],
-                "next_cursor": f"a{offset + limit}" if more else None,
+                "next_cursor": f"a{page[-1].seq}" if more else None,
             },
         )
 

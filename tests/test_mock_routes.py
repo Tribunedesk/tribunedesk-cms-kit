@@ -5,31 +5,13 @@ import socket
 import urllib.error
 import urllib.request
 import uuid
-from collections.abc import Iterator
 from typing import Any
-
-import pytest
 
 from tdkit.docs import ContractDocs
 from tdkit.mock.server import MockServer
 from tdkit.mock.state import ALL_SCOPES, MockState
 
 TOKEN = "tdcms_mock"
-
-
-@pytest.fixture
-def state() -> MockState:
-    return MockState(read_mode=True)
-
-
-@pytest.fixture
-def base(state: MockState, docs: ContractDocs) -> Iterator[str]:
-    server = MockServer(state, docs)
-    host, port = server.start()
-    try:
-        yield f"http://{host}:{port}"
-    finally:
-        server.stop()
 
 
 def call(

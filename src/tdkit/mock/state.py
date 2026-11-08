@@ -40,6 +40,11 @@ class Send:
     sent_at: str
     body: dict[str, Any]
     state: SendState = "awaiting"
+    seq: int = 0  # order of creation; ties of `sent_at` and `/awaiting` cursors use it
+
+    @property
+    def key(self) -> tuple[str, int]:
+        return (self.sent_at, self.seq)
 
 
 @dataclass
@@ -78,6 +83,7 @@ class MockState:
     sends: dict[str, list[Send]] = field(default_factory=dict)
     changes: list[Change] = field(default_factory=list)
     seq: int = 0
+    send_seq: int = 0
     floor: int = 0
     last_changes_poll_at: str | None = None
     published: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -97,11 +103,13 @@ class MockState:
             for older in self.sends.get(article_id, []):
                 if older.state == "awaiting":
                     older.state = "superseded"
+            self.send_seq += 1
             send = Send(
                 delivery_id=delivery_id or str(uuid.uuid4()),
                 article_id=article_id,
                 sent_at=str(body["sent_at"]),
                 body=body,
+                seq=self.send_seq,
             )
             self.sends.setdefault(article_id, []).append(send)
             if self.read_mode:
@@ -114,10 +122,14 @@ class MockState:
             sends = self.sends.get(article_id)
             return sends[-1] if sends else None
 
+    def send_by_seq(self, seq: int) -> Send | None:
+        with self.lock:
+            return next((s for v in self.sends.values() for s in v if s.seq == seq), None)
+
     def awaiting(self) -> list[Send]:
         with self.lock:
             waiting = [s for sends in self.sends.values() for s in sends if s.state == "awaiting"]
-            return sorted(waiting, key=lambda s: s.sent_at)
+            return sorted(waiting, key=lambda s: s.key)
 
     def record_link_back(
         self,

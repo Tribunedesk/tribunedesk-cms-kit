@@ -63,7 +63,7 @@ What the mock does:
 | Route | Behaviour |
 |---|---|
 | `GET /v3/cms/status` | `contract_version` of the tag, the token's `scopes`, `state`, `image_hosts` (`["127.0.0.1"]`) |
-| `GET /v3/cms/changes` | `article_sent` changes in read mode, only for `articles:read`; opaque cursors; `409 state_conflict` while the integration is disabled; `410 cursor_expired` |
+| `GET /v3/cms/changes` | `article_sent` changes in read mode, only for `articles:read`; opaque cursors; `409 state_conflict` while the integration is disabled; `410 cursor_expired`, after which the earlier feed is gone, which is stricter than the guide documents: use `/articles/awaiting` |
 | `GET /v3/cms/articles/awaiting` | the sends still waiting for a result, oldest first |
 | `GET /v3/cms/articles/{article_id}` | the sent article with its `X-Delivery-Id`; `404` when it was never sent |
 | `POST /v3/cms/articles/{article_id}/result` | closes the send named by `delivery_id`; `409 state_conflict` for a replaced send or a never-sent article; unknown fields come back in `ignored_fields` |
@@ -106,8 +106,9 @@ integration must be running and configured for the mock:
 
 `check` cannot look into your database, so the integration gives it three developer commands.
 Each is a template: `{article_id}` is replaced by the article's id. The command is split into
-arguments (on Windows only double quotes group, so `C:\Users\O'Brien\...` needs no quoting) and
-run without a shell, with a 60-second limit. A non-zero exit code fails the scenario.
+arguments (on Windows only double quotes group, so `C:\Users\O'Brien\...` needs no quoting),
+the program is looked up on `PATH` (so `drush.bat` or `npx.cmd` work on Windows), and it runs
+without a shell, with a 60-second limit. A non-zero exit code fails the scenario.
 
 | Option | Needed for | What the command does |
 |---|---|---|
@@ -165,7 +166,7 @@ point for the behaviour, the guide's sentence that requires it.
 | `l1-overlapping-attempts` | 1 webhook | two attempts of one send at once | one post | Keep `article_id` unique in your database and lock the row while you write, or you get two posts. |
 | `l1-unknown-fields` | 1 webhook | an unknown field and an unknown link `kind` | 2xx, post made | Fields you do not know are ignored, not rejected; … |
 | `l1-non-ascii` | 1 webhook | title `Zażółć gęślą jaźń — „test”` | the title comes back identical | (as `l1-creates-draft`) |
-| `l1-image-host` | 1 webhook | the image on `localhost`, outside `image_hosts` | the mock saw no download (also passes for a CMS that never downloads images) | Download images only from these hosts and refuse any other address. |
+| `l1-image-host` | 1 webhook | the image on a host outside `image_hosts`: `localhost`, or `127.0.0.1` when your webhook is on `localhost` (a receiver may trust its own host) | 2xx, and the mock saw no download (also passes for a CMS that never downloads images) | Download images only from these hosts and refuse any other address. |
 | `read-delivers-result` | 1 read | a send, `--poll-cmd` | `POST /result` with the send's `delivery_id`; post made | The body (`ArticleResultReport`) is what your webhook would answer with, plus `delivery_id`: … |
 | `read-superseded-409` | 1 read | a newer send right after your fetch, `--poll-cmd` twice | the old send's result got `409`, the last accepted result is for the newer send | With it the result closes exactly that send; if a newer send of the article replaced it you get `409` … |
 | `read-cursor-expired` | 1 read | `410` on your next cursor, `--poll-cmd` | you listed `/articles/awaiting` and reported the waiting send | List the sends still waiting with `GET /v3/cms/articles/awaiting` … |
@@ -189,7 +190,8 @@ answers `401` to real deliveries and loses articles: keep it in sync.
 - Level 4 (media library, held batches, resync, backfill) is not covered: those routes answer
   `501` and `--levels 4` is a usage error. It comes in tdkit 1.1. Build level 4 from the guide.
 - The mock does not retry a delivery on its own; scenarios send each attempt explicitly.
-- No rate limit (`429`), no frozen organization (`project_deactivated`).
+- No rate limit (`429`), no frozen organization (`project_deactivated`), and no command line
+  switch to disable the integration.
 
 ## How close the mock is to production
 

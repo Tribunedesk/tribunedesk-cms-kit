@@ -10,12 +10,25 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import urlsplit
 
 from tdkit.check.commands import CommandError, run_template
 from tdkit.docs import ContractDocs
 from tdkit.mock.state import DEFAULT_TOKEN, MockState
 from tdkit.sender import DeliveryResult, deliver
 from tdkit.signing import MOCK_SECRET
+
+
+def image_hosts_for(webhook: str | None) -> tuple[str, str]:
+    """`(allowed, forbidden)` image hosts, both served by the mock on 127.0.0.1.
+
+    A receiver without a token may download from the host of its own webhook (guide 1), so
+    the forbidden host is never the webhook's host.
+    """
+    host = urlsplit(webhook).hostname if webhook else None
+    if host == "localhost":
+        return "localhost", "127.0.0.1"
+    return "127.0.0.1", "localhost"
 
 
 class Fail(Exception):
@@ -38,6 +51,8 @@ class Context:
     def __init__(self, opts: CheckOptions, mode: str, state: MockState, port: int) -> None:
         self.opts, self.mode, self.state, self.port = opts, mode, state, port
         self.api_base = f"http://127.0.0.1:{port}"
+        self.image_host, self.forbidden_image_host = image_hosts_for(opts.webhook)
+        state.image_hosts = [self.image_host]
         self.secret = opts.secret or MOCK_SECRET
         self.started = time.monotonic()
 
@@ -51,7 +66,7 @@ class Context:
         """
         body = copy.deepcopy(self.opts.docs.sample_delivery)
         article_id = str(uuid.uuid4())
-        image_url = f"{self.api_base}/files/{article_id}.jpg"
+        image_url = f"http://{self.image_host}:{self.port}/files/{article_id}.jpg"
         for image in [body.get("featured_image"), *(body.get("generated_images") or [])]:
             if isinstance(image, dict):
                 image["url"] = image_url
@@ -95,11 +110,15 @@ class Context:
         )
         send = None if known else self.state.add_send(body, delivery_id=delivery_id)
         if self.mode == "read":
+            target = send.delivery_id if send else delivery_id
+            mark = len(self.state.results)
             self.poll()
-            calls = [r for r in self.state.results if r.article_id == body["article_id"]]
+            calls = [r for r in self.state.results[mark:] if r.delivery_id == target]
             if not calls:
                 raise Fail("after --poll-cmd the integration reported no result for the send")
             last = calls[-1]
+            if last.body.get("error"):
+                raise Fail(f"the integration reported the send as failed: {last.body['error']!r}")
             return DeliveryResult(
                 status=last.status,
                 body=json.dumps(last.body).encode(),

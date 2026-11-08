@@ -87,7 +87,8 @@ def load_docs(root: Path) -> ContractDocs:
         raise UsageError(
             f"contract {version} is not supported by tdkit {__version__}; update the plugin"
         )
-    vectors = _read_json(root / VECTORS)
+    # The signature vectors arrived in 3.4.1-draft; only tdkit's own tests read them.
+    vectors = _read_json(root / VECTORS) if (root / VECTORS).is_file() else {"vectors": []}
     return ContractDocs(
         root=root,
         version=version,

@@ -2,7 +2,7 @@
 
 `done_when` quotes the guide literally: a point of its "Done when" section, or, where that
 section has no point for the behaviour, the sentence of the guide that requires it (then
-`guide` names that section). `tests/test_scenarios.py` checks every quote against the tag.
+`guide` names that section). `tests/test_check.py` checks every quote against the tag.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 from typing import Any, Literal
 
-from tdkit.check.context import Context, Fail
+from tdkit.check.context import Context, Fail, image_hosts_for
 from tdkit.sender import DeliveryResult
 from tdkit.signing import SECRET_PREFIX
 
@@ -242,15 +242,15 @@ def non_ascii(ctx: Context) -> str:
 def image_host(ctx: Context) -> str:
     body = ctx.article()
     name = f"{body['article_id']}-not-allowed.jpg"
-    url = f"http://localhost:{ctx.port}/files/{name}"
+    url = f"http://{ctx.forbidden_image_host}:{ctx.port}/files/{name}"
     body["featured_image"] = {**body["featured_image"], "url": url}
     body["generated_images"] = [body["featured_image"]]
-    ctx.send(body)
+    ctx.delivered(body)
     deadline = time.monotonic() + 2
     while time.monotonic() < deadline and not ctx.state.pulls.get(name):
         time.sleep(0.1)
     expect(not ctx.state.pulls.get(name), f"the integration downloaded {url}")
-    return "the image from a host outside image_hosts was not downloaded"
+    return f"the image on {ctx.forbidden_image_host}, outside image_hosts, was not downloaded"
 
 
 # -- level 1, read mode --------------------------------------------------------------------
@@ -530,6 +530,8 @@ D3_AI = (
     "The AI label is in the `<head>` of every public page made from a delivery whose "
     "`ai_provenance` is not `null`."
 )
+
+__all__ = ["SCENARIOS", "Scenario", "image_hosts_for"]
 
 SCENARIOS: tuple[Scenario, ...] = (
     Scenario("l1-creates-draft", 1, "webhook", D1_DRAFT, DW1, creates_draft),
