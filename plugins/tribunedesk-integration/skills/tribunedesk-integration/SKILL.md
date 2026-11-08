@@ -22,8 +22,17 @@ uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@main tdkit
 If the environment variable `TDKIT_CMD` is set, use its value instead (kit developers and evals
 point it at a local checkout). Before the first use check that `uv` is installed (`uv --version`);
 if it is not, explain in one sentence what `uv` is (a Python package runner) and walk the user
-through installing it from https://docs.astral.sh/uv/getting-started/installation/ . Check `git`
-too; without it `TDKIT docs` downloads a tarball instead, which is fine.
+through installing it from https://docs.astral.sh/uv/getting-started/installation/ .
+git is required too (`git --version`): `uvx` installs tdkit from its git repository. If it is missing,
+walk the user through installing git (https://git-scm.com/downloads) before anything else.
+
+Run tdkit from the project root. Three rules for its commands:
+
+- `TDKIT docs` prints `{"tag", "version", "path"}`; pass that `path` as `--docs <path>` to every
+  `TDKIT check`, `TDKIT integrators` and `TDKIT mock`, so tdkit tests the same contract you read.
+- Run `TDKIT check` for the chosen levels without level 4: tdkit 1.0 does not test level 4 and
+  refuses `--levels 4`. With level 4 only, skip the check and say so.
+- Write the report to `.tribunedesk/tdkit-report.json` (git-ignored with the docs).
 
 `tdkit` never connects to Tribune Desk. It downloads the documentation from GitHub, runs the
 mock on `127.0.0.1` and calls the integration's own developer commands.
@@ -134,6 +143,7 @@ tell the user which contract version you build against.
   - where the signing secret and the token live (environment variables or `settings.php`,
     never the repository or exported configuration), and the variable names for `.env.example`;
   - a configurable API base address (`TD_API_BASE`), so tests run against the mock;
+  - `.env` (and any local secrets file) listed in `.gitignore` before any value goes into it;
   - the developer commands `inspect`, `publish` (levels 2-3) and `poll` (read mode) that
     `TDKIT check` needs, in the CMS's idiom (see the CMS reference, section 7);
   - tests in the project's own test runner for the signature check and the upsert.
@@ -149,17 +159,18 @@ tell the user which contract version you build against.
   2. Add or extend the developer commands; their exact contract (keys printed by `inspect` per
      level) is in the kit README, section "The commands your integration provides".
   3. Start the integration locally with the mock's secret and `TD_API_BASE`, then run
-     `TDKIT check --levels <this level> ...` (see `references/tdkit.md`).
+     `TDKIT check --levels <this level> --docs <path> ...` (see `references/tdkit.md`).
   4. Show the result. Green: summarise and go on. Red: read the failing point and the cited
      guide section, fix, rerun. If it stays red, stop and ask (see `references/troubleshooting.md`).
 - **Summary:** per level, with the `TDKIT check` result.
 
 ### Stage 6. Conformance of the whole scope
 
-- **Do:** run `TDKIT check` for all chosen levels with `--json tdkit-report.json`, show the
+- **Do:** run `TDKIT check --docs <path>` for the chosen levels without level 4, with
+  `--json .tribunedesk/tdkit-report.json`, show the
   report (each scenario cites its guide point), then write the manifest:
   `TDKIT manifest write --contract <version> --levels <levels> --delivery <webhook|read|none>
-  --cms <cms> --conformance tdkit-report.json` (add `--protocol <version>` for the PHP
+  --cms <cms> --conformance .tribunedesk/tdkit-report.json` (add `--protocol <version>` for the PHP
   library). Check it with `TDKIT manifest validate`. Commit `tribunedesk.json` with the code;
   do not commit the report.
 - For a level-4-only scope write the manifest without `--conformance` and say why.
@@ -183,20 +194,21 @@ new contract version, ask me to update the integration."
 
 1. `TDKIT manifest validate`; if it fails, show the errors and fix the manifest with the user.
 2. `TDKIT docs` for the newest tag (or the one the user names).
-3. `TDKIT integrators --from <manifest contract> --to <new version> --levels <manifest levels>
+3. `TDKIT integrators --docs <path> --from <manifest contract> --to <new version> --levels <levels>
    --mode <manifest delivery>`: the actions the CHANGELOG lists for integrators, filtered to what
    this integration built.
 4. Present the list as `references/update-mode.md` describes, with a recommendation per item.
    Stop for approval (unless pre-approved).
 5. Change the code, with tests.
-6. Run `TDKIT check` for the manifest's levels against the new version, then
+6. Run `TDKIT check --docs <path>` (new docs) for the manifest's levels without level 4, then
    `TDKIT manifest write ...` with the new contract and report.
 
 If the list is empty, say so, run the check, and bump the manifest.
 
 ## 6. Check mode
 
-Run `TDKIT check` for the levels and mode in the manifest (or the ones the user names). Report
+Run `TDKIT check --docs <path>` for the levels (without level 4) and mode in the manifest, or the
+ones the user names. Report
 what passes and what fails; for each failure give the guide point the report cites and the
 likely cause in their code. Do not change code in check mode unless the user asks.
 

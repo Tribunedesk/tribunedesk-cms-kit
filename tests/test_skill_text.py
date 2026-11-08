@@ -87,3 +87,20 @@ def test_references_have_no_contract_copies() -> None:
         for block in re.findall(r"```(?:json)?\n(.*?)```", text, re.S):
             named = {f for f in fields if f'"{f}"' in block}
             assert len(named) < 3, f"{path.name} copies delivery fields: {sorted(named)}"
+
+
+def test_skill_requires_git_and_passes_the_downloaded_docs() -> None:
+    text = skill_text()
+    assert "git is required" in text
+    assert re.search(r"TDKIT check[^\n]*--docs", text)
+    assert re.search(r"TDKIT integrators[^\n]*--docs", text)
+
+
+def test_skill_never_passes_level_4_to_check() -> None:
+    assert "without level 4" in skill_text()
+
+
+def test_skill_keeps_env_and_report_out_of_git() -> None:
+    text = skill_text()
+    assert re.search(r"`\.env`[^\n]*\.gitignore", text)
+    assert ".tribunedesk/tdkit-report.json" in text

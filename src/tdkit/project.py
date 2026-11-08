@@ -63,7 +63,13 @@ def fetch_docs(
         tag = f"v{tag}"
     target = dest or project_dir / ".tribunedesk" / f"cms-api@{tag}"
     if not (target / "openapi.json").is_file():
-        if target.exists():
+        if target.exists() and any(target.iterdir()):
+            # Only a half-written copy of our own may be removed; never a folder of the user.
+            ours = project_dir / ".tribunedesk"
+            if dest is not None or not target.resolve().is_relative_to(ours.resolve()):
+                raise UsageError(
+                    f"{target} exists and is not empty; choose an empty --dest or remove it"
+                )
             shutil.rmtree(target)
         target.parent.mkdir(parents=True, exist_ok=True)
         if local is not None:
@@ -73,8 +79,13 @@ def fetch_docs(
         else:
             _extract(transport(TARBALL_URL.format(tag=tag)), target)
     docs = load_docs(target)
+    if docs.version != tag.removeprefix("v"):
+        raise UsageError(f"{target} holds contract {docs.version}, not {tag}")
     if dest is None:
-        _ignore(project_dir)
+        _ignore(project_dir, IGNORE_ENTRY)
+    elif target.resolve().is_relative_to(project_dir.resolve()):
+        relative = target.resolve().relative_to(project_dir.resolve()).as_posix()
+        _ignore(project_dir, f"/{relative}/")
     return {"tag": tag, "version": docs.version, "path": str(target)}
 
 
@@ -127,17 +138,17 @@ def _in_git_repo(project_dir: Path) -> bool:
     return any((folder / ".git").exists() for folder in (project_dir, *project_dir.parents))
 
 
-def _ignore(project_dir: Path) -> None:
+def _ignore(project_dir: Path, entry: str) -> None:
     gitignore = project_dir / ".gitignore"
     if not gitignore.exists() and not _in_git_repo(project_dir):
         return
     text = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
-    entries = {line.strip().lstrip("/").rstrip("/") for line in text.splitlines()}
-    if ".tribunedesk" in entries:
+    entries = {line.strip().strip("/") for line in text.splitlines()}
+    if entry.strip("/") in entries:
         return
     if text and not text.endswith("\n"):
         text += "\n"
-    gitignore.write_text(text + IGNORE_ENTRY + "\n", encoding="utf-8")
+    gitignore.write_text(text + entry + "\n", encoding="utf-8")
 
 
 # -- manifest ------------------------------------------------------------------------------
@@ -212,6 +223,16 @@ def build_manifest(
     if protocol:
         manifest["protocol"] = protocol
     if report is not None:
+        reported = str(report.get("contract", "")).removeprefix("v")
+        if reported != contract.removeprefix("v"):
+            raise UsageError(
+                f"the report is for contract {reported}, the manifest says {contract}; "
+                "run tdkit check against the same contract"
+            )
+        if report.get("mode") != delivery:
+            raise UsageError(
+                f"the report ran in {report.get('mode')} mode, the manifest says {delivery}"
+            )
         manifest["conformance"] = {
             "date": (today or date.today()).isoformat(),
             "kit": str(report.get("tdkit", kit)),

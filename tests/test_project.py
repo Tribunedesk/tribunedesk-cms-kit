@@ -139,3 +139,54 @@ def test_docs_reuses_an_existing_copy(tmp_path: Path, monkeypatch: pytest.Monkey
 
     result = fetch_docs(tmp_path, tag="v3.4.1-draft", dest=None, transport=transport)
     assert Path(result["path"]) == dest
+
+
+def test_docs_dest_never_deletes_an_existing_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tdkit.errors import UsageError
+
+    monkeypatch.setenv("TRIBUNEDESK_DOCS_DIR", str(FIXTURE))
+    own = tmp_path / "docs"
+    own.mkdir()
+    (own / "keep.md").write_text("mine", encoding="utf-8")
+    with pytest.raises(UsageError, match="not empty"):
+        fetch_docs(tmp_path, tag=None, dest=own)
+    assert (own / "keep.md").read_text(encoding="utf-8") == "mine"
+
+
+def test_docs_dest_inside_the_project_is_ignored(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("TRIBUNEDESK_DOCS_DIR", str(FIXTURE))
+    (tmp_path / ".gitignore").write_text("", encoding="utf-8")
+    fetch_docs(tmp_path, tag=None, dest=tmp_path / "vendor" / "td-docs")
+    assert "/vendor/td-docs/" in (tmp_path / ".gitignore").read_text(encoding="utf-8").splitlines()
+
+
+def _report(contract: str, mode: str) -> dict:
+    return {
+        "tdkit": "1.0.0",
+        "contract": contract,
+        "levels": [1],
+        "mode": mode,
+        "results": [{"id": "a", "level": 1, "passed": True}],
+    }
+
+
+def test_manifest_write_refuses_a_report_of_another_contract_or_mode() -> None:
+    from tdkit.errors import UsageError
+    from tdkit.project import build_manifest
+
+    common = {"levels": [1], "cms": "django", "kit": "1.0.0"}
+    with pytest.raises(UsageError, match="contract"):
+        build_manifest(
+            contract="3.4.1-draft",
+            delivery="webhook",
+            report=_report("3.4.0-draft", "webhook"),
+            **common,
+        )
+    with pytest.raises(UsageError, match="mode"):
+        build_manifest(
+            contract="3.4.1-draft", delivery="webhook", report=_report("3.4.1-draft", "read"), **common
+        )
