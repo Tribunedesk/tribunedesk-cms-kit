@@ -7,10 +7,7 @@ import sys
 from collections.abc import Sequence
 
 from tdkit import __version__
-
-
-class UsageError(Exception):
-    """A usage or configuration error: exit code 2 with the message on stderr."""
+from tdkit.errors import UsageError
 
 
 def build_parser() -> argparse.ArgumentParser:

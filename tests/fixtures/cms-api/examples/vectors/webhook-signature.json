@@ -1,0 +1,112 @@
+{
+  "description": "Standard Webhooks signature vectors for the article.delivered webhook. A sender signed `body_base64` (decoded) with every secret in `secrets`; a receiver holding `verify_with`, whose clock reads `now` (Unix seconds), must accept the request exactly when `valid` is true. All secrets here are test values.",
+  "tolerance_seconds": 300,
+  "vectors": [
+    {
+      "name": "reference-vector",
+      "secrets": [
+        "whsec_C2FVsBQIhrscChlQIMV+b5sSYspob7oD"
+      ],
+      "verify_with": "whsec_C2FVsBQIhrscChlQIMV+b5sSYspob7oD",
+      "headers": {
+        "webhook-id": "msg_27UH4WbU6Z5A5EzD8u03UvzRbpk",
+        "webhook-timestamp": "1649367553",
+        "webhook-signature": "v1,tZ1I4/hDygAJgO5TYxiSd6Sd0kDW6hPenDe+bTa3Kkw="
+      },
+      "body_base64": "eyJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJ1c2VybmFtZSI6InRlc3RfdXNlciJ9",
+      "now": 1649367553,
+      "valid": true
+    },
+    {
+      "name": "rotation-second-matches",
+      "secrets": [
+        "whsec_C2FVsBQIhrscChlQIMV+b5sSYspob7oD",
+        "whsec_dHJpYnVuZS1kZXNrLXRlc3QtdmVjdG9yLWtleS10d28="
+      ],
+      "verify_with": "whsec_dHJpYnVuZS1kZXNrLXRlc3QtdmVjdG9yLWtleS10d28=",
+      "headers": {
+        "webhook-id": "msg_e9vector_rotation",
+        "webhook-timestamp": "1762600000",
+        "webhook-signature": "v1,obsUlelQYI734G8grou2pMAFusRf+UOrSsZHBGDug0M= v1,9IY8uf28zpS7c3m0C45U9HGcXAycQiZ1fH8/Kze1f3U="
+      },
+      "body_base64": "eyJhcnRpY2xlX2lkIjoiM2YyYjhjMWUtNWQ0YS00ZTZiLTljN2QtMWEyYjNjNGQ1ZTZmIiwidGl0bGUiOiJDaXR5IGNvdW5jaWwgcGFzc2VzIHRoZSBidWRnZXQifQ==",
+      "now": 1762600000,
+      "valid": true
+    },
+    {
+      "name": "non-ascii-body",
+      "secrets": [
+        "whsec_dHJpYnVuZS1kZXNrLXRlc3QtdmVjdG9yLWtleS10d28="
+      ],
+      "verify_with": "whsec_dHJpYnVuZS1kZXNrLXRlc3QtdmVjdG9yLWtleS10d28=",
+      "headers": {
+        "webhook-id": "msg_e9vector_utf8",
+        "webhook-timestamp": "1762600000",
+        "webhook-signature": "v1,7M1FnTkHaRxHJRKw8g6XZma5pNH3DzttjJennfWZSIA="
+      },
+      "body_base64": "eyJhcnRpY2xlX2lkIjoiM2YyYjhjMWUtNWQ0YS00ZTZiLTljN2QtMWEyYjNjNGQ1ZTZmIiwidGl0bGUiOiJaYcW8w7PFgsSHIGfEmcWbbMSFIGphxbrFhCDigJQg4oCeY3VkenlzxYLDs3figJ0ifQ==",
+      "now": 1762600000,
+      "valid": true
+    },
+    {
+      "name": "timestamp-at-tolerance",
+      "secrets": [
+        "whsec_dHJpYnVuZS1kZXNrLXRlc3QtdmVjdG9yLWtleS10d28="
+      ],
+      "verify_with": "whsec_dHJpYnVuZS1kZXNrLXRlc3QtdmVjdG9yLWtleS10d28=",
+      "headers": {
+        "webhook-id": "msg_e9vector_edge",
+        "webhook-timestamp": "1762600000",
+        "webhook-signature": "v1,iPKy78upnWeGLuQec9EJDLly2qc5YIOxWc7aUmin/mQ="
+      },
+      "body_base64": "eyJhcnRpY2xlX2lkIjoiM2YyYjhjMWUtNWQ0YS00ZTZiLTljN2QtMWEyYjNjNGQ1ZTZmIiwidGl0bGUiOiJDaXR5IGNvdW5jaWwgcGFzc2VzIHRoZSBidWRnZXQifQ==",
+      "now": 1762600300,
+      "valid": true
+    },
+    {
+      "name": "timestamp-past-tolerance",
+      "secrets": [
+        "whsec_dHJpYnVuZS1kZXNrLXRlc3QtdmVjdG9yLWtleS10d28="
+      ],
+      "verify_with": "whsec_dHJpYnVuZS1kZXNrLXRlc3QtdmVjdG9yLWtleS10d28=",
+      "headers": {
+        "webhook-id": "msg_e9vector_late",
+        "webhook-timestamp": "1762600000",
+        "webhook-signature": "v1,KrxxPUCCIYZuF8YffSqfgmP0eYWBIODqRaCQPpihlG8="
+      },
+      "body_base64": "eyJhcnRpY2xlX2lkIjoiM2YyYjhjMWUtNWQ0YS00ZTZiLTljN2QtMWEyYjNjNGQ1ZTZmIiwidGl0bGUiOiJDaXR5IGNvdW5jaWwgcGFzc2VzIHRoZSBidWRnZXQifQ==",
+      "now": 1762600301,
+      "valid": false
+    },
+    {
+      "name": "wrong-secret",
+      "secrets": [
+        "whsec_dHJpYnVuZS1kZXNrLXRlc3QtdmVjdG9yLWtleS10d28="
+      ],
+      "verify_with": "whsec_dHJpYnVuZS1kZXNrLXRlc3QtdmVjdG9yLXdyb25nISE=",
+      "headers": {
+        "webhook-id": "msg_e9vector_wrong",
+        "webhook-timestamp": "1762600000",
+        "webhook-signature": "v1,co8dbjaVkUUssekGrD6RRgUenzNDa7xBAS3J4nDhC8M="
+      },
+      "body_base64": "eyJhcnRpY2xlX2lkIjoiM2YyYjhjMWUtNWQ0YS00ZTZiLTljN2QtMWEyYjNjNGQ1ZTZmIiwidGl0bGUiOiJDaXR5IGNvdW5jaWwgcGFzc2VzIHRoZSBidWRnZXQifQ==",
+      "now": 1762600000,
+      "valid": false
+    },
+    {
+      "name": "tampered-body",
+      "secrets": [
+        "whsec_dHJpYnVuZS1kZXNrLXRlc3QtdmVjdG9yLWtleS10d28="
+      ],
+      "verify_with": "whsec_dHJpYnVuZS1kZXNrLXRlc3QtdmVjdG9yLWtleS10d28=",
+      "headers": {
+        "webhook-id": "msg_e9vector_tamper",
+        "webhook-timestamp": "1762600000",
+        "webhook-signature": "v1,AesrZ1bYumdRv4K+RDeC83T8e18BPaNlMOXLPmtSBQE="
+      },
+      "body_base64": "eyJhcnRpY2xlX2lkIjoiM2YyYjhjMWUtNWQ0YS00ZTZiLTljN2QtMWEyYjNjNGQ1ZTZmIiwidGl0bGUiOiJDaXR5IGNvdW5jaWwgcmVqZWN0cyB0aGUgYnVkZ2V0In0=",
+      "now": 1762600000,
+      "valid": false
+    }
+  ]
+}
