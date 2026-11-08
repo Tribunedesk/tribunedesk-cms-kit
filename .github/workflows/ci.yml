@@ -1,0 +1,57 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.20"
+          enable-cache: true
+      - run: uv sync
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pyright
+      - run: uv run pytest -q
+
+  examples:
+    # The official Python examples of the contract tag must pass `tdkit check`: if they do
+    # not, the mock or the example disagrees with the guide (spec D6).
+    runs-on: ubuntu-latest
+    env:
+      CONTRACT_TAG: v3.4.1-draft
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.20"
+          enable-cache: true
+      - run: uv sync
+      - name: Fetch the contract documentation of the tag
+        run: git clone --depth 1 --branch "$CONTRACT_TAG" https://github.com/Tribunedesk/tribunedesk-cms-api "$RUNNER_TEMP/cms-api"
+      - name: Start the webhook of the level 1 example
+        run: |
+          python3 ci/example_harness.py serve --examples "$RUNNER_TEMP/cms-api/examples/python" \
+            --store "$RUNNER_TEMP/store.json" --port 8080 &
+          for i in $(seq 1 50); do
+            (echo > /dev/tcp/127.0.0.1/8080) 2>/dev/null && exit 0
+            sleep 0.2
+          done
+          echo "the harness did not start" >&2
+          exit 1
+      - name: tdkit check, levels 1 and 2, webhook mode
+        run: |
+          H="python3 ci/example_harness.py"
+          A="--examples $RUNNER_TEMP/cms-api/examples/python --store $RUNNER_TEMP/store.json"
+          uv run tdkit check --levels 1,2 --mode webhook \
+            --webhook http://127.0.0.1:8080/ \
+            --inspect-cmd "$H inspect $A {article_id}" \
+            --publish-cmd "$H publish $A {article_id}" \
+            --docs "$RUNNER_TEMP/cms-api" \
+            --json "$RUNNER_TEMP/report.json"
