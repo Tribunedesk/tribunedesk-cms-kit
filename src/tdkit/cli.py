@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -55,6 +56,36 @@ def build_parser() -> argparse.ArgumentParser:
     )
     check.add_argument("--json", type=Path, help="also write the report as JSON to this file")
     _docs_options(check)
+
+    docs = sub.add_parser("docs", help="put the contract documentation into this project")
+    _docs_options(docs)
+    docs.add_argument(
+        "--dest", type=Path, help="where to put it (default: .tribunedesk/cms-api@<tag>)"
+    )
+
+    integ = sub.add_parser(
+        "integrators", help="what integrators must do between two contract versions"
+    )
+    integ.add_argument("--from", dest="from_version", required=True, help="e.g. 3.3.0-draft")
+    integ.add_argument("--to", dest="to_version", required=True, help="e.g. 3.4.1-draft")
+    integ.add_argument("--levels", default="1,2,3,4", help="levels the integration built")
+    integ.add_argument("--mode", default="webhook", choices=("webhook", "read", "none"))
+    _docs_options(integ)
+
+    manifest = sub.add_parser("manifest", help="validate or write tribunedesk.json")
+    msub = manifest.add_subparsers(dest="manifest_command", required=True)
+    validate = msub.add_parser("validate", help="check tribunedesk.json")
+    validate.add_argument("path", nargs="?", type=Path, default=Path("tribunedesk.json"))
+    write = msub.add_parser("write", help="write tribunedesk.json")
+    write.add_argument("--contract", required=True)
+    write.add_argument("--levels", required=True, help="e.g. 1,2")
+    write.add_argument("--delivery", required=True, choices=("webhook", "read", "none"))
+    write.add_argument("--cms", required=True, help="e.g. django, drupal, laravel")
+    write.add_argument("--protocol", help="version of tribunedesk/cms-protocol, for PHP")
+    write.add_argument(
+        "--conformance", type=Path, help="a tdkit check --json report of this integration"
+    )
+    write.add_argument("--path", type=Path, default=Path("tribunedesk.json"))
     return parser
 
 
@@ -77,6 +108,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.command == "mock":
             return run_mock(args)
+        if args.command == "docs":
+            return run_docs(args)
+        if args.command == "integrators":
+            return run_integrators(args)
+        if args.command == "manifest":
+            return run_manifest(args)
         return run_checks(args)
     except UsageError as exc:
         print(f"tdkit: {exc}", file=sys.stderr)
@@ -159,6 +196,57 @@ def run_checks(args: argparse.Namespace) -> int:
     if args.json:
         write_json(report, args.json)
     return 1 if report.failed else 0
+
+
+def run_docs(args: argparse.Namespace) -> int:
+    from tdkit.project import fetch_docs
+
+    result = fetch_docs(Path.cwd(), tag=args.contract, dest=args.dest, source=args.docs)
+    print(json.dumps(result))
+    return 0
+
+
+def run_integrators(args: argparse.Namespace) -> int:
+    from tdkit.integrators import integrators
+
+    docs = resolve_docs(args.contract or f"v{args.to_version.removeprefix('v')}", args.docs)
+    changelog = (docs.root / "CHANGELOG.md").read_text(encoding="utf-8")
+    try:
+        items = integrators(
+            changelog,
+            args.from_version,
+            args.to_version,
+            levels=parse_levels(args.levels),
+            mode=args.mode,
+        )
+    except ValueError as exc:
+        raise UsageError(str(exc)) from None
+    print(json.dumps(items, ensure_ascii=False, indent=2))
+    return 0
+
+
+def run_manifest(args: argparse.Namespace) -> int:
+    from tdkit.project import build_manifest, read_json, validate_manifest
+
+    if args.manifest_command == "validate":
+        errors = validate_manifest(read_json(args.path))
+        if errors:
+            raise UsageError(f"{args.path}: " + "; ".join(errors))
+        print(f"{args.path}: valid")
+        return 0
+    report = read_json(args.conformance) if args.conformance else None
+    manifest = build_manifest(
+        contract=args.contract.removeprefix("v"),
+        levels=parse_levels(args.levels),
+        delivery=args.delivery,
+        cms=args.cms,
+        kit=__version__,
+        protocol=args.protocol,
+        report=report,
+    )
+    args.path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(manifest))
+    return 0
 
 
 if __name__ == "__main__":
