@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -32,7 +33,28 @@ def build_parser() -> argparse.ArgumentParser:
     )
     mock.add_argument("--webhook", help="where POST /_tdkit/send delivers articles (webhook mode)")
 
-    sub.add_parser("check", help="run the conformance scenarios against your integration")
+    check = sub.add_parser("check", help="run the conformance scenarios against your integration")
+    check.add_argument("--levels", default="1", help="comma-separated levels, e.g. 1,2,3")
+    check.add_argument("--mode", default="webhook", choices=("webhook", "read"))
+    check.add_argument("--webhook", help="your webhook address (webhook mode)")
+    check.add_argument(
+        "--secret", help="the signing secret your webhook verifies (default: the mock's)"
+    )
+    check.add_argument(
+        "--inspect-cmd",
+        required=True,
+        help="prints the post made from {article_id} as JSON, or null",
+    )
+    check.add_argument("--publish-cmd", help="publishes the post of {article_id} (levels 2, 3)")
+    check.add_argument("--poll-cmd", help="runs one poll of the read mode client")
+    check.add_argument(
+        "--social-flag", action="store_true", help="the CMS has a “keep off Facebook” setting"
+    )
+    check.add_argument(
+        "--port", type=int, default=8787, help="port of the mock on 127.0.0.1 (default 8787)"
+    )
+    check.add_argument("--json", type=Path, help="also write the report as JSON to this file")
+    _docs_options(check)
     return parser
 
 
@@ -46,12 +68,16 @@ def _docs_options(parser: argparse.ArgumentParser) -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        # The report quotes the guide (curly quotes); a legacy console must not crash on it.
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(errors="replace")
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
         if args.command == "mock":
             return run_mock(args)
-        raise UsageError(f"{args.command} is not available yet")
+        return run_checks(args)
     except UsageError as exc:
         print(f"tdkit: {exc}", file=sys.stderr)
         return 2
@@ -95,6 +121,43 @@ def run_mock(args: argparse.Namespace) -> int:
     finally:
         server.stop()
     return 0
+
+
+def parse_levels(value: str) -> list[int]:
+    try:
+        return sorted({int(part) for part in value.split(",") if part.strip()})
+    except ValueError:
+        raise UsageError(f"--levels takes numbers like 1,2,3, not {value!r}") from None
+
+
+def run_checks(args: argparse.Namespace) -> int:
+    from tdkit.check.context import CheckOptions
+    from tdkit.check.runner import render_text, run_check, validate, write_json
+
+    levels = parse_levels(args.levels)
+    validate(
+        levels,
+        args.mode,
+        webhook=args.webhook,
+        inspect_cmd=args.inspect_cmd,
+        publish_cmd=args.publish_cmd,
+        poll_cmd=args.poll_cmd,
+    )
+    opts = CheckOptions(
+        docs=resolve_docs(args.contract, args.docs),
+        inspect_cmd=args.inspect_cmd,
+        webhook=args.webhook,
+        secret=args.secret,
+        publish_cmd=args.publish_cmd,
+        poll_cmd=args.poll_cmd,
+        social_flag=args.social_flag,
+        port=args.port,
+    )
+    report = run_check(levels, args.mode, opts)
+    print(render_text(report, opts), flush=True)
+    if args.json:
+        write_json(report, args.json)
+    return 1 if report.failed else 0
 
 
 if __name__ == "__main__":
