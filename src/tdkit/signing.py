@@ -8,6 +8,8 @@ import hmac
 from collections.abc import Mapping
 
 SECRET_PREFIX = "whsec_"
+# The mock's signing secret: a public test value, never a real one.
+MOCK_SECRET = SECRET_PREFIX + base64.b64encode(b"tdkit-mock-signing-secret-000000").decode()
 
 
 def _key(secret: str) -> bytes:
