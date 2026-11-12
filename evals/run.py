@@ -257,7 +257,18 @@ def ghost(root: Path) -> None:
 
 def drupal(root: Path) -> None:
     """A copy of a Drupal 11 site (standard profile, SQLite) built once into a cache."""
-    shutil.copytree(drupal_template(), root, dirs_exist_ok=True)
+    template = drupal_template()
+    robocopy = shutil.which("robocopy")
+    if robocopy is None:
+        shutil.copytree(template, root, dirs_exist_ok=True)
+        return
+    # Tens of thousands of small files: a multithreaded copy (cp -r took ~9 minutes).
+    done = subprocess.run(
+        [robocopy, str(template), str(root), "/E", "/MT:32", "/NFL", "/NDL", "/NJH", "/NJS", "/NP"],
+        check=False,
+    )
+    if done.returncode >= 8:  # robocopy: 0-7 success, 8+ failure
+        raise RuntimeError(f"robocopy failed with {done.returncode}")
 
 
 def drupal_template() -> Path:
