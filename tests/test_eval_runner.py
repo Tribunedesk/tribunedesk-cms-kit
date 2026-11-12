@@ -85,8 +85,8 @@ def test_skill_and_bash_checks(tmp_path: Path) -> None:
     ]  # fmt: skip
     run = make_run(tmp_path, events)
     assert runner.skill_fired(run)[0]
-    assert runner.ran(rf"{runner.TDKIT} check")(run)[0]
-    assert runner.ran(rf"{runner.TDKIT} manifest write", expected=False)(run)[0]
+    assert runner.ran(r"\bcheck\s+--")(run)[0]
+    assert runner.ran(r"\bmanifest write\b", expected=False)(run)[0]
 
 
 def git(root: Path, *args: str) -> None:
@@ -139,3 +139,11 @@ def test_secret_in_a_test_folder_is_a_test_vector(tmp_path: Path) -> None:
         '"whsec_' + "C" * 32 + '"', encoding="utf-8"
     )
     assert runner.no_secret_in_git(make_run(tmp_path))[0]
+
+
+def test_tdkit_through_a_variable(tmp_path: Path) -> None:
+    command = 'T="uv run --project kit tdkit"; $T integrators --from 3.2.0-draft --to 3.4.1-draft'
+    block = {"type": "tool_use", "name": "Bash", "input": {"command": command}}
+    run = make_run(tmp_path, [{"type": "assistant", "message": {"content": [block]}}])
+    assert runner.ran(r"\bintegrators\b")(run)[0]
+    assert runner.ran(r"\bcheck\s+--", expected=False)(run)[0]

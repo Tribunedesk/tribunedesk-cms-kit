@@ -35,7 +35,6 @@ PLUGIN = KIT / "plugins" / "tribunedesk-integration"
 SCENARIOS = KIT / "evals" / "scenarios"
 TOOLS = ["Bash", "Write", "Edit", "Read", "Glob", "Grep", "Skill", "TodoWrite"]
 SECRET = re.compile(r"whsec_[A-Za-z0-9+/=]{20,}")
-TDKIT = r"[Tt][Dd][Kk][Ii][Tt]\S*"
 
 
 # -- the run's record ---------------------------------------------------------------------
@@ -101,10 +100,13 @@ def welcome_in_final(run: Run) -> tuple[bool, str]:
     return tokens and deploy, f"tokens named: {tokens}, deploy/production named: {deploy}"
 
 
-def ran(pattern: str, *, expected: bool = True) -> Check:
+def ran(subcommand: str, *, expected: bool = True) -> Check:
+    """A Bash call that runs tdkit with this subcommand: directly, through TDKIT_CMD or through
+    a variable holding the command (update-3.2 run: `T="... tdkit"; $T integrators ...`)."""
+
     def check(run: Run) -> tuple[bool, str]:
-        found = run.bash(pattern)
-        return bool(found) == expected, f"{len(found)} Bash call(s) match {pattern!r}"
+        found = [c for c in run.bash(subcommand) if re.search(r"(?i)tdkit", c)]
+        return bool(found) == expected, f"{len(found)} tdkit call(s) match {subcommand!r}"
 
     return check
 
@@ -349,7 +351,7 @@ class Scenario:
 WEBHOOK_L12: dict[str, Check] = {
     "skill fired": skill_fired,
     "final message stands alone": final_message_complete,
-    "tdkit check ran": ran(rf"{TDKIT} check"),
+    "tdkit check ran": ran(r"\bcheck\s+--"),
     "report green (1,2 webhook)": report_green([1, 2], "webhook"),
     "manifest": manifest(contract="3.4.1-draft", levels=[1, 2], delivery="webhook", passed=[1, 2]),
     "no secret in git": no_secret_in_git,
@@ -363,8 +365,8 @@ SCENARIO: dict[str, Scenario] = {
         {
             "skill fired": skill_fired,
             "final message stands alone": final_message_complete,
-            "manifest written by tdkit": ran(rf"{TDKIT} manifest write"),
-            "no tdkit check": ran(rf"{TDKIT} check", expected=False),
+            "manifest written by tdkit": ran(r"\bmanifest write\b"),
+            "no tdkit check": ran(r"\bcheck\s+--", expected=False),
             "manifest (4, none, no conformance)": manifest(
                 levels=[4], delivery="none", passed=None
             ),
@@ -378,7 +380,7 @@ SCENARIO: dict[str, Scenario] = {
         {
             "skill fired": skill_fired,
             "final message stands alone": final_message_complete,
-            "tdkit check in read mode": ran(rf"{TDKIT} check[^\n]*--mode read"),
+            "tdkit check in read mode": ran(r"\bcheck\s+--[^\n]*--mode read"),
             "report green (1 read)": report_green([1], "read"),
             "manifest": manifest(levels=[1], delivery="read", passed=[1]),
             "no secret in git": no_secret_in_git,
@@ -403,9 +405,11 @@ SCENARIO: dict[str, Scenario] = {
         blog_on_contract_3_2,
         {
             "skill fired": skill_fired,
-            "final message stands alone": final_message_complete,
-            "tdkit integrators ran": ran(rf"{TDKIT} integrators"),
-            "tdkit check ran": ran(rf"{TDKIT} check"),
+            "change list with a recommendation": file_matches(
+                "tribunedesk-update.md", r"(?i)rekomend|recommend"
+            ),
+            "tdkit integrators ran": ran(r"\bintegrators\b"),
+            "tdkit check ran": ran(r"\bcheck\s+--"),
             "report green (1,2 webhook)": report_green([1, 2], "webhook"),
             "manifest": manifest(
                 contract="3.4.1-draft", levels=[1, 2], delivery="webhook", passed=[1, 2]
