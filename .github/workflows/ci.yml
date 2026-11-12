@@ -147,6 +147,8 @@ jobs:
           composer config repositories.tribunedesk-cms-php vcs https://github.com/Tribunedesk/tribunedesk-cms-php
           composer require --no-interaction -q drush/drush tribunedesk/cms-protocol:^1.0
           vendor/bin/drush site:install standard -y -q --db-url=sqlite://sites/default/files/.ht.sqlite
+          # Since Drupal 11.4 the standard profile no longer creates the article type.
+          vendor/bin/drush recipe "$SITE/web/core/recipes/article_content_type" -y
           mkdir -p web/modules/custom
           cp -r "$GITHUB_WORKSPACE/reference/drupal/tribunedesk" web/modules/custom/
           chmod u+w web/sites/default web/sites/default/settings.php

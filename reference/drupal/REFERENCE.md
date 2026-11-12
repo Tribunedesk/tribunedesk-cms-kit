@@ -16,6 +16,10 @@ link back, API errors).
 
 ## Install it into a Drupal 11 site
 
+The module writes `article` nodes with a `body` field. Since Drupal 11.4 the `standard` profile
+no longer creates that type; apply the core recipe first if the site has none:
+`vendor/bin/drush recipe web/core/recipes/article_content_type`.
+
 ```
 composer config repositories.tribunedesk-cms-php vcs https://github.com/Tribunedesk/tribunedesk-cms-php
 composer require tribunedesk/cms-protocol:^1.0
