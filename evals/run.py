@@ -255,6 +255,20 @@ def ghost(root: Path) -> None:
     )
 
 
+def blog_on_contract_3_2(root: Path) -> None:
+    """The blog with a level 1+2 integration built for contract 3.2.0-draft (from a django-l12
+    run, taken back by hand: the deprecated link back route, the shared secret accepted, no
+    order of sends)."""
+    django_blog(root)
+    fixture = KIT / "evals" / "fixtures" / "update-3.2"
+    shutil.copytree(fixture, root, dirs_exist_ok=True, ignore=shutil.ignore_patterns("_*"))
+    settings = root / "blogsite" / "settings.py"
+    extra = (fixture / "_settings.txt").read_text(encoding="utf-8")
+    settings.write_text(settings.read_text(encoding="utf-8") + extra, encoding="utf-8")
+    python = root / ".venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+    _run(root, str(python), "manage.py", "migrate", "-v", "0")
+
+
 def drupal(root: Path) -> None:
     """A copy of a Drupal 11 site (standard profile, SQLite) built once into a cache."""
     template = drupal_template()
@@ -385,6 +399,25 @@ SCENARIO: dict[str, Scenario] = {
             "uses the PHP library": file_matches("composer.json", r'"tribunedesk/cms-protocol"'),
         },
     ),
+    "update-3.2": Scenario(
+        blog_on_contract_3_2,
+        {
+            "skill fired": skill_fired,
+            "final message stands alone": final_message_complete,
+            "tdkit integrators ran": ran(rf"{TDKIT} integrators"),
+            "tdkit check ran": ran(rf"{TDKIT} check"),
+            "report green (1,2 webhook)": report_green([1, 2], "webhook"),
+            "manifest": manifest(
+                contract="3.4.1-draft", levels=[1, 2], delivery="webhook", passed=[1, 2]
+            ),
+            "link back on the v3 route": file_matches(
+                "blog/tribunedesk.py", r"/v3/cms/articles/published"
+            ),
+            "no secret in git": no_secret_in_git,
+            ".env ignored": env_ignored,
+        },
+        review_files=("tribunedesk-update.md",),
+    ),
     "ghost": Scenario(
         ghost,
         {
@@ -450,7 +483,7 @@ def _progress(event: dict[str, Any]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("scenario", choices=sorted(SCENARIO))
     parser.add_argument("--max-budget-usd", type=float, default=15.0)
     args = parser.parse_args(argv)

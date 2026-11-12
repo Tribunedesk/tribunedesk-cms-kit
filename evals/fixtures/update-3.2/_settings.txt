@@ -1,0 +1,11 @@
+
+# Two Tribune Desk attempts of one send may arrive at once: take the SQLite write lock at the
+# start of each transaction so they queue instead of failing with "database is locked".
+DATABASES["default"]["OPTIONS"] = {"transaction_mode": "IMMEDIATE", "timeout": 20}
+
+# Tribune Desk integration. Values come from the environment only; names in .env.example.
+import os  # noqa: E402
+
+SITE_URL = (os.environ.get("SITE_URL") or "https://blog.example.com").rstrip("/")
+TD_WEBHOOK_SECRET = os.environ.get("TD_WEBHOOK_SECRET", "")
+TD_API_BASE = os.environ.get("TD_API_BASE") or "https://api.tribunedesk.com"
