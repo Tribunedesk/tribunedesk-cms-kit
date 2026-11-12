@@ -271,6 +271,28 @@ The plugin is validated in CI (job `plugin`) with `claude plugin validate --stri
 touches `.claude-plugin/` or `plugins/`. To try the skill with a local `tdkit` before a release,
 set `TDKIT_CMD="uv run --project <this checkout> tdkit" (`--project`, not `--directory`: the command must run in the integration's folder)`.
 
+## Evals
+
+Six scenarios check the skill on real projects (`evals/scenarios/`): a Django blog with levels 1
+and 2 in Polish, the same on Drupal 11 in English with the PHP library, a photos-only site, a
+site on an intranet (read mode), an update from contract 3.2.0-draft and a Ghost(Pro) site. Run
+one with `uv run python evals/run.py <scenario>`; it works on Windows, macOS and Linux and needs
+Claude Code, uv and git (and PHP 8.3 with Composer for Drupal). See [`evals/README.md`](evals/README.md).
+
+Last runs, 2026-11-12 (Claude Code 2.1.293, one run per scenario, after the last change of the
+skill's text):
+
+| Scenario | Automatic checks | Review | Cost |
+|---|---|---|---|
+| `django-l12` | all pass: tdkit 13 passed, 0 failed | pass | 1.61 USD |
+| `drupal-l12` | all pass: tdkit 13 passed, 0 failed, `tribunedesk/cms-protocol` | pass | 3.64 USD |
+| `photos-only` | all pass: no webhook, no tdkit check, manifest level 4 | pass | 2.10 USD |
+| `no-public-endpoint` | all pass: tdkit read mode 3 passed, 0 failed | pass | 1.66 USD |
+| `update-3.2` | all pass: tdkit 13 passed, 0 failed, manifest 3.4.1-draft | pass | 1.08 USD |
+| `ghost` | all pass: no code, bridge or read mode explained | pass | 0.30 USD |
+
+The integrations of the Django and Drupal runs are in [`reference/`](reference/README.md).
+
 ## License
 
 MIT

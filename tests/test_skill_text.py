@@ -133,3 +133,16 @@ def test_tdkit_reference_gives_the_mock_secret() -> None:
     from tdkit.signing import MOCK_SECRET
 
     assert MOCK_SECRET in (REFERENCES / "tdkit.md").read_text(encoding="utf-8")
+
+
+def test_skill_pins_tdkit_tag() -> None:
+    """The skill runs the tdkit of its own release, and the plugin carries the same version."""
+    from tdkit import __version__
+
+    plugin = json.loads(
+        (ROOT / "plugins" / "tribunedesk-integration" / ".claude-plugin" / "plugin.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert f"tribunedesk-cms-kit@v{__version__} tdkit" in skill_text()
+    assert plugin["version"] == __version__

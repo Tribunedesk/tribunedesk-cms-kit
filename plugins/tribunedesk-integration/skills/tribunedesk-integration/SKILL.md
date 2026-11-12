@@ -16,7 +16,7 @@ Every mechanical step goes through `tdkit`, the kit's command line tool. In this
 means:
 
 ```
-uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@main tdkit
+uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.0.0 tdkit
 ```
 
 If the environment variable `TDKIT_CMD` is set, use its value instead (kit developers and evals
