@@ -279,8 +279,8 @@ site on an intranet (read mode), an update from contract 3.2.0-draft and a Ghost
 one with `uv run python evals/run.py <scenario>`; it works on Windows, macOS and Linux and needs
 Claude Code, uv and git (and PHP 8.3 with Composer for Drupal). See [`evals/README.md`](evals/README.md).
 
-Last runs, 2026-11-12 (Claude Code 2.1.293, one run per scenario, after the last change of the
-skill's text):
+Last runs, 2026-11-12 (Claude Code 2.1.293, one run per scenario; later edits of the skill only
+reconcile its wording):
 
 | Scenario | Automatic checks | Review | Cost |
 |---|---|---|---|

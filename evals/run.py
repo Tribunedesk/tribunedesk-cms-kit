@@ -122,8 +122,12 @@ def file_matches(path: str, pattern: str, *, expected: bool = True) -> Check:
     return check
 
 
-def report_green(levels: list[int], mode: str) -> Check:
-    """The report `tdkit check --json` wrote: these levels and mode, no failure, a pass."""
+CONTRACT = "3.4.1-draft"
+
+
+def report_green(levels: list[int], mode: str, contract: str = CONTRACT) -> Check:
+    """The report `tdkit check --json` wrote: this contract, levels and mode, no failure, a
+    pass."""
 
     def check(run: Run) -> tuple[bool, str]:
         text = run.text(".tribunedesk/tdkit-report.json")
@@ -133,13 +137,15 @@ def report_green(levels: list[int], mode: str) -> Check:
         outcomes = [r.get("passed") for r in report.get("results", [])]
         ok = (
             str(report.get("tdkit", "")).startswith("1.")
+            and str(report.get("contract", "")).removeprefix("v") == contract
             and report.get("levels") == levels
             and report.get("mode") == mode
             and True in outcomes
             and False not in outcomes
         )
         return ok, (
-            f"tdkit {report.get('tdkit')}, levels {report.get('levels')}, mode "
+            f"tdkit {report.get('tdkit')}, contract {report.get('contract')}, "
+            f"levels {report.get('levels')}, mode "
             f"{report.get('mode')}, passed {outcomes.count(True)}, failed {outcomes.count(False)}"
         )
 
@@ -157,21 +163,51 @@ def manifest(**expected: Any) -> Check:
             actual = data.get("conformance", {}).get("passed") if key == "passed" else data.get(key)
             if actual != value:
                 wrong[key] = actual
+        conformance = data.get("conformance")
+        if (
+            "contract" in expected
+            and isinstance(conformance, dict)
+            and conformance.get("contract") != expected["contract"]
+        ):
+            wrong["conformance.contract"] = conformance.get("contract")
         return not wrong, f"wrong: {wrong}" if wrong else "as expected"
 
     return check
 
 
-def no_secret_in_git(run: Run) -> tuple[bool, str]:
-    """No signing secret in a file that is committed or would be by `git add -A`.
+def results_from_tdkit(run: Run) -> tuple[bool, str]:
+    """The report and the manifest come from tdkit, not from the agent's Write or Edit."""
+    names = ("tdkit-report.json", "tribunedesk.json")
+    written = [
+        call.get("file_path", "")
+        for tool in ("Write", "Edit")
+        for call in run.tool_calls(tool)
+        if call.get("file_path", "").replace("\\", "/").rsplit("/", 1)[-1] in names
+    ]
+    return not written, f"written by hand: {written}" if written else "none written by hand"
 
-    Test files are skipped: they carry the contract's public test vectors and the mock's
-    secret, which are not secrets (first django-l12 run)."""
+
+def _is_test_path(name: str) -> bool:
+    """Test folders and test files carry the contract's public vectors and the mock's secret."""
+    path = Path(name)
+    if {"tests", "testdata", "test"} & {part.lower() for part in path.parts[:-1]}:
+        return True
+    file = path.name.lower()
+    return (
+        file in ("tests.py", "test.py")
+        or (file.startswith(("test_", "tests_")) and file.endswith(".py"))
+        or file.endswith(("_test.py", "test.php"))
+    )
+
+
+def no_secret_in_git(run: Run) -> tuple[bool, str]:
+    """No signing secret in a file that is committed or would be by `git add -A`, nor in any
+    commit of the run's history. Test files are skipped (`_is_test_path`)."""
     files = _git(run.workspace, "ls-files", "--cached", "--others", "--exclude-standard")
-    leaks = []
+    leaks = _secrets_in_history(run.workspace)
     for name in files.splitlines():
         path = run.workspace / name
-        if any("test" in part.lower() for part in Path(name).parts):
+        if _is_test_path(name) or name in leaks:
             continue
         if path.is_file():
             try:
@@ -180,6 +216,26 @@ def no_secret_in_git(run: Run) -> tuple[bool, str]:
             except UnicodeDecodeError:
                 continue
     return not leaks, f"secret in {leaks}" if leaks else "none"
+
+
+def _secrets_in_history(workspace: Path) -> list[str]:
+    """Files whose added lines carry a secret in any commit (a secret committed, then deleted)."""
+    log = _git(workspace, "log", "-p", "--format=", "--all")
+    leaks: list[str] = []
+    current = ""
+    for line in log.splitlines():
+        if line.startswith("+++ b/"):
+            current = line[6:]
+        elif (
+            line.startswith("+")
+            and not line.startswith("+++")
+            and SECRET.search(line)
+            and current
+            and not _is_test_path(current)
+            and current not in leaks
+        ):
+            leaks.append(current)
+    return leaks
 
 
 def env_ignored(run: Run) -> tuple[bool, str]:
@@ -352,6 +408,8 @@ WEBHOOK_L12: dict[str, Check] = {
     "skill fired": skill_fired,
     "final message stands alone": final_message_complete,
     "tdkit check ran": ran(r"\bcheck\s+--"),
+    "manifest written by tdkit from the report": ran(r"\bmanifest write\b[^\n]*--conformance"),
+    "report and manifest not written by hand": results_from_tdkit,
     "report green (1,2 webhook)": report_green([1, 2], "webhook"),
     "manifest": manifest(contract="3.4.1-draft", levels=[1, 2], delivery="webhook", passed=[1, 2]),
     "no secret in git": no_secret_in_git,
@@ -366,6 +424,7 @@ SCENARIO: dict[str, Scenario] = {
             "skill fired": skill_fired,
             "final message stands alone": final_message_complete,
             "manifest written by tdkit": ran(r"\bmanifest write\b"),
+            "report and manifest not written by hand": results_from_tdkit,
             "no tdkit check": ran(r"\bcheck\s+--", expected=False),
             "manifest (4, none, no conformance)": manifest(
                 levels=[4], delivery="none", passed=None
@@ -381,6 +440,10 @@ SCENARIO: dict[str, Scenario] = {
             "skill fired": skill_fired,
             "final message stands alone": final_message_complete,
             "tdkit check in read mode": ran(r"\bcheck\s+--[^\n]*--mode read"),
+            "manifest written by tdkit from the report": ran(
+                r"\bmanifest write\b[^\n]*--conformance"
+            ),
+            "report and manifest not written by hand": results_from_tdkit,
             "report green (1 read)": report_green([1], "read"),
             "manifest": manifest(levels=[1], delivery="read", passed=[1]),
             "no secret in git": no_secret_in_git,
@@ -409,6 +472,10 @@ SCENARIO: dict[str, Scenario] = {
                 "tribunedesk-update.md", r"(?i)rekomend|recommend"
             ),
             "tdkit integrators ran": ran(r"\bintegrators\b"),
+            "manifest written by tdkit from the report": ran(
+                r"\bmanifest write\b[^\n]*--conformance"
+            ),
+            "report and manifest not written by hand": results_from_tdkit,
             "tdkit check ran": ran(r"\bcheck\s+--"),
             "report green (1,2 webhook)": report_green([1, 2], "webhook"),
             "manifest": manifest(

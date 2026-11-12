@@ -146,3 +146,14 @@ def test_skill_pins_tdkit_tag() -> None:
     )
     assert f"tribunedesk-cms-kit@v{__version__} tdkit" in skill_text()
     assert plugin["version"] == __version__
+
+
+def test_message_rules_do_not_contradict() -> None:
+    """Final review of E9.6: stage 0 still said "first message", stage 5 and the template did
+    not mention the pre-approval exception of "The last message of a turn"."""
+    text = skill_text()
+    assert "Your first message to the user is the welcome" not in text
+    template = text.split("### Stage summary template", 1)[1].split("###", 1)[0]
+    stage5 = text.split("### Stage 5.", 1)[1].split("###", 1)[0]
+    for part in (template, stage5):
+        assert "pre-approv" in part.lower(), part[:80]

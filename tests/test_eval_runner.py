@@ -147,3 +147,64 @@ def test_tdkit_through_a_variable(tmp_path: Path) -> None:
     run = make_run(tmp_path, [{"type": "assistant", "message": {"content": [block]}}])
     assert runner.ran(r"\bintegrators\b")(run)[0]
     assert runner.ran(r"\bcheck\s+--", expected=False)(run)[0]
+
+
+# -- final review of E9.6 ---------------------------------------------------------------------
+
+
+def _write_call(path: str) -> dict:
+    block = {"type": "tool_use", "name": "Write", "input": {"file_path": path, "content": "{}"}}
+    return {"type": "assistant", "message": {"content": [block]}}
+
+
+def test_hand_written_report_or_manifest_fails(tmp_path: Path) -> None:
+    for name in ("C:/p/.tribunedesk/tdkit-report.json", "/p/tribunedesk.json"):
+        run = make_run(tmp_path, [_write_call(name)])
+        assert not runner.results_from_tdkit(run)[0], name
+    assert runner.results_from_tdkit(make_run(tmp_path, [_write_call("/p/blog/views.py")]))[0]
+
+
+def test_report_of_another_contract_is_not_green(tmp_path: Path) -> None:
+    write_report(tmp_path, [True], [1, 2], "webhook")
+    report = tmp_path / ".tribunedesk" / "tdkit-report.json"
+    data = json.loads(report.read_text(encoding="utf-8"))
+    data["contract"] = "3.2.0-draft"
+    report.write_text(json.dumps(data), encoding="utf-8")
+    assert not runner.report_green([1, 2], "webhook")(make_run(tmp_path))[0]
+
+
+def test_manifest_conformance_must_match_the_contract(tmp_path: Path) -> None:
+    data = {
+        "contract": "3.4.1-draft",
+        "levels": [1, 2],
+        "delivery": "webhook",
+        "conformance": {"contract": "3.2.0-draft", "passed": [1, 2]},
+    }
+    (tmp_path / "tribunedesk.json").write_text(json.dumps(data), encoding="utf-8")
+    assert not runner.manifest(contract="3.4.1-draft", passed=[1, 2])(make_run(tmp_path))[0]
+
+
+def test_secret_in_a_config_named_like_test_is_found(tmp_path: Path) -> None:
+    git(tmp_path, "init", "-q")
+    secret = "whsec_" + "D" * 32
+    for name in (".env.test", "settings_test_like.py", "latest/config.py"):
+        path = tmp_path / name
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(f"S={secret}\n", encoding="utf-8")
+    ok, detail = runner.no_secret_in_git(make_run(tmp_path))
+    assert not ok
+    assert ".env.test" in detail and "latest/config.py" in detail
+
+
+def test_secret_committed_then_deleted_is_found(tmp_path: Path) -> None:
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "config", "user.name", "t")
+    git(tmp_path, "config", "user.email", "t@example.com")
+    leak = tmp_path / "settings.py"
+    leak.write_text('S = "whsec_' + "E" * 32 + '"\n', encoding="utf-8")
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-qm", "leak")
+    leak.write_text("S = ''\n", encoding="utf-8")
+    git(tmp_path, "commit", "-qam", "remove")
+    ok, detail = runner.no_secret_in_git(make_run(tmp_path))
+    assert not ok and "settings.py" in detail
