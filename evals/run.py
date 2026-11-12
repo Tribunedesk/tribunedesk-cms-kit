@@ -254,6 +254,38 @@ def ghost(root: Path) -> None:
     )
 
 
+def drupal(root: Path) -> None:
+    """A copy of a Drupal 11 site (standard profile, SQLite) built once into a cache."""
+    shutil.copytree(drupal_template(), root, dirs_exist_ok=True)
+
+
+def drupal_template() -> Path:
+    cache = Path(tempfile.gettempdir()) / "tribunedesk-evals" / "_drupal-template"
+    if (cache / "web" / "sites" / "default" / "files" / ".ht.sqlite").is_file():
+        return cache
+    composer = shutil.which("composer")
+    assert composer and shutil.which("php"), "PHP 8.3 and Composer are required on PATH"
+    if cache.exists():
+        shutil.rmtree(cache)
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    _run(cache.parent, composer, "create-project", "--no-interaction", "-q",
+         "drupal/recommended-project:^11", cache.name)  # fmt: skip
+    _run(cache, composer, "require", "--no-interaction", "-q", "drush/drush")
+    drush = shutil.which("drush", path=str(cache / "vendor" / "bin"))
+    assert drush, "drush was not installed"
+    _run(cache, drush, "site:install", "standard", "-y", "-q", "--site-name=Newsroom",
+         "--db-url=sqlite://sites/default/files/.ht.sqlite")  # fmt: skip
+    settings = cache / "web" / "sites" / "default" / "settings.php"
+    settings.chmod(0o644)
+    with settings.open("a", encoding="utf-8") as php:
+        php.write(
+            "\nif (file_exists($app_root . '/' . $site_path . '/settings.local.php')) {\n"
+            "  include $app_root . '/' . $site_path . '/settings.local.php';\n}\n"
+        )
+    _write(cache, DRUPAL_FILES)
+    return cache
+
+
 def commit(root: Path, message: str) -> None:
     _run(root, "git", "init", "-q")
     _run(root, "git", "config", "user.name", "Eval Developer")
@@ -306,6 +338,20 @@ SCENARIO: dict[str, Scenario] = {
             "manifest": manifest(levels=[1], delivery="read", passed=[1]),
             "no secret in git": no_secret_in_git,
             ".env ignored": env_ignored,
+        },
+    ),
+    "drupal-l12": Scenario(
+        drupal,
+        {
+            **WEBHOOK_L12,
+            "manifest": manifest(
+                contract="3.4.1-draft",
+                levels=[1, 2],
+                delivery="webhook",
+                passed=[1, 2],
+                protocol="1.0.0",
+            ),
+            "uses the PHP library": file_matches("composer.json", r'"tribunedesk/cms-protocol"'),
         },
     ),
     "ghost": Scenario(
@@ -504,6 +550,20 @@ A small Django 5.2 blog on SQLite. Posts are written in the Django admin.
 - Tests: `.venv\\Scripts\\python manage.py test`
 """,
     ".gitignore": "__pycache__/\ndb.sqlite3\n.venv/\n",
+}
+
+DRUPAL_FILES = {
+    ".gitignore": "/vendor/\n/web/core/\n/web/modules/contrib/\n/web/themes/contrib/\n"
+    "/web/profiles/contrib/\n/web/libraries/\n/web/sites/*/files/\n"
+    "/web/sites/*/settings.local.php\n",
+    "README.md": """# Newsroom site
+
+Drupal 11 (standard profile) on SQLite, built with Composer.
+
+- Run: `php -S 127.0.0.1:8888 -t web web/.ht.router.php`
+- Drush: `vendor/bin/drush`
+- Local settings (not in git): `web/sites/default/settings.local.php`, included by `settings.php`.
+""",
 }
 
 PHOTO_FILES = {
