@@ -20,6 +20,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -261,12 +262,13 @@ def drupal(root: Path) -> None:
 
 def drupal_template() -> Path:
     cache = Path(tempfile.gettempdir()) / "tribunedesk-evals" / "_drupal-template"
-    if (cache / "web" / "sites" / "default" / "files" / ".ht.sqlite").is_file():
+    ready = cache.with_name(cache.name + ".ready")
+    if ready.is_file():
         return cache
     composer = shutil.which("composer")
     assert composer and shutil.which("php"), "PHP 8.3 and Composer are required on PATH"
     if cache.exists():
-        shutil.rmtree(cache)
+        shutil.rmtree(cache, onexc=_writable_and_retry)
     cache.parent.mkdir(parents=True, exist_ok=True)
     _run(cache.parent, composer, "create-project", "--no-interaction", "-q",
          "drupal/recommended-project:^11", cache.name)  # fmt: skip
@@ -275,15 +277,33 @@ def drupal_template() -> Path:
     assert drush, "drush was not installed"
     _run(cache, drush, "site:install", "standard", "-y", "-q", "--site-name=Newsroom",
          "--db-url=sqlite://sites/default/files/.ht.sqlite")  # fmt: skip
-    settings = cache / "web" / "sites" / "default" / "settings.php"
+    # Drush on Windows writes an absolute path (and not under sites/): move the database next
+    # to the site and point settings.php at it relative to the copy, so each copy has its own.
+    site = cache / "web" / "sites" / "default"
+    database = next(cache.rglob(".ht.sqlite"))
+    target = site / "files" / ".ht.sqlite"
+    if database != target:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(database, target)
+    settings = site / "settings.php"
     settings.chmod(0o644)
+    site.chmod(0o755)
     with settings.open("a", encoding="utf-8") as php:
         php.write(
+            "\n$databases['default']['default']['database'] = "
+            "$app_root . '/' . $site_path . '/files/.ht.sqlite';\n"
             "\nif (file_exists($app_root . '/' . $site_path . '/settings.local.php')) {\n"
             "  include $app_root . '/' . $site_path . '/settings.local.php';\n}\n"
         )
     _write(cache, DRUPAL_FILES)
+    ready.write_text("built\n", encoding="utf-8")
     return cache
+
+
+def _writable_and_retry(function: Callable[..., Any], path: str, _error: BaseException) -> None:
+    """Drupal makes some files read-only; rmtree on Windows needs them writable."""
+    os.chmod(path, stat.S_IWRITE)
+    function(path)
 
 
 def commit(root: Path, message: str) -> None:
