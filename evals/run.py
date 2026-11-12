@@ -277,6 +277,7 @@ SCENARIO: dict[str, Scenario] = {
         lambda root: django_blog(root, photos=True),
         {
             "skill fired": skill_fired,
+            "final message stands alone": final_message_complete,
             "manifest written by tdkit": ran(rf"{TDKIT} manifest write"),
             "no tdkit check": ran(rf"{TDKIT} check", expected=False),
             "manifest (4, none, no conformance)": manifest(
@@ -291,6 +292,7 @@ SCENARIO: dict[str, Scenario] = {
         intranet,
         {
             "skill fired": skill_fired,
+            "final message stands alone": final_message_complete,
             "tdkit check in read mode": ran(rf"{TDKIT} check[^\n]*--mode read"),
             "report green (1 read)": report_green([1], "read"),
             "manifest": manifest(levels=[1], delivery="read", passed=[1]),
