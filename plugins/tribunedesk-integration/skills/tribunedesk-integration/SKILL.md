@@ -102,7 +102,7 @@ Text written between tool calls may not reach the user; the last message of a tu
 So the last message of every turn stands alone and carries, for the stages done in that turn:
 a table of the stages with the result of each, the plan as built (files added and changed per
 level, where the secret and the token live) and, when the build ends, the launch steps of stage 7.
-When the plan was approved up front, it also opens with the two sentences of section 1.
+The last message of the first turn also opens with the two sentences of section 1.
 
 ## 4. Build mode
 

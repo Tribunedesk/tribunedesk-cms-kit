@@ -92,6 +92,14 @@ def final_message_complete(run: Run) -> tuple[bool, str]:
     return ok, f"stages {sorted(stages)}, {len(files)} file(s), deploy/production named: {promise}"
 
 
+def welcome_in_final(run: Run) -> tuple[bool, str]:
+    """Section 1: no tokens ordered for the user, nothing deployed."""
+    text = run.result.get("result", "") or ""
+    tokens = re.search(r"(?i)token", text) is not None
+    deploy = re.search(r"(?i)deploy|wdra[żz]|produkc|production", text) is not None
+    return tokens and deploy, f"tokens named: {tokens}, deploy/production named: {deploy}"
+
+
 def ran(pattern: str, *, expected: bool = True) -> Check:
     def check(run: Run) -> tuple[bool, str]:
         found = run.bash(pattern)
@@ -160,7 +168,7 @@ def no_secret_in_git(run: Run) -> tuple[bool, str]:
     leaks = []
     for name in files.splitlines():
         path = run.workspace / name
-        if "test" in Path(name).name.lower():
+        if any("test" in part.lower() for part in Path(name).parts):
             continue
         if path.is_file():
             try:
@@ -305,6 +313,7 @@ SCENARIO: dict[str, Scenario] = {
         {
             "skill fired": skill_fired,
             "no code written": lambda run: (not run.tool_calls("Write"), "Write calls"),
+            "welcome in the final message": welcome_in_final,
         },
         review_files=(),
     ),

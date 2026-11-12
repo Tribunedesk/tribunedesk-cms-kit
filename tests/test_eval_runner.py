@@ -130,3 +130,12 @@ def test_final_message_complete(tmp_path: Path) -> None:
     assert runner.final_message_complete(make_run(tmp_path, events))[0]
     events = [{"type": "result", "result": "Gotowe, 13 PASS."}]
     assert not runner.final_message_complete(make_run(tmp_path, events))[0]
+
+
+def test_secret_in_a_test_folder_is_a_test_vector(tmp_path: Path) -> None:
+    git(tmp_path, "init", "-q")
+    (tmp_path / "testdata").mkdir()
+    (tmp_path / "testdata" / "vectors.json").write_text(
+        '"whsec_' + "C" * 32 + '"', encoding="utf-8"
+    )
+    assert runner.no_secret_in_git(make_run(tmp_path))[0]

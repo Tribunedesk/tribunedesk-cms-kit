@@ -122,6 +122,8 @@ def test_last_message_stands_alone() -> None:
     text = skill_text()
     assert "### The last message of a turn" in text
     assert "the last message of every turn stands alone" in text
+    # ghost run: not pre-approved, the welcome was only a heading in the first turn.
+    assert "The last message of the first turn also opens with the two sentences" in text
     assert "Never say you showed something you did not" in text
 
 
