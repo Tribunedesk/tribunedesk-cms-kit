@@ -1,70 +1,38 @@
-# Evals of the Claude Code plugin
+# Trying the Claude Code plugin on real projects
 
-Six `claude plugin eval` cases in `plugins/tribunedesk-integration/evals/` check that the skill
-builds, updates and explains an integration the way its spec says. The integrations it builds are
-graded by `tdkit check` (the report it writes) and the manifest; an LLM judge grades what the
-skill told the user.
+Six scenarios in `evals/scenarios/` describe what the skill must do on a real project: build,
+update or only explain an integration. `evals/run.py` runs one of them on this machine, on
+Windows as well: no WSL and no `claude plugin eval` (that command refuses runs with a shell on
+native Windows).
 
-| Case | Project | What it checks |
+| Scenario | Project | What it checks |
 |---|---|---|
 | `django-l12` | Django blog | levels 1+2, webhook, Polish, plan approved up front |
-| `drupal-l12` | Drupal 11 | the same in English, with the `tribunedesk/cms-protocol` library |
+| `drupal-l12` | Drupal 11 | the same in English, with the `tribunedesk/cms-protocol` library (needs PHP and Composer) |
 | `photos-only` | Django blog with a photo library | level 4 only: no webhook, honest about no tdkit test |
 | `no-public-endpoint` | Django blog on an intranet | read mode chosen and tested |
 | `update-3.2` | Django blog with an integration for 3.2.0-draft | update mode: change list, new manifest |
 | `ghost` | Ghost(Pro) README | bridge or read mode explained, no code written |
 
-## Where they run
-
-On native Windows `claude plugin eval` refuses runs that grant Bash, because Windows has no
-sandbox. The evals run in WSL2 Ubuntu 24.04, logged in to Claude Code with a subscription.
-
-Once, in PowerShell (a system change; restart if Windows asks):
+## Running one
 
 ```
-wsl --install -d Ubuntu-24.04
+uv run python evals/run.py django-l12 --max-budget-usd 15
 ```
 
-Then in the Ubuntu terminal:
+The runner:
 
-```
-git clone https://github.com/Tribunedesk/tribunedesk-cms-kit /tmp/kit-setup
-bash /tmp/kit-setup/evals/setup.sh e9-evals
-claude          # log in with the subscription once, then /exit
-```
+1. builds the project in a new folder under the temp directory (`tribunedesk-evals/<scenario>-<time>/project`) and commits it;
+2. runs `claude -p` with the scenario's prompt, this plugin (`--plugin-dir`) and no user
+   settings, hooks or CLAUDE.md (`--setting-sources local`), with `TDKIT_CMD` pointing at this
+   checkout, and saves the transcript next to the project;
+3. prints the cost and the automatic checks: the skill fired, `tdkit check` ran, the report it
+   wrote is green, the manifest is right, no signing secret is in a file git would commit, `.env`
+   is ignored;
+4. prints the files and the final message for the review under "Review" in the scenario file,
+   which a person (or the session running it) judges.
 
-`setup.sh` installs the tools (uv, PHP 8.3, Composer, Claude Code, the sandbox's bubblewrap and
-socat) and fills `/opt/tribunedesk-evals/`, the cache the case scaffolds copy from: a clone of
-the kit with `tdkit`, the contract docs, the Django and Drupal projects. It ends by timing the
-Drupal scaffold, which must stay under the 120 s scaffold limit.
+The project folder stays, for review and for the reference integrations.
 
-The cache is outside the home directory because the eval sandbox cannot read the home
-directory. The agent gets `tdkit` and the docs through `EVAL_TDKIT_CMD` and
-`EVAL_TRIBUNEDESK_DOCS_DIR` (set in each `prompt.md`), so it needs no network for them.
-
-## Running
-
-From the kit clone in the cache:
-
-```
-cd /opt/tribunedesk-evals/kit
-claude plugin eval plugins/tribunedesk-integration --trust-plugin --scaffold \
-  --allow-tools Bash Write Edit --runs 1 --ablation none -j 1 --max-cost-usd 15 \
-  --case django-l12
-```
-
-The `drupal-l12` case installs the PHP library with Composer from GitHub, so it needs those hosts:
-
-```
-  --allow-tools Bash Write Edit "WebFetch(domain:github.com)" "WebFetch(domain:api.github.com)" \
-    "WebFetch(domain:codeload.github.com)" "WebFetch(domain:repo.packagist.org)" \
-    "WebFetch(domain:packagist.org)" "WebFetch(domain:packages.drupal.org)"
-```
-
-The full run, before a release: no `--case`, `--runs 3`, both arms (no `--ablation`), the
-Composer hosts above, `--max-cost-usd 100`. Results go to
-`plugins/tribunedesk-integration/evals/results/` (git-ignored).
-
-Graders that need `tdkit` (the report, the manifest, "tdkit check ran") are `arm: with-only`:
-without the plugin there is no tdkit, and counting them would only inflate the difference
-between the arms.
+**The agent runs with your user's rights and no sandbox:** it may run any command in Bash. Run
+only these scenarios, in the folders the runner creates.

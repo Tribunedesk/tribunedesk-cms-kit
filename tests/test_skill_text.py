@@ -106,12 +106,6 @@ def test_skill_keeps_env_and_report_out_of_git() -> None:
     assert ".tribunedesk/tdkit-report.json" in text
 
 
-def test_skill_reads_eval_env_vars() -> None:
-    text = skill_text()
-    assert "EVAL_TDKIT_CMD" in text
-    assert "EVAL_TRIBUNEDESK_DOCS_DIR" in text
-
-
 def test_skill_stage_7_is_scoped() -> None:
     text = skill_text()
     stage = text.split("### Stage 7.", 1)[1].split("\n## ", 1)[0]

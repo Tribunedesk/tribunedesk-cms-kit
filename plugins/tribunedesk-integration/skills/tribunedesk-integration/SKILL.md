@@ -19,10 +19,8 @@ means:
 uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@main tdkit
 ```
 
-If the environment variable `TDKIT_CMD` (or `EVAL_TDKIT_CMD`) is set, use its value instead: kit
-developers and evals point it at a local checkout. `tdkit docs` likewise takes the documentation
-from `TRIBUNEDESK_DOCS_DIR` (or `EVAL_TRIBUNEDESK_DOCS_DIR`) when set; check with `echo` before
-the first run. Before the first use check that `uv` is installed (`uv --version`);
+If the environment variable `TDKIT_CMD` is set, use its value instead (kit developers and evals
+point it at a local checkout). Before the first use check that `uv` is installed (`uv --version`);
 if it is not, explain in one sentence what `uv` is (a Python package runner) and walk the user
 through installing it from https://docs.astral.sh/uv/getting-started/installation/ .
 git is required too (`git --version`): `uvx` installs tdkit from its git repository. If it is missing,

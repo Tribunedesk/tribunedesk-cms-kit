@@ -1,6 +1,6 @@
 """The contract documentation (`tribunedesk-cms-api`) of one tag, from a local copy or GitHub.
 
-Sources, first found wins: `--docs DIR`, `TRIBUNEDESK_DOCS_DIR` (or `EVAL_TRIBUNEDESK_DOCS_DIR`), the cache
+Sources, first found wins: `--docs DIR`, `TRIBUNEDESK_DOCS_DIR`, the cache
 `~/.cache/tdkit/cms-api@<tag>`, then a shallow `git clone` of the tag into that cache.
 GitHub is the only network host `tdkit` ever talks to, and only here.
 """
@@ -99,8 +99,7 @@ def load_docs(root: Path) -> ContractDocs:
 
 
 def env_docs_dir() -> Path | None:
-    # `claude plugin eval` passes only EVAL_* variables to the agent under test.
-    value = os.environ.get("TRIBUNEDESK_DOCS_DIR") or os.environ.get("EVAL_TRIBUNEDESK_DOCS_DIR")
+    value = os.environ.get("TRIBUNEDESK_DOCS_DIR")
     return Path(value) if value else None
 
 

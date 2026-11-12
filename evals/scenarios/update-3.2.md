@@ -1,9 +1,16 @@
----
-type: llm
-focus:
-  source: file
-  path: tribunedesk-update.md
----
+# update-3.2
+
+Update an L1+L2 Django integration built for contract 3.2.0-draft to 3.4.1-draft.
+
+## Prompt
+
+Zaktualizuj naszą integrację z Tribune Desk do najnowszej wersji kontraktu. Zmiany zatwierdzam z góry, ale najpierw wypisz listę zmian z rekomendacją i zapisz ją też w pliku `tribunedesk-update.md`.
+
+## Review
+
+Judged by reading the run (the runner prints the files and the final message).
+
+### change-list (file tribunedesk-update.md)
 
 PASS if the list covers the level 1 and level 2 changes of contracts 3.3.0-draft and 3.4.0-draft:
 verifying the signature (no `X-Webhook-Secret` any more), moving the link back from
