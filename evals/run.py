@@ -15,6 +15,7 @@ The agent runs Bash with the user's rights, outside any sandbox: run only these 
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import re
@@ -78,6 +79,36 @@ def skill_fired(run: Run) -> tuple[bool, str]:
     return any("tribunedesk-integration" in n for n in names), f"Skill calls: {names}"
 
 
+def plan_before_code(run: Run) -> tuple[bool, str]:
+    """A message of some length to the user before the first Write or Edit: the plan."""
+    for event in run.events:
+        if event.get("type") != "assistant":
+            continue
+        for block in event.get("message", {}).get("content", []):
+            if block.get("type") == "text" and len(block.get("text", "")) >= 300:
+                return True, "a long message precedes the first code change"
+            if block.get("type") == "tool_use" and block.get("name") in ("Write", "Edit"):
+                return False, "code was written before any message of 300+ characters"
+    return False, "no plan message"
+
+
+def stage_summaries(minimum: int) -> Check:
+    """Messages to the user of 150+ characters before the final one: welcome, plan, summaries."""
+
+    def check(run: Run) -> tuple[bool, str]:
+        texts = [
+            block.get("text", "")
+            for event in run.events
+            if event.get("type") == "assistant"
+            for block in event.get("message", {}).get("content", [])
+            if block.get("type") == "text"
+        ]
+        long = [text for text in texts[:-1] if len(text) >= 150]
+        return len(long) >= minimum, f"{len(long)} message(s) of 150+ characters before the last"
+
+    return check
+
+
 def ran(pattern: str, *, expected: bool = True) -> Check:
     def check(run: Run) -> tuple[bool, str]:
         found = run.bash(pattern)
@@ -138,11 +169,16 @@ def manifest(**expected: Any) -> Check:
 
 
 def no_secret_in_git(run: Run) -> tuple[bool, str]:
-    """No signing secret in a file that is committed or would be by `git add -A`."""
+    """No signing secret in a file that is committed or would be by `git add -A`.
+
+    Test files are skipped: they carry the contract's public test vectors and the mock's
+    secret, which are not secrets (first django-l12 run)."""
     files = _git(run.workspace, "ls-files", "--cached", "--others", "--exclude-standard")
     leaks = []
     for name in files.splitlines():
         path = run.workspace / name
+        if "test" in Path(name).name.lower():
+            continue
         if path.is_file():
             try:
                 if SECRET.search(path.read_text(encoding="utf-8")):
@@ -244,6 +280,8 @@ class Scenario:
 
 WEBHOOK_L12: dict[str, Check] = {
     "skill fired": skill_fired,
+    "plan before code": plan_before_code,
+    "stage summaries": stage_summaries(5),
     "tdkit check ran": ran(rf"{TDKIT} check"),
     "report green (1,2 webhook)": report_green([1, 2], "webhook"),
     "manifest": manifest(contract="3.4.1-draft", levels=[1, 2], delivery="webhook", passed=[1, 2]),
@@ -346,6 +384,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("scenario", choices=sorted(SCENARIO))
     parser.add_argument("--max-budget-usd", type=float, default=15.0)
     args = parser.parse_args(argv)
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(encoding="utf-8")  # Polish text in a redirected log
     scenario = SCENARIO[args.scenario]
 
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")

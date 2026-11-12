@@ -110,3 +110,29 @@ def test_env_not_ignored(tmp_path: Path) -> None:
     git(tmp_path, "init", "-q")
     (tmp_path / ".env").write_text("X=1\n", encoding="utf-8")
     assert not runner.env_ignored(make_run(tmp_path))[0]
+
+
+def test_secret_in_a_test_file_is_a_test_vector(tmp_path: Path) -> None:
+    git(tmp_path, "init", "-q")
+    (tmp_path / "tests_tribunedesk.py").write_text(
+        'V = "whsec_' + "B" * 32 + '"\n', encoding="utf-8"
+    )
+    assert runner.no_secret_in_git(make_run(tmp_path))[0]
+
+
+def _texts_and_tools(*blocks: dict) -> list[dict]:
+    return [{"type": "assistant", "message": {"content": [b]}} for b in blocks]
+
+
+def test_plan_before_code(tmp_path: Path) -> None:
+    plan = {"type": "text", "text": "P" * 300}
+    write = {"type": "tool_use", "name": "Write", "input": {}}
+    assert runner.plan_before_code(make_run(tmp_path, _texts_and_tools(plan, write)))[0]
+    assert not runner.plan_before_code(make_run(tmp_path, _texts_and_tools(write, plan)))[0]
+
+
+def test_stage_summaries_ignore_the_final_message(tmp_path: Path) -> None:
+    summary = {"type": "text", "text": "S" * 150}
+    events = _texts_and_tools(summary, summary)
+    assert runner.stage_summaries(1)(make_run(tmp_path, events))[0]
+    assert not runner.stage_summaries(2)(make_run(tmp_path, events))[0]

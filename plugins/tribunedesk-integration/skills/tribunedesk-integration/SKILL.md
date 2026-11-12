@@ -78,8 +78,11 @@ say what you found and recommend the mode that fits the repository.
 - **Answer in the user's language** (Polish to a Polish speaker, English otherwise). These
   instructions stay in English.
 - **Pre-approval.** If the user approved the plan in the request, or told you not to ask ("do
-  everything, don't ask"), do not stop for approval: still print the plan and every stage
-  summary, and stop only on a red `TDKIT check` you cannot fix.
+  everything, don't ask"), do not stop for approval, and stop only on a red `TDKIT check` you
+  cannot fix. Everything else stays: the welcome (section 1), the plan of stage 4 and the
+  summary of every stage are each written to the user as its own message when that stage ends,
+  before the next stage starts; the user reads them as the work goes on.
+  Never say you showed something you did not.
 - **PHP CMS: use the library.** For Drupal, Laravel, Joomla or any PHP project use
   `tribunedesk/cms-protocol` instead of writing the protocol again; see
   `references/php-library.md`.

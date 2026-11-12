@@ -113,3 +113,11 @@ def test_skill_stage_7_is_scoped() -> None:
         assert heading in stage, heading
     level4 = stage.split("**Level 4 only", 1)[1].split("\n**", 1)[0]
     assert "webhook" not in level4.lower()
+
+
+def test_preapproval_still_shows_plan_and_summaries() -> None:
+    """First run of django-l12 (E9.6): with the plan approved up front the skill printed
+    neither the plan nor stage summaries and then said the plan was "above"."""
+    text = skill_text()
+    assert "as its own message" in text
+    assert "Never say you showed something you did not" in text
