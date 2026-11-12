@@ -134,3 +134,8 @@ def test_welcome_first_and_level_summaries() -> None:
     text = skill_text()
     assert "Your first message to the user is the welcome" in text
     assert "a summary per level, as its own message" in text
+
+
+def test_summaries_are_reply_text_not_thinking() -> None:
+    """Third django-l12 run: the welcome and the summaries went into thinking blocks."""
+    assert "not in your thinking" in skill_text()
