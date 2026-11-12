@@ -121,3 +121,16 @@ def test_preapproval_still_shows_plan_and_summaries() -> None:
     text = skill_text()
     assert "as its own message" in text
     assert "Never say you showed something you did not" in text
+
+
+def test_tdkit_reference_gives_the_mock_secret() -> None:
+    """Second django-l12 run: the agent could not find the mock's secret and made its own."""
+    from tdkit.signing import MOCK_SECRET
+
+    assert MOCK_SECRET in (REFERENCES / "tdkit.md").read_text(encoding="utf-8")
+
+
+def test_welcome_first_and_level_summaries() -> None:
+    text = skill_text()
+    assert "Your first message to the user is the welcome" in text
+    assert "a summary per level, as its own message" in text

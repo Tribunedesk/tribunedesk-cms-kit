@@ -92,8 +92,11 @@ def plan_before_code(run: Run) -> tuple[bool, str]:
     return False, "no plan message"
 
 
+SUMMARY = re.compile(r"\*\*(?:Done|Zrobione|Zrobiono):\*\*")
+
+
 def stage_summaries(minimum: int) -> Check:
-    """Messages to the user of 150+ characters before the final one: welcome, plan, summaries."""
+    """Stage summaries (the template's first line, English or Polish) before the final message."""
 
     def check(run: Run) -> tuple[bool, str]:
         texts = [
@@ -103,10 +106,23 @@ def stage_summaries(minimum: int) -> Check:
             for block in event.get("message", {}).get("content", [])
             if block.get("type") == "text"
         ]
-        long = [text for text in texts[:-1] if len(text) >= 150]
-        return len(long) >= minimum, f"{len(long)} message(s) of 150+ characters before the last"
+        count = sum(len(SUMMARY.findall(text)) for text in texts[:-1])
+        return count >= minimum, f"{count} stage summary(ies) before the last message"
 
     return check
+
+
+def welcome_first(run: Run) -> tuple[bool, str]:
+    """The first text to the user says it will not order tokens or deploy (section 1)."""
+    for event in run.events:
+        if event.get("type") != "assistant":
+            continue
+        for block in event.get("message", {}).get("content", []):
+            if block.get("type") == "text":
+                text = block.get("text", "")
+                ok = re.search(r"(?i)token", text) is not None and len(text) >= 150
+                return ok, text[:80]
+    return False, "no text"
 
 
 def ran(pattern: str, *, expected: bool = True) -> Check:
@@ -281,6 +297,7 @@ class Scenario:
 WEBHOOK_L12: dict[str, Check] = {
     "skill fired": skill_fired,
     "plan before code": plan_before_code,
+    "welcome first": welcome_first,
     "stage summaries": stage_summaries(5),
     "tdkit check ran": ran(rf"{TDKIT} check"),
     "report green (1,2 webhook)": report_green([1, 2], "webhook"),

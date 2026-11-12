@@ -101,7 +101,8 @@ End every stage with four short lines:
 
 ### Stage 0. Welcome
 
-Say the two sentences of section 1. Run `TDKIT docs` (prints `{"tag", "version", "path"}`) and
+Your first message to the user is the welcome: the two sentences of section 1, before any
+other text. Then run `TDKIT docs` (prints `{"tag", "version", "path"}`) and
 tell the user which contract version you build against.
 
 ### Stage 1. Know the project (no questions)
@@ -165,7 +166,8 @@ tell the user which contract version you build against.
      `TDKIT check --levels <this level> --docs <path> ...` (see `references/tdkit.md`).
   4. Show the result. Green: summarise and go on. Red: read the failing point and the cited
      guide section, fix, rerun. If it stays red, stop and ask (see `references/troubleshooting.md`).
-- **Summary:** per level, with the `TDKIT check` result.
+- **Summary:** a summary per level, as its own message (the stage summary template), with the
+  `TDKIT check` result of that level.
 
 ### Stage 6. Conformance of the whole scope
 

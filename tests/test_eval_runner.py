@@ -132,7 +132,7 @@ def test_plan_before_code(tmp_path: Path) -> None:
 
 
 def test_stage_summaries_ignore_the_final_message(tmp_path: Path) -> None:
-    summary = {"type": "text", "text": "S" * 150}
+    summary = {"type": "text", "text": "**Zrobione:** x"}
     events = _texts_and_tools(summary, summary)
     assert runner.stage_summaries(1)(make_run(tmp_path, events))[0]
     assert not runner.stage_summaries(2)(make_run(tmp_path, events))[0]

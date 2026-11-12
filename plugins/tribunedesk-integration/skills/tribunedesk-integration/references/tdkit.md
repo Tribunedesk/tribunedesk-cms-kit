@@ -9,9 +9,10 @@ building. Do not copy the README into the user's project.
 1. **A configurable API base address.** The code reads it from an environment variable
    (recommended name `TD_API_BASE`) that defaults to the production address; tests point it at
    the mock, `http://127.0.0.1:<port>`.
-2. **The signing secret from configuration**, so it can be the mock's secret locally. `TDKIT mock`
-   prints the mock secret; it is a public test value, safe to put into a local `.env`, never into
-   production.
+2. **The signing secret from configuration**, so it can be the mock's secret locally. The mock's
+   secret is `whsec_dGRraXQtbW9jay1zaWduaW5nLXNlY3JldC0wMDAwMDA=` (`TDKIT mock` prints it too);
+   `TDKIT check` signs with it unless you pass `--secret`. It is a public test value, safe to put
+   into a local `.env`, never into production.
 3. **Three developer commands** in the CMS's idiom (CMS reference, section 7). Their exact
    contract, including the JSON keys `inspect` prints per level, is in the kit README, section
    "The commands your integration provides". Read it there; they are:
