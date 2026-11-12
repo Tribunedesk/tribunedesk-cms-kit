@@ -39,7 +39,8 @@ mock on `127.0.0.1` and calls the integration's own developer commands.
 
 ## 1. What this skill does and does not do
 
-Say this to the user at the start, in their language, in two sentences:
+Say this to the user, in their language, in two sentences, as the first lines of the last
+message of your first turn (text earlier in a turn may not reach them):
 
 > I will build (or update, or check) your Tribune Desk integration in this project and test it
 > against a local mock of Tribune Desk, telling you what I do at each stage. I will not order
