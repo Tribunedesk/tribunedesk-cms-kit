@@ -1,0 +1,8 @@
+name: Tribune Desk
+type: module
+description: 'Receives articles from Tribune Desk as draft nodes and reports their published address back (CMS API levels 1 and 2).'
+package: Custom
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - drupal:node
+  - drupal:text

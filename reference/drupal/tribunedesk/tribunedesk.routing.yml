@@ -1,0 +1,11 @@
+tribunedesk.webhook:
+  path: '/td/webhook'
+  defaults:
+    _controller: '\Drupal\tribunedesk\Controller\WebhookController::receive'
+  methods: [POST]
+  requirements:
+    # The webhook signature is the access check (guide/1-article-delivery.md,
+    # Verifying the signature).
+    _access: 'TRUE'
+  options:
+    no_cache: TRUE

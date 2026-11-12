@@ -1,0 +1,22 @@
+services:
+  logger.channel.tribunedesk:
+    parent: logger.channel_base
+    arguments: ['tribunedesk']
+
+  tribunedesk.registry:
+    class: Drupal\tribunedesk\ArticleRegistry
+    arguments: ['@database', '@entity_type.manager']
+
+  tribunedesk.delivery_handler:
+    class: Drupal\tribunedesk\DeliveryHandler
+    arguments: ['@tribunedesk.registry', '@entity_type.manager', '@database', '@lock', '@datetime.time']
+
+  tribunedesk.link_back:
+    class: Drupal\tribunedesk\LinkBackReporter
+    arguments: ['@tribunedesk.registry', '@http_client', '@queue', '@datetime.time', '@logger.channel.tribunedesk']
+
+  tribunedesk.link_back_terminate:
+    class: Drupal\tribunedesk\EventSubscriber\LinkBackTerminateSubscriber
+    arguments: ['@tribunedesk.link_back']
+    tags:
+      - { name: event_subscriber }

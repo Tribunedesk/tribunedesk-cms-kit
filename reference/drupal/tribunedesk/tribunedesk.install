@@ -1,0 +1,59 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the Tribune Desk module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function tribunedesk_schema(): array {
+  $schema['tribunedesk_article'] = [
+    'description' => 'Maps Tribune Desk articles to the nodes made from them.',
+    'fields' => [
+      'article_id' => [
+        'type' => 'varchar_ascii',
+        'length' => 64,
+        'not null' => TRUE,
+        'description' => 'Tribune Desk article_id (unique: one node per article).',
+      ],
+      'nid' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'sent_at' => [
+        'type' => 'varchar_ascii',
+        'length' => 64,
+        'not null' => FALSE,
+        'description' => 'sent_at of the last applied send, as delivered.',
+      ],
+      'sent_at_us' => [
+        'type' => 'int',
+        'size' => 'big',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'sent_at of the last applied send, in Unix microseconds.',
+      ],
+      'delivery_id' => [
+        'type' => 'varchar_ascii',
+        'length' => 128,
+        'not null' => FALSE,
+      ],
+      'image_url' => [
+        'type' => 'text',
+        'not null' => FALSE,
+        'description' => 'URL of the delivered main image (not downloaded).',
+      ],
+      'reported_url' => [
+        'type' => 'text',
+        'not null' => FALSE,
+        'description' => 'Last address Tribune Desk accepted for this article.',
+      ],
+    ],
+    'primary key' => ['article_id'],
+    'unique keys' => ['nid' => ['nid']],
+  ];
+  return $schema;
+}

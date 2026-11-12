@@ -56,6 +56,120 @@ jobs:
             --docs "$RUNNER_TEMP/cms-api" \
             --json "$RUNNER_TEMP/report.json"
 
+  changes:
+    # The reference integrations run only when something they depend on changed.
+    runs-on: ubuntu-latest
+    outputs:
+      reference: ${{ steps.diff.outputs.reference }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "reference=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
+              | grep -qE '^(reference/|src/tdkit/|plugins/)'; then
+            echo "reference=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "reference=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  reference-django:
+    needs: changes
+    if: needs.changes.outputs.reference == 'true'
+    runs-on: ubuntu-latest
+    env:
+      TD_WEBHOOK_SECRET: whsec_dGRraXQtbW9jay1zaWduaW5nLXNlY3JldC0wMDAwMDA=
+      TD_API_BASE: http://127.0.0.1:8787
+      TD_CMS_TOKEN: tdcms_mock
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.20"
+          enable-cache: true
+      - run: uv sync
+      - name: Install and migrate the reference project
+        working-directory: reference/django
+        run: |
+          uv venv --python 3.12 .venv
+          uv pip install --python .venv/bin/python -r requirements.txt
+          .venv/bin/python manage.py migrate -v 0
+          .venv/bin/python manage.py test
+      - name: Start the reference project
+        working-directory: reference/django
+        run: |
+          .venv/bin/python manage.py runserver 127.0.0.1:8000 --noreload &
+          for i in $(seq 1 50); do
+            (echo > /dev/tcp/127.0.0.1/8000) 2>/dev/null && exit 0
+            sleep 0.2
+          done
+          echo "the server did not start" >&2
+          exit 1
+      - name: tdkit check, levels 1 and 2, webhook mode
+        working-directory: reference/django
+        run: |
+          uv run --project "$GITHUB_WORKSPACE" tdkit check --levels 1,2 --mode webhook --contract v3.4.1-draft \
+            --webhook http://127.0.0.1:8000/td/webhook/ \
+            --inspect-cmd ".venv/bin/python manage.py td_inspect {article_id}" \
+            --publish-cmd ".venv/bin/python manage.py td_publish {article_id}"
+
+  reference-drupal:
+    needs: changes
+    if: needs.changes.outputs.reference == 'true'
+    runs-on: ubuntu-latest
+    env:
+      TD_WEBHOOK_SECRET: whsec_dGRraXQtbW9jay1zaWduaW5nLXNlY3JldC0wMDAwMDA=
+      TD_API_BASE: http://127.0.0.1:8787
+      TD_CMS_TOKEN: tdcms_mock
+      TD_SITE_URL: http://127.0.0.1:8888
+      COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.GITHUB_TOKEN }}"}}'
+      SITE: ${{ github.workspace }}/../drupal-site
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.20"
+          enable-cache: true
+      - run: uv sync
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: gd, pdo_sqlite, sqlite3, mbstring, xml, curl, zip
+          tools: composer:v2
+      - name: Build a Drupal 11 site with the reference module
+        run: |
+          composer create-project --no-interaction -q drupal/recommended-project:^11 "$SITE"
+          cd "$SITE"
+          composer config repositories.tribunedesk-cms-php vcs https://github.com/Tribunedesk/tribunedesk-cms-php
+          composer require --no-interaction -q drush/drush tribunedesk/cms-protocol:^1.0
+          vendor/bin/drush site:install standard -y -q --db-url=sqlite://sites/default/files/.ht.sqlite
+          mkdir -p web/modules/custom
+          cp -r "$GITHUB_WORKSPACE/reference/drupal/tribunedesk" web/modules/custom/
+          chmod u+w web/sites/default web/sites/default/settings.php
+          tail -n +4 "$GITHUB_WORKSPACE/reference/drupal/settings.tribunedesk.php" >> web/sites/default/settings.php
+          vendor/bin/drush en tribunedesk -y
+      - name: Start the site
+        run: |
+          cd "$SITE/web"
+          php -S 127.0.0.1:8888 .ht.router.php > "$RUNNER_TEMP/php.log" 2>&1 &
+          for i in $(seq 1 50); do
+            (echo > /dev/tcp/127.0.0.1/8888) 2>/dev/null && exit 0
+            sleep 0.2
+          done
+          echo "the site did not start" >&2
+          exit 1
+      - name: tdkit check, levels 1 and 2, webhook mode
+        run: |
+          cd "$SITE"
+          uv run --project "$GITHUB_WORKSPACE" tdkit check --levels 1,2 --mode webhook --contract v3.4.1-draft \
+            --webhook http://127.0.0.1:8888/td/webhook \
+            --inspect-cmd "vendor/bin/drush td:inspect {article_id}" \
+            --publish-cmd "vendor/bin/drush td:publish {article_id}"
+
   plugin:
     # The marketplace and the plugin must pass Claude Code's own validator (warnings fail).
     runs-on: ubuntu-latest

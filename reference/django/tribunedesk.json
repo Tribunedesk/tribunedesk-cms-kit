@@ -1,0 +1,19 @@
+{
+  "contract": "3.4.1-draft",
+  "levels": [
+    1,
+    2
+  ],
+  "delivery": "webhook",
+  "cms": "django",
+  "kit": "1.0.0.dev0",
+  "conformance": {
+    "date": "2026-11-12",
+    "kit": "1.0.0.dev0",
+    "contract": "3.4.1-draft",
+    "passed": [
+      1,
+      2
+    ]
+  }
+}

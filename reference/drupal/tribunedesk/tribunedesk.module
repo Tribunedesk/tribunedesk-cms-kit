@@ -1,0 +1,29 @@
+<?php
+
+/**
+ * @file
+ * Hooks of the Tribune Desk module.
+ */
+
+declare(strict_types=1);
+
+use Drupal\node\NodeInterface;
+
+/**
+ * Implements hook_node_update().
+ *
+ * Reports the address of a node made from a Tribune Desk article when it goes
+ * public or moves (guide/2-link-back.md, Reporting the published address).
+ */
+function tribunedesk_node_update(NodeInterface $node): void {
+  \Drupal::service('tribunedesk.link_back')->onNodeSaved($node);
+}
+
+/**
+ * Implements hook_node_delete().
+ *
+ * A new send of the article then makes a new draft.
+ */
+function tribunedesk_node_delete(NodeInterface $node): void {
+  \Drupal::service('tribunedesk.registry')->deleteByNid((int) $node->id());
+}
