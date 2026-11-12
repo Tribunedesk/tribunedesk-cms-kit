@@ -72,14 +72,12 @@ i gita.
 You need [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer. No installation:
 
 ```bash
-uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.0.0 tdkit --help
+uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.0.1 tdkit --help
 ```
-
-(Until the `v1.0.0` tag exists, use `@main`.)
 
 ### Which contract
 
-`tdkit` supports the contracts `3.4.0-draft` and `3.4.1-draft`. It takes the documentation from,
+`tdkit` supports every patch of contract 3.4 (`3.4.0-draft`, `3.4.1-draft`, `3.4.2-draft` and later patches). It takes the documentation from,
 first found:
 
 1. `--docs DIR`, a checkout of `tribunedesk-cms-api`;

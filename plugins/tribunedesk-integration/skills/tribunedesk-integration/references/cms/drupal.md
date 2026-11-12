@@ -70,3 +70,9 @@ container (`ddev exec`), and then `tdkit` must run where the site can reach it.
   delivery's language on the node.
 - Page cache and Dynamic Page Cache must not cache the webhook route (`no_cache`).
 - Multiple web heads: the lock service must be the database one, not memory.
+- **No `article` content type on Drupal 11.4+:** the standard profile no longer creates it; a
+  site installed from it may have none. Check the bundles first (`drush entity:bundle-info node`
+  or the node type list) and ask which content type posts go to; on a fresh site the core recipe
+  `core/recipes/article_content_type` adds the article type (`drush recipe core/recipes/article_content_type`).
+- **Local runs with `php -S`:** start it from the `web/` directory (the document root), with
+  `.ht.router.php` as the router, or Drupal's routes give 404.

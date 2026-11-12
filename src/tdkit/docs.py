@@ -19,7 +19,18 @@ from typing import Any
 from tdkit import __version__
 from tdkit.errors import UsageError
 
-SUPPORTED = ("3.4.0-draft", "3.4.1-draft")
+# Every patch of contract 3.4: a patch changes descriptions only (VERSIONING), so a docs patch
+# must not stop the skill. A new minor or major needs a tdkit release that knows it.
+SUPPORTED_MINOR = (3, 4)
+_VERSION = re.compile(r"^(\d+)\.(\d+)\.\d+(-draft)?$")
+
+
+def is_supported(version: str) -> bool:
+    """True for any `3.4.<patch>` contract, draft or not."""
+    match = _VERSION.match(version)
+    return bool(match) and (int(match.group(1)), int(match.group(2))) == SUPPORTED_MINOR
+
+
 REPO_URL = "https://github.com/Tribunedesk/tribunedesk-cms-api"
 SAMPLE_DELIVERY = Path("examples/payloads/article-delivered.json")
 VECTORS = Path("examples/vectors/webhook-signature.json")
@@ -83,7 +94,7 @@ def load_docs(root: Path) -> ContractDocs:
     """Read one checkout of `tribunedesk-cms-api` and check tdkit supports its contract."""
     openapi = _read_json(root / "openapi.json")
     version = str(openapi.get("info", {}).get("version", ""))
-    if version not in SUPPORTED:
+    if not is_supported(version):
         raise UsageError(
             f"contract {version} is not supported by tdkit {__version__}; update the plugin"
         )

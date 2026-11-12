@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tdkit.docs import SUPPORTED, latest_tag, resolve_docs
+from tdkit.docs import is_supported, latest_tag, resolve_docs
 from tdkit.errors import UsageError
 
 FIXTURE = Path(__file__).parent / "fixtures" / "cms-api"
@@ -23,7 +23,7 @@ def test_resolve_docs_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TRIBUNEDESK_DOCS_DIR", str(FIXTURE))
     docs = resolve_docs(None, None)
     assert docs.root == FIXTURE
-    assert docs.version in SUPPORTED
+    assert is_supported(docs.version)
 
 
 def test_unsupported_contract_is_usage_error(tmp_path: Path) -> None:
@@ -55,3 +55,19 @@ def test_latest_tag_sorts_versions() -> None:
     ]
     assert latest_tag(lines) == "v3.10.0-draft"
     assert latest_tag(["1\trefs/tags/v3.4.1-draft", "2\trefs/tags/v3.4.1"]) == "v3.4.1"
+
+
+@pytest.mark.parametrize(
+    ("version", "ok"),
+    [
+        ("3.4.0-draft", True),
+        ("3.4.2-draft", True),
+        ("3.4.17", True),
+        ("3.5.0-draft", False),
+        ("4.0.0", False),
+        ("3.4.x-draft", False),
+    ],
+)
+def test_every_patch_of_the_supported_minor_is_accepted(version, ok):
+    """A patch changes no shape (VERSIONING), so a docs patch must not stop the skill."""
+    assert is_supported(version) is ok
