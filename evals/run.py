@@ -79,50 +79,17 @@ def skill_fired(run: Run) -> tuple[bool, str]:
     return any("tribunedesk-integration" in n for n in names), f"Skill calls: {names}"
 
 
-def plan_before_code(run: Run) -> tuple[bool, str]:
-    """A message of some length to the user before the first Write or Edit: the plan."""
-    for event in run.events:
-        if event.get("type") != "assistant":
-            continue
-        for block in event.get("message", {}).get("content", []):
-            if block.get("type") == "text" and len(block.get("text", "")) >= 300:
-                return True, "a long message precedes the first code change"
-            if block.get("type") == "tool_use" and block.get("name") in ("Write", "Edit"):
-                return False, "code was written before any message of 300+ characters"
-    return False, "no plan message"
-
-
-SUMMARY = re.compile(r"\*\*(?:Done|Zrobione|Zrobiono):\*\*")
-
-
-def stage_summaries(minimum: int) -> Check:
-    """Stage summaries (the template's first line, English or Polish) before the final message."""
-
-    def check(run: Run) -> tuple[bool, str]:
-        texts = [
-            block.get("text", "")
-            for event in run.events
-            if event.get("type") == "assistant"
-            for block in event.get("message", {}).get("content", [])
-            if block.get("type") == "text"
-        ]
-        count = sum(len(SUMMARY.findall(text)) for text in texts[:-1])
-        return count >= minimum, f"{count} stage summary(ies) before the last message"
-
-    return check
-
-
-def welcome_first(run: Run) -> tuple[bool, str]:
-    """The first text to the user says it will not order tokens or deploy (section 1)."""
-    for event in run.events:
-        if event.get("type") != "assistant":
-            continue
-        for block in event.get("message", {}).get("content", []):
-            if block.get("type") == "text":
-                text = block.get("text", "")
-                ok = re.search(r"(?i)token", text) is not None and len(text) >= 150
-                return ok, text[:80]
-    return False, "no text"
+def final_message_complete(run: Run) -> tuple[bool, str]:
+    """The last message stands alone (SKILL.md, "The last message of a turn"): the stages with
+    their results (5+ stage numbers), the plan as built (3+ file paths) and the welcome's promise
+    that nothing was ordered or deployed."""
+    text = run.result.get("result", "") or ""
+    stages = set(re.findall(r"(?i)(?:etap\w*|stage)\s*([0-7])", text))
+    stages |= set(re.findall(r"(?m)^\|\s*([0-7])\.", text))
+    files = set(re.findall(r"[\w/.-]+\.(?:py|php|md|json|example)(?!\w)", text))
+    promise = re.search(r"(?i)deploy|wdra[żz]|produkc|production", text) is not None
+    ok = len(stages) >= 5 and len(files) >= 3 and promise
+    return ok, f"stages {sorted(stages)}, {len(files)} file(s), deploy/production named: {promise}"
 
 
 def ran(pattern: str, *, expected: bool = True) -> Check:
@@ -296,9 +263,7 @@ class Scenario:
 
 WEBHOOK_L12: dict[str, Check] = {
     "skill fired": skill_fired,
-    "plan before code": plan_before_code,
-    "welcome first": welcome_first,
-    "stage summaries": stage_summaries(5),
+    "final message stands alone": final_message_complete,
     "tdkit check ran": ran(rf"{TDKIT} check"),
     "report green (1,2 webhook)": report_green([1, 2], "webhook"),
     "manifest": manifest(contract="3.4.1-draft", levels=[1, 2], delivery="webhook", passed=[1, 2]),

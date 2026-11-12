@@ -120,19 +120,13 @@ def test_secret_in_a_test_file_is_a_test_vector(tmp_path: Path) -> None:
     assert runner.no_secret_in_git(make_run(tmp_path))[0]
 
 
-def _texts_and_tools(*blocks: dict) -> list[dict]:
-    return [{"type": "assistant", "message": {"content": [b]}} for b in blocks]
-
-
-def test_plan_before_code(tmp_path: Path) -> None:
-    plan = {"type": "text", "text": "P" * 300}
-    write = {"type": "tool_use", "name": "Write", "input": {}}
-    assert runner.plan_before_code(make_run(tmp_path, _texts_and_tools(plan, write)))[0]
-    assert not runner.plan_before_code(make_run(tmp_path, _texts_and_tools(write, plan)))[0]
-
-
-def test_stage_summaries_ignore_the_final_message(tmp_path: Path) -> None:
-    summary = {"type": "text", "text": "**Zrobione:** x"}
-    events = _texts_and_tools(summary, summary)
-    assert runner.stage_summaries(1)(make_run(tmp_path, events))[0]
-    assert not runner.stage_summaries(2)(make_run(tmp_path, events))[0]
+def test_final_message_complete(tmp_path: Path) -> None:
+    good = (
+        "Nic nie wdrażałem na produkcję.\n| 1. Projekt | ok |\n| 2. Zakres | ok |\n"
+        "| 3. Wiadomość | ok |\n| 5. Budowa | ok |\n| 6. Zgodność | ok |\n"
+        "Pliki: `blog/tribunedesk.py`, `blog/views.py`, `.env.example`."
+    )
+    events = [{"type": "result", "result": good}]
+    assert runner.final_message_complete(make_run(tmp_path, events))[0]
+    events = [{"type": "result", "result": "Gotowe, 13 PASS."}]
+    assert not runner.final_message_complete(make_run(tmp_path, events))[0]

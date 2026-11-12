@@ -115,11 +115,13 @@ def test_skill_stage_7_is_scoped() -> None:
     assert "webhook" not in level4.lower()
 
 
-def test_preapproval_still_shows_plan_and_summaries() -> None:
-    """First run of django-l12 (E9.6): with the plan approved up front the skill printed
-    neither the plan nor stage summaries and then said the plan was "above"."""
+def test_last_message_stands_alone() -> None:
+    """django-l12 runs 1-5 (E9.6): with the plan approved up front the welcome, the plan and the
+    stage summaries landed between tool calls (often as thinking); only the last message was
+    reliably complete. Owner's choice 2026-11-12: the last message carries them."""
     text = skill_text()
-    assert "as its own message" in text
+    assert "### The last message of a turn" in text
+    assert "the last message of every turn stands alone" in text
     assert "Never say you showed something you did not" in text
 
 
@@ -128,14 +130,3 @@ def test_tdkit_reference_gives_the_mock_secret() -> None:
     from tdkit.signing import MOCK_SECRET
 
     assert MOCK_SECRET in (REFERENCES / "tdkit.md").read_text(encoding="utf-8")
-
-
-def test_welcome_first_and_level_summaries() -> None:
-    text = skill_text()
-    assert "Your first message to the user is the welcome" in text
-    assert "a summary per level, as its own message" in text
-
-
-def test_summaries_are_reply_text_not_thinking() -> None:
-    """Third django-l12 run: the welcome and the summaries went into thinking blocks."""
-    assert "not in your thinking" in skill_text()

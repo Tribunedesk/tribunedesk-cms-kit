@@ -79,10 +79,8 @@ say what you found and recommend the mode that fits the repository.
   instructions stay in English.
 - **Pre-approval.** If the user approved the plan in the request, or told you not to ask ("do
   everything, don't ask"), do not stop for approval, and stop only on a red `TDKIT check` you
-  cannot fix. Everything else stays: the welcome (section 1), the plan of stage 4 and the
-  summary of every stage are each written to the user as its own message when that stage ends,
-  before the next stage starts; the user reads them as the work goes on. Write them as reply
-  text, not in your thinking: the user does not see your thinking.
+  cannot fix. Between stages write only short progress lines; the final message carries the rest
+  (see "The last message of a turn").
   Never say you showed something you did not.
 - **PHP CMS: use the library.** For Drupal, Laravel, Joomla or any PHP project use
   `tribunedesk/cms-protocol` instead of writing the protocol again; see
@@ -97,6 +95,14 @@ End every stage with four short lines, in the user's language, as reply text:
 - **Result:** what came out (test results, files changed).
 - **Next:** the next stage.
 - **Need from you:** a question or decision, or "nothing".
+
+### The last message of a turn
+
+Text written between tool calls may not reach the user; the last message of a turn always does.
+So the last message of every turn stands alone and carries, for the stages done in that turn:
+a table of the stages with the result of each, the plan as built (files added and changed per
+level, where the secret and the token live) and, when the build ends, the launch steps of stage 7.
+When the plan was approved up front, it also opens with the two sentences of section 1.
 
 ## 4. Build mode
 
