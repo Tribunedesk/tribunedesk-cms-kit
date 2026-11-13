@@ -1,6 +1,6 @@
 # tdkit 1.1 i skill: poziom 4 (biblioteka mediów) — projekt
 
-Data: 2026-11-13. Status: **do zatwierdzenia przez ownera**. Zadanie ledgera:
+Data: 2026-11-13. Status: **zatwierdzony przez ownera 13.11 (wariant 1: w całości)**. Zadanie ledgera:
 `2026-11-13-tribunedesk-cms-kit-poziom-4-wskazowki-i-atrapa`. Kontrakt: tag `v3.4.2-draft` repo
 `Tribunedesk/tribunedesk-cms-api` (`guide/4-media-library.md`, `openapi.json`). Kontekst: spec E9
 (headlinesforge `docs/specs/2026-11-08-e9-skill-integracji-tribune-desk-design.md`, D6 i decyzja
