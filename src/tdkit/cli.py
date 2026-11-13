@@ -54,15 +54,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     check = sub.add_parser("check", help="run the conformance scenarios against your integration")
     check.add_argument("--levels", default="1", help="comma-separated levels, e.g. 1,2,3")
-    check.add_argument("--mode", default="webhook", choices=("webhook", "read"))
+    check.add_argument("--mode", default="webhook", choices=("webhook", "read", "none"))
     check.add_argument("--webhook", help="your webhook address (webhook mode)")
     check.add_argument(
         "--secret", help="the signing secret your webhook verifies (default: the mock's)"
     )
     check.add_argument(
-        "--inspect-cmd",
-        required=True,
-        help="prints the post made from {article_id} as JSON, or null",
+        "--inspect-cmd", help="prints the post made from {article_id} as JSON, or null (1-3)"
     )
     check.add_argument("--publish-cmd", help="publishes the post of {article_id} (levels 2, 3)")
     check.add_argument("--poll-cmd", help="runs one poll of the read mode client")
@@ -73,6 +71,32 @@ def build_parser() -> argparse.ArgumentParser:
         "--port", type=int, default=8787, help="port of the mock on 127.0.0.1 (default 8787)"
     )
     check.add_argument("--json", type=Path, help="also write the report as JSON to this file")
+    check.add_argument("--sync-cmd", help="runs one sync cycle of the media library (level 4)")
+    check.add_argument(
+        "--media-inspect-cmd", help="prints the file {cms_media_id} as JSON, or null (level 4)"
+    )
+    check.add_argument(
+        "--media-add-cmd",
+        help='adds the image {file} to the library, prints {"cms_media_id": …} (level 4)',
+    )
+    check.add_argument(
+        "--media-edit-cmd", help="sets {field} of {cms_media_id} to {value} (level 4)"
+    )
+    check.add_argument("--media-delete-cmd", help="deletes {cms_media_id} (level 4)")
+    check.add_argument(
+        "--reset-cmd", help="clears the integration's level 4 state before the scenarios"
+    )
+    check.add_argument(
+        "--backfill", action="store_true", help="the integration answers import requests"
+    )
+    check.add_argument(
+        "--media-fields",
+        default="alt",
+        help="fields your CMS maps, comma-separated; scenarios edit the first (default alt)",
+    )
+    check.add_argument(
+        "--media-hosts", help="extra hosts accepted in file_url of POST /media and /link"
+    )
     _docs_options(check)
 
     docs = sub.add_parser("docs", help="put the contract documentation into this project")
@@ -241,8 +265,20 @@ def parse_levels(value: str) -> list[int]:
 def run_checks(args: argparse.Namespace) -> int:
     from tdkit.check.context import CheckOptions
     from tdkit.check.runner import render_text, run_check, validate, write_json
+    from tdkit.mock.media import FIELDS
 
     levels = parse_levels(args.levels)
+    fields = tuple(split_list(args.media_fields))
+    unknown = [f for f in fields if f not in FIELDS]
+    if not fields or unknown:
+        raise UsageError(f"--media-fields takes {', '.join(FIELDS)}, not {args.media_fields!r}")
+    level4 = {
+        "sync_cmd": args.sync_cmd,
+        "media_inspect_cmd": args.media_inspect_cmd,
+        "media_add_cmd": args.media_add_cmd,
+        "media_edit_cmd": args.media_edit_cmd,
+        "media_delete_cmd": args.media_delete_cmd,
+    }
     validate(
         levels,
         args.mode,
@@ -251,6 +287,7 @@ def run_checks(args: argparse.Namespace) -> int:
         publish_cmd=args.publish_cmd,
         poll_cmd=args.poll_cmd,
         secret=args.secret,
+        level4=level4,
     )
     opts = CheckOptions(
         docs=resolve_docs(args.contract, args.docs),
@@ -261,6 +298,11 @@ def run_checks(args: argparse.Namespace) -> int:
         poll_cmd=args.poll_cmd,
         social_flag=args.social_flag,
         port=args.port,
+        **level4,
+        reset_cmd=args.reset_cmd,
+        backfill=args.backfill,
+        media_fields=fields,
+        media_hosts=tuple(split_list(args.media_hosts)),
     )
     report = run_check(levels, args.mode, opts)
     print(render_text(report, opts), flush=True)

@@ -11,13 +11,21 @@ from typing import Any
 from tdkit import __version__
 from tdkit.check.context import CheckOptions, Context, Fail
 from tdkit.check.scenarios import SCENARIOS, Scenario
+from tdkit.check.scenarios_media import MEDIA_SCENARIOS
 from tdkit.errors import UsageError
 from tdkit.mock.server import MockServer
 from tdkit.mock.state import MockState
 from tdkit.signing import signing_key
 
-COVERED_LEVELS = (1, 2, 3)
-MODES = ("webhook", "read")
+COVERED_LEVELS = (1, 2, 3, 4)
+MODES = ("webhook", "read", "none")
+LEVEL4_OPTIONS = {
+    "sync_cmd": "--sync-cmd",
+    "media_inspect_cmd": "--media-inspect-cmd",
+    "media_add_cmd": "--media-add-cmd",
+    "media_edit_cmd": "--media-edit-cmd",
+    "media_delete_cmd": "--media-delete-cmd",
+}
 
 
 @dataclass(frozen=True)
@@ -59,6 +67,7 @@ def validate(
     publish_cmd: str | None,
     poll_cmd: str | None,
     secret: str | None = None,
+    level4: dict[str, str | None] | None = None,
 ) -> None:
     """Usage errors (exit code 2), checked before anything runs."""
     if secret is not None:
@@ -71,24 +80,36 @@ def validate(
     if not levels:
         raise UsageError("--levels names no level")
     for level in levels:
-        if level == 4:
-            raise UsageError(f"level 4 is not covered by tdkit {kit_minor()}")
         if level not in COVERED_LEVELS:
             raise UsageError(f"level {level} does not exist; levels are 1 to 4")
     if mode not in MODES:
-        raise UsageError(f"--mode is webhook or read, not {mode}")
+        raise UsageError(f"--mode is webhook, read or none, not {mode}")
+    articles = [level for level in levels if level != 4]
+    if mode == "none" and articles:
+        raise UsageError("--mode none is for level 4 alone; levels 1-3 need webhook or read")
+    if 4 in levels:
+        given = level4 or {}
+        missing = [flag for key, flag in LEVEL4_OPTIONS.items() if not given.get(key)]
+        if missing:
+            raise UsageError(f"level 4 needs {', '.join(missing)}")
+    if not articles:
+        return
     if mode == "webhook" and not webhook:
         raise UsageError("webhook mode needs --webhook URL")
     if mode == "read" and not poll_cmd:
         raise UsageError("read mode needs --poll-cmd")
     if not inspect_cmd:
-        raise UsageError("--inspect-cmd is required")
-    if any(level >= 2 for level in levels) and not publish_cmd:
+        raise UsageError("levels 1-3 need --inspect-cmd")
+    if any(level in (2, 3) for level in levels) and not publish_cmd:
         raise UsageError("levels 2 and 3 need --publish-cmd")
 
 
+def level4_of(opts: CheckOptions) -> dict[str, str | None]:
+    return {key: getattr(opts, key) for key in LEVEL4_OPTIONS}
+
+
 def selected(levels: list[int]) -> list[Scenario]:
-    return [s for s in SCENARIOS if s.level in levels]
+    return [s for s in (*SCENARIOS, *MEDIA_SCENARIOS) if s.level in levels]
 
 
 def run_check(levels: list[int], mode: str, opts: CheckOptions) -> Report:
@@ -100,16 +121,25 @@ def run_check(levels: list[int], mode: str, opts: CheckOptions) -> Report:
         publish_cmd=opts.publish_cmd,
         poll_cmd=opts.poll_cmd,
         secret=opts.secret,
+        level4=level4_of(opts),
     )
     state = MockState(read_mode=mode == "read")
-    server = MockServer(state, opts.docs, opts.port, retry_scale=0)
+    server = MockServer(
+        state, opts.docs, opts.port, retry_scale=0, media_hosts=list(opts.media_hosts)
+    )
     try:
         _, port = server.start()
     except OSError as exc:
         raise UsageError(f"cannot run the mock on 127.0.0.1:{opts.port}: {exc}") from exc
     try:
         ctx = Context(opts, mode, state, port)
-        results = [_run_one(scenario, ctx, opts) for scenario in selected(levels)]
+        results = []
+        reset = False
+        for scenario in selected(levels):
+            if scenario.level == 4 and not reset:
+                reset = True
+                ctx.reset()
+            results.append(_run_one(scenario, ctx, opts))
     finally:
         server.stop()
     return Report(__version__, opts.docs.version, sorted(levels), mode, results)
@@ -125,6 +155,8 @@ def _run_one(scenario: Scenario, ctx: Context, opts: CheckOptions) -> Result:
         return result(None, f"skipped: needs {scenario.mode} mode")
     if scenario.needs_social_flag and not opts.social_flag:
         return result(None, "skipped: the CMS has no 'keep off Facebook' setting (--social-flag)")
+    if scenario.needs_backfill and not opts.backfill:
+        return result(None, "skipped: the integration does not answer import requests (--backfill)")
     try:
         return result(True, scenario.run(ctx))
     except Fail as exc:

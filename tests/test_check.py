@@ -229,12 +229,12 @@ def test_command_template_splits_windows_paths() -> None:
     ]
 
 
-def test_level_4_is_usage_error(capsys: pytest.CaptureFixture[str]) -> None:
+def test_level_4_without_its_commands_is_usage_error(capsys: pytest.CaptureFixture[str]) -> None:
     code = main(
         ["check", "--levels", "1,4", "--webhook", "https://x.example/", "--inspect-cmd", "x"]
     )
     assert code == 2
-    assert "level 4 is not covered by tdkit 1.0" in capsys.readouterr().err
+    assert "level 4 needs --sync-cmd" in capsys.readouterr().err
 
 
 def test_done_when_quotes_are_literal() -> None:

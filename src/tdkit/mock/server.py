@@ -181,7 +181,13 @@ class MockServer:
             answer = self._dispatch(method, path, parse_qs(parts.query), raw, token)
         except ApiError as exc:
             answer = Answer(exc.status, {"code": exc.code, "message": exc.message})
-        self.state.record_call(method, path, answer.status)
+        try:
+            sent = json.loads(raw) if raw else None
+        except ValueError:
+            sent = None
+        self.state.record_call(
+            method, path, answer.status, parse_qs(parts.query), sent, answer.body
+        )
         payload = json.dumps(answer.body).encode()
         handler.send_response(answer.status)
         handler.send_header("Content-Type", "application/json")

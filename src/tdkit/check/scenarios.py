@@ -36,6 +36,7 @@ class Scenario:
     guide: str
     run: Callable[[Context], str]
     needs_social_flag: bool = False
+    needs_backfill: bool = False
 
 
 # -- helpers -------------------------------------------------------------------------------

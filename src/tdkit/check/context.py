@@ -5,16 +5,20 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
+import tempfile
 import time
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
 from tdkit.check.commands import CommandError, run_template
 from tdkit.docs import ContractDocs
-from tdkit.mock.state import DEFAULT_TOKEN, MockState
+from tdkit.mock.png import png
+from tdkit.mock.state import DEFAULT_TOKEN, MockState, Recorded
 from tdkit.sender import DeliveryResult, deliver
 from tdkit.signing import MOCK_SECRET
 
@@ -38,13 +42,31 @@ class Fail(Exception):
 @dataclass(frozen=True)
 class CheckOptions:
     docs: ContractDocs
-    inspect_cmd: str
+    inspect_cmd: str | None = None
     webhook: str | None = None
     secret: str | None = None
     publish_cmd: str | None = None
     poll_cmd: str | None = None
     social_flag: bool = False
     port: int = 8787
+    # Level 4 (media library): the integration's sync and its library, as commands.
+    sync_cmd: str | None = None
+    media_inspect_cmd: str | None = None
+    media_add_cmd: str | None = None
+    media_edit_cmd: str | None = None
+    media_delete_cmd: str | None = None
+    reset_cmd: str | None = None
+    backfill: bool = False
+    media_fields: tuple[str, ...] = ("alt",)
+    media_hosts: tuple[str, ...] = ()
+
+    LEVEL4_COMMANDS = (
+        "sync_cmd",
+        "media_inspect_cmd",
+        "media_add_cmd",
+        "media_edit_cmd",
+        "media_delete_cmd",
+    )
 
 
 class Context:
@@ -165,6 +187,8 @@ class Context:
         return {**os.environ, "TD_API_BASE": self.api_base, "TD_CMS_TOKEN": DEFAULT_TOKEN}
 
     def inspect(self, article_id: str) -> dict[str, Any] | None:
+        if not self.opts.inspect_cmd:
+            raise Fail("this scenario needs --inspect-cmd")
         out = self._run(self.opts.inspect_cmd, "--inspect-cmd", article_id)
         try:
             post = json.loads(out)
@@ -190,11 +214,100 @@ class Context:
             raise Fail("read mode needs --poll-cmd")
         self._run(self.opts.poll_cmd, "--poll-cmd", "")
 
-    def _run(self, template: str, name: str, article_id: str) -> str:
+    def _run(self, template: str, name: str, article_id: str, **values: str) -> str:
         try:
-            return run_template(template, env=self._env(), article_id=article_id)
+            return run_template(template, env=self._env(), article_id=article_id, **values)
         except CommandError as exc:
             raise Fail(f"{name} failed: {exc}") from exc
+
+    # -- level 4 ---------------------------------------------------------------------------
+
+    @property
+    def field(self) -> str:
+        """The field level 4 scenarios edit (`--media-fields`, default `alt`)."""
+        return self.opts.media_fields[0]
+
+    def _media_cmd(self, name: str) -> str:
+        template = getattr(self.opts, name)
+        if not template:
+            raise Fail(f"level 4 needs --{name.removesuffix('_cmd').replace('_', '-')}-cmd")
+        return str(template)
+
+    def sync(self) -> None:
+        self._run(self._media_cmd("sync_cmd"), "--sync-cmd", "")
+
+    def reset(self) -> None:
+        if self.opts.reset_cmd:
+            self._run(self.opts.reset_cmd, "--reset-cmd", "")
+
+    def media_inspect(self, cms_media_id: str) -> dict[str, Any] | None:
+        out = self._run(
+            self._media_cmd("media_inspect_cmd"),
+            "--media-inspect-cmd",
+            "",
+            cms_media_id=cms_media_id,
+        )
+        try:
+            item = json.loads(out)
+        except ValueError as exc:
+            raise Fail(
+                f"--media-inspect-cmd printed something that is not JSON: {out[:200]!r}"
+            ) from exc
+        if item is not None and not isinstance(item, dict):
+            raise Fail("--media-inspect-cmd must print a JSON object or null")
+        return item
+
+    def must_media(self, cms_media_id: str) -> dict[str, Any]:
+        item = self.media_inspect(cms_media_id)
+        if item is None:
+            raise Fail(f"--media-inspect-cmd found no file {cms_media_id!r}")
+        return item
+
+    def media_add(self) -> str:
+        """Add a 1200x800 PNG to the CMS's library as an editor would; its `cms_media_id`."""
+        folder = Path(tempfile.mkdtemp(prefix="tdkit-"))
+        path = folder / f"tdkit-{uuid.uuid4().hex[:8]}.png"
+        path.write_bytes(png(1200, 800, (40, 90, 160)))
+        out = self._run(self._media_cmd("media_add_cmd"), "--media-add-cmd", "", file=str(path))
+        try:
+            answer = json.loads(out)
+        except ValueError as exc:
+            raise Fail(
+                f"--media-add-cmd printed something that is not JSON: {out[:200]!r}"
+            ) from exc
+        cms_media_id = answer.get("cms_media_id") if isinstance(answer, dict) else None
+        if not isinstance(cms_media_id, str) or not cms_media_id:
+            raise Fail('--media-add-cmd must print {"cms_media_id": "…"}')
+        return cms_media_id
+
+    def media_edit(self, cms_media_id: str, field: str, value: str) -> None:
+        self._run(
+            self._media_cmd("media_edit_cmd"),
+            "--media-edit-cmd",
+            "",
+            cms_media_id=cms_media_id,
+            field=field,
+            value=value,
+        )
+
+    def media_delete(self, cms_media_id: str) -> None:
+        self._run(
+            self._media_cmd("media_delete_cmd"),
+            "--media-delete-cmd",
+            "",
+            cms_media_id=cms_media_id,
+        )
+
+    def mark(self) -> int:
+        return len(self.state.requests)
+
+    def requests_since(self, mark: int, method: str, path: str) -> list[Recorded]:
+        """Requests the integration made after `mark` whose path matches regex `path`."""
+        return [
+            r
+            for r in self.state.requests[mark:]
+            if r.method == method and re.fullmatch(path, r.path)
+        ]
 
 
 def _snippet(raw: bytes) -> str:

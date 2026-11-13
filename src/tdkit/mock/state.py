@@ -72,6 +72,18 @@ class CursorError(Exception):
 _CURSOR = re.compile(r"c([0-9a-f]{6})-(\d+)-(\d+)")
 
 
+@dataclass(frozen=True)
+class Recorded:
+    """One request the integration made to the mock, with what the mock answered."""
+
+    method: str
+    path: str
+    query: dict[str, list[str]]
+    status: int
+    body: Any
+    answer: Any
+
+
 @dataclass
 class ResultCall:
     """One `POST /result` the integration made, with the status the mock answered."""
@@ -104,6 +116,7 @@ class MockState:
     results: list[ResultCall] = field(default_factory=list)
     pulls: dict[str, int] = field(default_factory=dict)
     calls: list[tuple[str, str, int]] = field(default_factory=list)
+    requests: list[Recorded] = field(default_factory=list)
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
     # Cursors are `c<run>-<epoch>-<seq>`: `run` tells this mock from an earlier one (a cursor an
     # integration kept from another `tdkit check`), `epoch` grows when the integration is enabled
@@ -238,6 +251,15 @@ class MockState:
         with self.lock:
             self.pulls[name] = self.pulls.get(name, 0) + 1
 
-    def record_call(self, method: str, path: str, status: int) -> None:
+    def record_call(
+        self,
+        method: str,
+        path: str,
+        status: int,
+        query: dict[str, list[str]] | None = None,
+        body: Any = None,
+        answer: Any = None,
+    ) -> None:
         with self.lock:
             self.calls.append((method, path, status))
+            self.requests.append(Recorded(method, path, query or {}, status, body, answer))
