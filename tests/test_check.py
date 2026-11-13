@@ -148,7 +148,7 @@ def test_reference_integration_passes_all_levels(
 def test_json_report_shape(webhook_run: tuple[int, dict[str, Any], str]) -> None:
     _, report, _ = webhook_run
     assert set(report) == {"tdkit", "contract", "levels", "mode", "results"}
-    assert report["contract"] == "3.4.1-draft"
+    assert report["contract"] == "3.4.2-draft"
     assert report["levels"] == [1, 2, 3]
     assert report["mode"] == "webhook"
     assert [r["id"] for r in report["results"]] == [s.id for s in SCENARIOS]

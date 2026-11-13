@@ -518,8 +518,7 @@ D2_SOCIAL = (
     "clearing the setting never reaches Tribune Desk."
 )
 D3_LINKS = (
-    "Placeholders are replaced with your addresses, or the link text is left without a link, "
-    "and earlier posts are updated when a target is published."
+    "Placeholders are replaced with your addresses, or the link text is left without a link."
 )
 D3_BOX = (
     "The “read more” box follows `backlink_sources`, including the missing-key and "
