@@ -19,6 +19,8 @@ building. Do not copy the README into the user's project.
    - `inspect <article_id>`: prints the post made from that article as JSON, or `null`;
    - `publish <article_id>`: publishes that post the way an editor would (levels 2-3);
    - `poll`: runs one poll of the read mode client (read mode).
+   - Level 4 adds `sync`, `media-inspect`, `media-add`, `media-edit`, `media-delete` and `reset`
+     (CMS reference, section 10; the README has their contract).
 
    These are development tools. Keep them out of production menus, but they may ship with the
    code (a management command, an artisan command, a drush command).
@@ -33,7 +35,7 @@ TDKIT check --levels 1,2 --mode webhook \
   --webhook http://127.0.0.1:8000/td/webhook \
   --inspect-cmd "python manage.py td_inspect {article_id}" \
   --publish-cmd "python manage.py td_publish {article_id}" \
-  --docs .tribunedesk/cms-api@v3.4.1-draft \
+  --docs .tribunedesk/cms-api@v3.4.2-draft \
   --json .tribunedesk/tdkit-report.json
 ```
 
@@ -43,7 +45,11 @@ TDKIT check --levels 1,2 --mode webhook \
 - `--secret` when the integration verifies with its own secret instead of the mock's; the
   report never shows the value. Never pass a production secret.
 - `--social-flag` when the CMS has a "keep this post off Facebook" setting.
-- `--levels 4` is refused: tdkit 1.0 does not test level 4.
+- Level 4: `--levels 4 --mode none` (level 4 alone) with `--sync-cmd`, `--media-inspect-cmd`,
+  `--media-add-cmd`, `--media-edit-cmd`, `--media-delete-cmd` and `--reset-cmd`; add
+  `--backfill` when the integration answers import requests. With levels 1-3 as well, run one
+  check with all levels in their mode. The scenario `l4-held-not-resent` proves the sync does not
+  decide held batches; the operator's screen itself you check by hand.
 
 Exit code 0 means every scenario that ran passed, 1 means one failed, 2 means a usage error.
 

@@ -40,10 +40,30 @@ def test_skill_has_preapproval_rule() -> None:
     assert "approved the plan in the request" in text
 
 
-def test_skill_states_level_4_not_covered() -> None:
+def test_skill_runs_check_for_level_4() -> None:
     text = skill_text()
-    assert re.search(r"tdkit 1\.0 does not test level 4", text)
+    assert "does not test level 4" not in text
+    assert "without level 4" not in text
     assert "photos only" in text.lower() or "only photos" in text.lower()
+    tdkit = (REFERENCES / "tdkit.md").read_text(encoding="utf-8")
+    for needle in ("--levels 4", "--mode none", "--sync-cmd", "--reset-cmd", "--backfill"):
+        assert needle in tdkit, needle
+
+
+def test_cms_references_have_level_4_section() -> None:
+    for name in ("generic.md", "laravel.md", "django.md", "wordpress.md"):
+        text = (REFERENCES / "cms" / name).read_text(encoding="utf-8")
+        assert "## 10. Level 4 (media library)" in text, name
+    generic = (REFERENCES / "cms" / "generic.md").read_text(encoding="utf-8")
+    for needle in ("CmsSync.php", "Staging", "held batches", "resync", "changed_at", "lock"):
+        assert needle in generic, needle
+
+
+def test_scope_splits_level_4() -> None:
+    scope = (REFERENCES / "scope.md").read_text(encoding="utf-8")
+    section = scope.split("## Level 4: core and options", 1)[1].split("\n## ", 1)[0]
+    for needle in ("**Core**", "**Optional**", "backfill", "push-existing", "PUT /settings"):
+        assert needle in section, needle
 
 
 def test_skill_lists_every_cms_reference_and_generic() -> None:
@@ -94,10 +114,6 @@ def test_skill_requires_git_and_passes_the_downloaded_docs() -> None:
     assert "git is required" in text
     assert re.search(r"TDKIT check[^\n]*--docs", text)
     assert re.search(r"TDKIT integrators[^\n]*--docs", text)
-
-
-def test_skill_never_passes_level_4_to_check() -> None:
-    assert "without level 4" in skill_text()
 
 
 def test_skill_keeps_env_and_report_out_of_git() -> None:

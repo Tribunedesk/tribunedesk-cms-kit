@@ -61,3 +61,21 @@ Artisan commands in `app/Console/Commands`: `php artisan td:inspect {article_id}
 - `config:cache` makes `env()` return null outside config files.
 - Queue worker not running locally: links back and images never happen; run
   `php artisan queue:work` or the `sync` driver in tests.
+
+## 10. Level 4 (media library)
+
+The model (state, queue, screens, staging) is in `references/cms/generic.md`, section 10. In
+Laravel:
+
+- Migrations for `td_sync_state` (one row: cursor, attempts, resync flag) and columns or a side
+  table on the media model (`asset_id`, field versions as JSON, set-aside values, send result),
+  plus `td_media_edits` (media id, field, `changed_at`, unique per media and field).
+- A model observer on the media model fills the edit queue; apply feed changes inside
+  `Model::withoutEvents()` so they do not enter it.
+- `Cache::lock('td-sync', 300)->get(...)` around one cycle; schedule it in `routes/console.php`
+  (`Schedule::command('td:sync')->everyFiveMinutes()->withoutOverlapping()`), and dispatch a
+  delayed job a minute after an edit.
+- Filament or Nova pages (or a plain admin controller) for held batches and the resync preview.
+- Commands for `TDKIT check`: `php artisan td:sync`, `td:media-inspect {cms_media_id}`,
+  `td:media-add {file}`, `td:media-edit {cms_media_id} {field} {value}`,
+  `td:media-delete {cms_media_id}`, `td:media-reset`.

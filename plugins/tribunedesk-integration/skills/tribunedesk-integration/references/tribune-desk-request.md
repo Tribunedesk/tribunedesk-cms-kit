@@ -8,6 +8,10 @@ list; do not add items from memory and do not leave rows out.
 Fill in the brackets. Leave out the webhook line in read mode and for level 4 only. Never put a
 secret or token value in the message: the contact sends them to the user, not the other way.
 
+For level 4 add one line after the list: a separate test organization (with its own token) for
+the staging and development copies of the CMS. One organization has one feed position, so a
+copy on the production organization muddles it (`guide/4-media-library.md`, The sync cycle).
+
 ## English
 
 > Subject: Tribune Desk CMS integration for [organization]

@@ -71,3 +71,21 @@ in the downloaded docs) and the upsert with two calls for one `article_id`.
 - `USE_TZ = True`: parse `sent_at` with `datetime.fromisoformat` and compare aware datetimes.
 - Middleware that rewrites responses (GZip, locale redirects) must not touch the webhook path.
 - Long-running image downloads inside the view break the 30-second answer limit.
+
+## 10. Level 4 (media library)
+
+The model (state, queue, screens, staging) is in `references/cms/generic.md`, section 10. In
+Django:
+
+- A model `SyncState` (one row: cursor, attempts, resync flag) and fields or a one-to-one model
+  on the photo model (`asset_id`, field versions as a `JSONField`, set-aside values, send result),
+  plus `MediaEdit` (photo, field, `changed_at`, unique together).
+- A `post_save` signal fills the edit queue; apply feed changes with a flag (a thread-local or an
+  `update_fields` call that the signal skips) so they do not enter it.
+- `select_for_update()` on the `SyncState` row inside `transaction.atomic()` is the lock; run the
+  cycle from cron or Celery beat, never from a view.
+- Admin views (`ModelAdmin` actions or a custom admin page) for held batches and the resync
+  preview.
+- Management commands for `TDKIT check`: `td_sync`, `td_media_inspect <cms_media_id>`,
+  `td_media_add <file>`, `td_media_edit <cms_media_id> <field> <value>`,
+  `td_media_delete <cms_media_id>`, `td_media_reset`.

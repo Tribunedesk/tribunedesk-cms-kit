@@ -1,6 +1,6 @@
 {
   "name": "tribunedesk-integration",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Build, update and check a CMS integration with the Tribune Desk CMS API, tested against a local mock of Tribune Desk",
   "author": {
     "name": "Tribune Desk"

@@ -11,7 +11,7 @@ what the user says onto them.
 | "Articles should land in our CMS as drafts" | 1 | webhook | The minimum. |
 | "Articles and links" / "Tribune Desk should know where we published" | 1 + 2 | webhook | Level 2 lets other articles link to the published post. |
 | "Everything: links inside articles, the read-more box, SEO, the AI label" | 1 + 2 + 3 | webhook | Level 3 is more fields of the same delivery, no new route. |
-| "Only photos" / "keep our media library in sync" | 4 | none | No webhook. tdkit 1.0 does not test level 4: say so. |
+| "Only photos" / "keep our media library in sync" | 4 | none | No webhook. Core first; the options below only on request. |
 | "Articles, and reuse images already in our library" | 1 + 4 | webhook | Reuse needs level 4 data. |
 | "Our CMS is not reachable from the internet" / "only behind VPN" | 1 (+2, +3) | read | The CMS polls Tribune Desk instead of receiving requests. |
 | "We are on Ghost(Pro)" | 1 (+2, +3) | webhook through a bridge, or read | Ghost cannot host the endpoint; no level 4 (no media library). See `cms/ghost.md`. |
@@ -30,6 +30,20 @@ Level 2  Link back          (needs 1)
 Level 3  Full content       (needs 1; works best with 2, so links can point to published posts)
 Level 4  Media library      (stands alone; 1 + 4 reuses library images in deliveries)
 ```
+
+## Level 4: core and options
+
+- **Core** (every level 4 integration): the sync cycle (pull, apply, store the cursor), taking
+  new files from Tribune Desk (`/link`), sending your new files, field edits and deletions,
+  conflicts, `410` → resync, and a screen where a person decides held batches and confirms a
+  resync. `TDKIT check --levels 4` tests all of it.
+- **Optional**, only when the user asks:
+  - historical import (backfill): your CMS answers Tribune Desk's export requests (`--backfill`
+    in `TDKIT check`);
+  - push-existing: an operator's button that offers older Tribune Desk files to the CMS;
+  - writing the settings from the CMS (`PUT /settings`): most newsrooms set them in Tribune Desk.
+- A staging or local copy needs its own Tribune Desk organization: one organization has one feed
+  position, so two clients on it muddle each other (`guide/4-media-library.md`, The sync cycle).
 
 ## Choosing the delivery mode
 

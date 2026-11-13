@@ -58,3 +58,9 @@ test library).
 - Security plugins and caching plugins may block or cache REST POSTs: whitelist the route.
 - `wp_kses_post` strips `<script>`: keep the AI label in the head instead (guide 3, The AI label).
 - WP-Cron runs only on page views; use a real cron on low-traffic sites.
+
+## 10. Level 4 (media library)
+
+The Tribune Desk plugin (https://github.com/Tribunedesk/tribunedesk-wordpress) already does level
+4 (`src/WordPress/CmsSync.php` and its neighbours). Install it rather than building level 4
+again; build only what the newsroom needs beyond it.

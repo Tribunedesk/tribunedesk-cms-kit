@@ -59,3 +59,51 @@ attempts of one send, and for an older send after a newer one.
 - Image downloads inside the request (30-second answer limit).
 - Answering 4xx for anything but a bad signature: a 4xx ends the send for good (guide 1, Your
   answer).
+
+## 10. Level 4 (media library)
+
+Build it from `guide/4-media-library.md`; this section only says where things live in a CMS.
+The working example is the WordPress plugin: `src/WordPress/CmsSync.php` at
+https://github.com/Tribunedesk/tribunedesk-wordpress/blob/v2.2.3/src/WordPress/CmsSync.php (the
+cycle), with `MediaMetaSync.php` (the queue of edits), `CmsResync.php` (resync),
+`CmsDeletions.php`, `CmsBackfill.php` and `CmsSettingsScreen.php` (the operator's screen) next
+to it. Read it for the logic; do not copy WordPress code into another CMS.
+
+**Core and options.** Core: the sync cycle, taking files (`/link`), sending your new files,
+field edits and deletions, conflicts, `410` → resync, and the screen for held batches. Optional,
+only when the user wants them: historical import (backfill), sending older files
+(push-existing) and writing the settings from the CMS (`references/scope.md`).
+
+**State to store.**
+
+- Per organization: the cursor (stored only after the changes it covers are applied), a counter
+  of attempts for the change you are stuck on, a "resync needed" flag with the open preview's
+  id, and a lock so only one cycle runs at a time.
+- Per file: the Tribune Desk `asset_id`, the version of every synced field, the values from the
+  feed you set aside because the field was edited locally and not sent yet (with the
+  `held_batch_id` when the server held your write), and the result of sending the file.
+- A queue of local edits: file, field, and `changed_at` = the time of the last edit by a person.
+  Writes coming from the feed must not enter it (switch the tracking off while you apply them).
+- A queue of deletions (`cms_media_id`, `deleted_at`).
+
+**Field mapping.** Decide with the user which CMS field is `title`, `alt`, `caption` and
+`description` (guide 4, Conflicts and base_version), and leave the rest alone. Values are plain
+text: strip markup before sending.
+
+**Schedule.** Pull every few minutes and send your own edits about a minute after an edit (guide
+4, The sync cycle, step 6), from the CMS's scheduler or cron, never inside a web request. One
+cycle at a time: take the lock first. Honour `retry_after` on `429` and `503`.
+
+**Screens for a person.** Two decisions belong to an operator, never to the sync: held batches
+(list with `GET /held`, decide `send` or `discard`) and the resync preview (direction, number of
+differences, confirm). After `410` the sync sends the unsent edits, starts a `td_to_cms` preview
+and stops; the operator confirms it (or starts `cms_to_td` instead) and the cycle resumes from
+the returned cursor (guide 4, Cursors and expiry).
+
+**Staging.** Tribune Desk keeps one feed position per organization, so a staging or local copy
+must never use the production organization's token: ask Tribune Desk for a test organization.
+
+**Developer commands for `TDKIT check --levels 4`** (kit README, "The commands your integration
+provides"): `sync`, `media-inspect <cms_media_id>`, `media-add <file>`,
+`media-edit <cms_media_id> <field> <value>`, `media-delete <cms_media_id>`, and `reset` (clears
+the level 4 state for a rerun). Run them as the CMS's own CLI.

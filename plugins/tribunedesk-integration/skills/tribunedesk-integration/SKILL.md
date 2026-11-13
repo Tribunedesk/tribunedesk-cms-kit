@@ -16,7 +16,7 @@ Every mechanical step goes through `tdkit`, the kit's command line tool. In this
 means:
 
 ```
-uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.0.1 tdkit
+uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.1.0 tdkit
 ```
 
 If the environment variable `TDKIT_CMD` is set, use its value instead (kit developers and evals
@@ -30,8 +30,8 @@ Run tdkit from the project root. Three rules for its commands:
 
 - `TDKIT docs` prints `{"tag", "version", "path"}`; pass that `path` as `--docs <path>` to every
   `TDKIT check`, `TDKIT integrators` and `TDKIT mock`, so tdkit tests the same contract you read.
-- Run `TDKIT check` for the chosen levels without level 4: tdkit 1.0 does not test level 4 and
-  refuses `--levels 4`. With level 4 only, skip the check and say so.
+- Run `TDKIT check` for every chosen level. Level 4 alone runs with `--mode none` and the level
+  4 commands (`references/tdkit.md`); with levels 1-3 it runs in their mode, in one check.
 - Write the report to `.tribunedesk/tdkit-report.json` (git-ignored with the docs).
 
 `tdkit` never connects to Tribune Desk. It downloads the documentation from GitHub, runs the
@@ -134,9 +134,10 @@ tell the user which contract version you build against.
   answer to levels and show the dependencies (section 6). No public `https` endpoint means read
   mode; Ghost means a bridge or read mode. If the CMS cannot do something (Ghost has no media
   library), say so now and do not promise it.
-- **Photos only (level 4):** say plainly that tdkit 1.0 does not test level 4, so you build it
-  from `guide/4-media-library.md` without a green conformance test, and that the summary will
-  say so. Do not build a webhook for a photos-only scope.
+- **Photos only (level 4):** build the core from `guide/4-media-library.md` and ask whether the
+  newsroom wants the options (historical import, push-existing, writing settings; see
+  `references/scope.md`). `TDKIT check --levels 4` tests it. Do not build a webhook for a
+  photos-only scope.
 - **Summary:** the chosen levels and mode, with what each gives the newsroom.
 
 ### Stage 3. What to ask Tribune Desk for
@@ -165,7 +166,8 @@ tell the user which contract version you build against.
 
 - **Goal:** each level works before the next starts.
 - **Read:** the guide chapter of the level (`guide/1-article-delivery.md`, `guide/2-link-back.md`,
-  `guide/3-full-content.md`), the CMS reference, `references/tdkit.md`.
+  `guide/3-full-content.md`, `guide/4-media-library.md`), the CMS reference (level 4: its
+  section 10, and section 10 of `references/cms/generic.md`), `references/tdkit.md`.
 - **Do, per level:**
   1. Write the code and the project's own tests.
   2. Add or extend the developer commands; their exact contract (keys printed by `inspect` per
@@ -179,14 +181,13 @@ tell the user which contract version you build against.
 
 ### Stage 6. Conformance of the whole scope
 
-- **Do:** run `TDKIT check --docs <path>` for the chosen levels without level 4, with
+- **Do:** run `TDKIT check --docs <path>` for the chosen levels, with
   `--json .tribunedesk/tdkit-report.json`, show the
   report (each scenario cites its guide point), then write the manifest:
   `TDKIT manifest write --contract <version> --levels <levels> --delivery <webhook|read|none>
   --cms <cms> --conformance .tribunedesk/tdkit-report.json` (add `--protocol <version>` for the PHP
   library). Check it with `TDKIT manifest validate`. Commit `tribunedesk.json` with the code;
   do not commit the report.
-- For a level-4-only scope write the manifest without `--conformance` and say why.
 
 ### Stage 7. Launch steps
 
@@ -213,12 +214,15 @@ Give the user the numbered list for the scope chosen in stage 2, and only that l
 
 **Level 4 only (photos):**
 
-1. Put the token into the production environment (name from `.env.example`).
+1. Put the token into the production environment (name from `.env.example`); staging and
+   development copies use the test organization's token, never the production one.
 2. Ask for the integration to be enabled where the README table says it is needed.
-3. Upload one photo in the CMS and find it in Tribune Desk's photo picker. tdkit 1.0 does not
-   test level 4, so this manual check is the only proof that it works.
+3. Schedule the sync (cron or the CMS's scheduler) and check it runs.
+4. Show the operator the screen for held batches and the resync preview: those decisions are
+   theirs (`references/cms/generic.md`, section 10).
+5. Upload one photo in the CMS and find it in Tribune Desk's photo picker.
 
-When the scope adds level 4 to levels 1-3, append the last two steps of the level 4 list.
+When the scope adds level 4 to levels 1-3, append steps 3-5 of the level 4 list.
 
 End with a summary of the whole build and one line on updates: "When Tribune Desk publishes a
 new contract version, ask me to update the integration."
@@ -233,14 +237,14 @@ new contract version, ask me to update the integration."
 4. Present the list as `references/update-mode.md` describes, with a recommendation per item.
    Stop for approval (unless pre-approved).
 5. Change the code, with tests.
-6. Run `TDKIT check --docs <path>` (new docs) for the manifest's levels without level 4, then
+6. Run `TDKIT check --docs <path>` (new docs) for the manifest's levels, then
    `TDKIT manifest write ...` with the new contract and report.
 
 If the list is empty, say so, run the check, and bump the manifest.
 
 ## 6. Check mode
 
-Run `TDKIT check --docs <path>` for the levels (without level 4) and mode in the manifest, or the
+Run `TDKIT check --docs <path>` for the levels and mode in the manifest, or the
 ones the user names. Report
 what passes and what fails; for each failure give the guide point the report cites and the
 likely cause in their code. Do not change code in check mode unless the user asks.
@@ -250,7 +254,8 @@ likely cause in their code. Do not change code in check mode unless the user ask
 - Level 1 (article delivery) stands alone; levels 2 (link back) and 3 (full content) need it.
 - Level 4 (media library) works on its own; reusing library images in deliveries is 4 + 1.
 - Level 5 (archive) has no contract yet: say it is planned and build nothing.
-- tdkit 1.0 does not test level 4: build it from the guide and say so in the summary.
+- Level 4 has a core and options (`references/scope.md`); `TDKIT check --levels 4` tests the
+  core, and the import with `--backfill`.
 - Details and examples of mapping answers to levels: `references/scope.md`.
 
 ## 8. References
@@ -265,6 +270,7 @@ Read each file only in the stage that needs it.
 - `references/troubleshooting.md`: when a check stays red (stage 5).
 - `references/cms/django.md`, `references/cms/laravel.md`, `references/cms/drupal.md`,
   `references/cms/wordpress.md`, `references/cms/ghost.md`, `references/cms/node-express.md`:
-  the CMS's idioms for the webhook route, secrets, the unique key, the publish hook, images and
-  the developer commands (stages 1, 4, 5).
-- `references/cms/generic.md`: the same for any other stack (stages 1, 4, 5).
+  the CMS's idioms for the webhook route, secrets, the unique key, the publish hook, images,
+  the developer commands and level 4 (stages 1, 4, 5).
+- `references/cms/generic.md`: the same for any other stack, and the full level 4 model (state,
+  queue, schedule, screens, staging) every CMS reference points to (stages 1, 4, 5).
