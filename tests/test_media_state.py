@@ -553,3 +553,19 @@ def test_backfill_paused_empty_page_200_else_409(st: MockState) -> None:
     }
     with pytest.raises(MediaError):
         media.backfill_page(st, request_id, {"items": [candidate("b1")], "is_last": False})
+
+
+def test_resync_cms_to_td_field_the_file_never_had(st: MockState) -> None:
+    paired(st)  # the file has only `alt`
+    body = {
+        "direction": "cms_to_td",
+        "items": [{"cms_media_id": "m1", "fields": [{"field": "title", "value": "new title"}]}],
+        "is_last": True,
+    }
+    ready = media.resync(st, body)
+    assert media.resync(st, {"resync_id": ready["resync_id"], "confirm": True})["status"] == (
+        "applied"
+    )
+    asset = st.media.paired("m1")
+    assert asset is not None
+    assert asset.fields["title"].value == "new title"

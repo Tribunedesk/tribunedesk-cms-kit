@@ -75,6 +75,7 @@ CORE = [s.id for s in MEDIA_SCENARIOS if not s.needs_backfill]
 # Each flag of the reference breaks one rule; the first scenario that must catch it.
 BREAKS = {
     "--no-cursor": "l4-first-poll",
+    "--keep-first-cursor": "l4-first-poll",
     "--one-page": "l4-new-asset-linked",
     "--cursor-before-apply": "l4-cursor-after-apply",
     "--ignore-versions": "l4-field-versions",
@@ -87,7 +88,7 @@ BREAKS = {
     "--auto-decide-held": "l4-held-not-resent",
     "--cache-settings": "l4-settings-and-unknown-kinds",
     "--crash-on-unknown-kind": "l4-settings-and-unknown-kinds",
-    "--delete-on-td-trash": "l4-td-trash-mark",
+    "--keep-trash-mark": "l4-td-trash-mark",
     "--no-backfill-last": "l4-backfill-answered",
     "--fresh-after-410": "l4-cursor-expired-resync",
     "--auto-confirm-resync": "l4-cursor-expired-resync",
@@ -151,7 +152,8 @@ def test_backfill_skipped_without_flag(tmp_path: Path, docs: ContractDocs) -> No
 def test_each_break_flag_fails_its_scenario(
     tmp_path: Path, docs: ContractDocs, flag: str, scenario: str
 ) -> None:
-    report = run_check([4], "none", media_options(docs, tmp_path / "store.json", flag))
+    options = media_options(docs, tmp_path / "store.json", flag)
+    report = run_check([4], "none", options, stop_after=scenario)
     ids = [r.id for r in report.results]
     bad = failed(report)
     assert scenario in bad, {r.id: r.detail for r in report.results}
@@ -164,3 +166,11 @@ def test_media_done_when_quotes_are_literal() -> None:
     for scenario in MEDIA_SCENARIOS:
         assert scenario.done_when in text, scenario.id
         assert scenario.guide.startswith(G4)
+
+
+def test_failing_reset_fails_level4_with_a_report(tmp_path: Path, docs: ContractDocs) -> None:
+    options = media_options(docs, tmp_path / "store.json")
+    broken = CheckOptions(**{**options.__dict__, "reset_cmd": f'"{sys.executable}" -c "exit(3)"'})
+    report = run_check([4], "none", broken)
+    assert all(r.passed is False for r in report.results)
+    assert report.results[0].detail.startswith("not run: --reset-cmd failed")

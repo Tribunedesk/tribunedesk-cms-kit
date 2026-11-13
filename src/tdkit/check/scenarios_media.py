@@ -9,6 +9,7 @@ because afterwards the integration waits for a person to confirm a resync.
 
 from __future__ import annotations
 
+import itertools
 from typing import Any
 
 from tdkit.check.context import Context, Fail
@@ -81,6 +82,15 @@ def _cursor(poll: Recorded) -> str | None:
     return values[0] if values else None
 
 
+def _offered(poll: Recorded) -> set[str]:
+    """Cursors a poll's answer gave: its `next_cursor` and the cursor of every change."""
+    answer = poll.answer if isinstance(poll.answer, dict) else {}
+    found = {str(c.get("cursor")) for c in answer.get("changes", []) if isinstance(c, dict)}
+    if answer.get("next_cursor"):
+        found.add(str(answer["next_cursor"]))
+    return found
+
+
 def _link_of(ctx: Context, mark: int, asset_id: str) -> str:
     """The `cms_media_id` the integration linked `asset_id` with, after `mark`."""
     for request in ctx.requests_since(mark, "POST", LINK):
@@ -129,13 +139,15 @@ def first_poll(ctx: Context) -> str:
         ctx.sync()
         media.td_new_file(ctx.state)
         ctx.sync()
+        media.td_new_file(ctx.state)
+        ctx.sync()
     except Fail:
         _polls(ctx, mark)  # a cursor from an earlier run explains the failure better
         raise
     polls = _polls(ctx, mark)
     expect(
-        len(polls) >= 2,
-        f"two syncs made {len(polls)} GET /changes; if a resync from an earlier check waits for "
+        len(polls) >= 3,
+        f"three syncs made {len(polls)} GET /changes; if a resync from an earlier check waits for "
         "confirmation, clear the integration's state first (--reset-cmd)",
     )
     without = [p for p in polls[1:] if _cursor(p) is None]
@@ -144,7 +156,13 @@ def first_poll(ctx: Context) -> str:
         "a later poll had no cursor: a poll without one starts from now and skips changes; "
         "keep your cursor and send it every time",
     )
-    return f"{len(polls)} polls, each after the first with the stored cursor"
+    for before, poll in itertools.pairwise(polls):
+        expect(
+            _cursor(poll) in _offered(before),
+            f"a poll sent {_cursor(poll)!r}, which the answer before it did not give: store "
+            "next_cursor (or the cursor of the last change you applied) after applying",
+        )
+    return f"{len(polls)} polls, each with a cursor of the answer before it"
 
 
 def new_asset_linked(ctx: Context) -> str:
@@ -157,9 +175,12 @@ def new_asset_linked(ctx: Context) -> str:
     ctx.sync()
     cms_media_id = _link_of(ctx, mark, asset.asset_id)
     item = ctx.must_media(cms_media_id)
+    link = next(r for r in ctx.requests_since(mark, "POST", LINK) if asset.asset_id in r.path)
+    reencoded = bool((link.body or {}).get("reencoded"))
     expect(
-        item.get("sha256") == asset.sha256,
-        f"sha256 of the stored file is {item.get('sha256')!r}, not the file's {asset.sha256!r}",
+        reencoded or item.get("sha256") == asset.sha256,
+        f"sha256 of the stored file is {item.get('sha256')!r}, not the file's {asset.sha256!r}; "
+        "send reencoded: true when your CMS re-encodes uploads",
     )
     expect(
         _value(ctx, cms_media_id) == "A fire engine at night",
@@ -185,9 +206,19 @@ def cursor_after_apply(ctx: Context) -> str:
         asset.fail_download = 0
     linked = [r for r in ctx.requests_since(mark, "POST", LINK) if asset.asset_id in r.path]
     expect(not linked, "the integration linked a file it could not download")
+    change = next(c for c in ctx.state.changes if c.payload.get("asset_id") == asset.asset_id)
+    after = ctx.mark()
     ctx.sync()
-    _link_of(ctx, mark, asset.asset_id)
-    return "the failed file came again after the fix: the cursor stayed before it"
+    polls = [p for p in _polls(ctx, after) if _cursor(p) is not None]
+    expect(bool(polls), "the next sync did not poll with a cursor")
+    position = int(str(_cursor(polls[0])).rsplit("-", 1)[1])
+    expect(
+        position < change.seq,
+        "after the failed download the next poll's cursor is past the file: store the cursor "
+        "only after applying the change (or after giving up on it, later)",
+    )
+    retried = any(asset.asset_id in r.path for r in ctx.requests_since(after, "POST", LINK))
+    return "the cursor stayed before the failed file" + (", which came again" if retried else "")
 
 
 def field_versions(ctx: Context) -> str:
@@ -278,7 +309,8 @@ def cms_field_edit(ctx: Context) -> str:
     expect(bool(writes), "the edit was not sent with POST /v3/cms/media/fields")
     expect(
         writes[0].get("base_version") == known,
-        f"base_version is {writes[0].get('base_version')!r}, not the version you held ({known})",
+        f"base_version is {writes[0].get('base_version')!r}, not the version you held ({known}); "
+        "the guide's guidance is to always send it (Conflicts and base_version)",
     )
     got = asset.fields[ctx.field].value
     expect(got == "edited in the CMS", f"Tribune Desk has {got!r}")
@@ -392,13 +424,20 @@ def td_trash_mark(ctx: Context) -> str:
     media.td_trash(ctx.state, asset.asset_id, True)
     ctx.sync()
     item = ctx.media_inspect(cms_media_id)
-    expect(item is not None, "the file was deleted from the library after a trash in Tribune Desk")
-    assert item is not None
-    expect(item.get("deleted_in_td") is True, f"deleted_in_td is {item.get('deleted_in_td')!r}")
+    if item is None:
+        # Allowed for a file used nowhere ("Do what suits your CMS"); a published one must stay.
+        return "the CMS deleted the unused file (a file in published content must stay)"
+    marked = item.get("deleted_in_td")
+    expect(marked in (True, None), f"after the trash deleted_in_td is {marked!r}")
     media.td_trash(ctx.state, asset.asset_id, False)
     ctx.sync()
     item = ctx.must_media(cms_media_id)
-    expect(item.get("deleted_in_td") is False, f"after restore: {item.get('deleted_in_td')!r}")
+    if marked is None:
+        return "the CMS keeps no trash mark (allowed); deleted and restored did not break the sync"
+    expect(
+        item.get("deleted_in_td") is False,
+        f"after the restore deleted_in_td is still {item.get('deleted_in_td')!r}",
+    )
     return "marked, then unmarked; the file stayed"
 
 

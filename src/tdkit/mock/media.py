@@ -670,6 +670,11 @@ def _differences(lib: MediaLibrary, session: Resync) -> list[tuple[str, str, str
     return out
 
 
+def _td_seq(lib: MediaLibrary, diff: tuple[str, str, str]) -> int:
+    current = lib.assets[diff[0]].fields.get(diff[1])
+    return current.td_seq if current is not None else 0
+
+
 def resync(state: MockState, body: dict[str, Any]) -> dict[str, Any]:
     """`POST /resync`: a page of a preview, or the confirmation (Cursors and expiry)."""
     with state.lock:
@@ -737,7 +742,7 @@ def _resync_confirm(state: MockState, resync_id: str) -> dict[str, Any]:
     else:
         if session.direction == "cms_to_td":
             # A field changed in Tribune Desk after the preview started is not overwritten.
-            diffs = [d for d in diffs if lib.assets[d[0]].fields[d[1]].td_seq <= session.start_seq]
+            diffs = [d for d in diffs if _td_seq(lib, d) <= session.start_seq]
         _apply_writes(state, session.direction, diffs)
         session.answer = {"status": "applied", "cursor": cursor, "held_batch_id": None}
     session.status = session.answer["status"]

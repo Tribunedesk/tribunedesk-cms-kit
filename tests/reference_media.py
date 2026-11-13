@@ -47,7 +47,8 @@ BREAKS = (
     "skip-deletions",
     "crash-on-unknown-kind",
     "cache-settings",
-    "delete-on-td-trash",
+    "keep-trash-mark",
+    "keep-first-cursor",
     "no-backfill-last",
 )
 KINDS = ("new_asset", "fields", "deleted", "restored", "settings")
@@ -220,10 +221,9 @@ def apply_change(data: dict[str, Any], change: dict[str, Any], flags: set[str]) 
     elif kind in ("deleted", "restored"):
         cms_media_id = change.get("cms_media_id") or ""
         if cms_media_id in media:
-            if kind == "deleted" and "delete-on-td-trash" in flags:
-                del media[cms_media_id]
-            else:
-                media[cms_media_id]["deleted_in_td"] = kind == "deleted"
+            if kind == "restored" and "keep-trash-mark" in flags:
+                return
+            media[cms_media_id]["deleted_in_td"] = kind == "deleted"
     elif kind == "settings":
         if "cache-settings" not in flags:
             data["settings"] = None
@@ -233,8 +233,11 @@ def apply_change(data: dict[str, Any], change: dict[str, Any], flags: set[str]) 
 
 
 def pull(data: dict[str, Any], flags: set[str]) -> None:
+    page_cursor = None  # within one sync, follow has_more in memory
     while True:
         cursor = None if "no-cursor" in flags else data["cursor"]
+        if "keep-first-cursor" in flags:
+            cursor = page_cursor or data.get("first_cursor") or data["cursor"]
         query = "?limit=100" + (f"&cursor={cursor}" if cursor else "")
         status, body = api("GET", "/changes" + query)
         if status == 410:
@@ -256,6 +259,9 @@ def pull(data: dict[str, Any], flags: set[str]) -> None:
                 data["cursor"] = change["cursor"]
         if "cursor-before-apply" not in flags:
             data["cursor"] = body["next_cursor"]
+        if "keep-first-cursor" in flags:
+            data.setdefault("first_cursor", body["next_cursor"])
+            page_cursor = body["next_cursor"]
         if not body.get("has_more") or "one-page" in flags:
             return
 

@@ -112,7 +112,10 @@ def selected(levels: list[int]) -> list[Scenario]:
     return [s for s in (*SCENARIOS, *MEDIA_SCENARIOS) if s.level in levels]
 
 
-def run_check(levels: list[int], mode: str, opts: CheckOptions) -> Report:
+def run_check(
+    levels: list[int], mode: str, opts: CheckOptions, *, stop_after: str | None = None
+) -> Report:
+    """Run the scenarios; `stop_after` (kit tests only) ends after that scenario id."""
     validate(
         levels,
         mode,
@@ -135,11 +138,29 @@ def run_check(levels: list[int], mode: str, opts: CheckOptions) -> Report:
         ctx = Context(opts, mode, state, port)
         results = []
         reset = False
+        broken: str | None = None
         for scenario in selected(levels):
             if scenario.level == 4 and not reset:
                 reset = True
-                ctx.reset()
-            results.append(_run_one(scenario, ctx, opts))
+                try:
+                    ctx.reset()
+                except Fail as exc:
+                    broken = str(exc)
+            if scenario.level == 4 and broken is not None:
+                results.append(
+                    Result(
+                        scenario.id,
+                        4,
+                        scenario.done_when,
+                        scenario.guide,
+                        False,
+                        f"not run: {broken}",
+                    )
+                )
+            else:
+                results.append(_run_one(scenario, ctx, opts))
+            if scenario.id == stop_after:
+                break
     finally:
         server.stop()
     return Report(__version__, opts.docs.version, sorted(levels), mode, results)

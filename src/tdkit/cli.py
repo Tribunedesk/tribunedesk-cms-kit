@@ -229,7 +229,9 @@ def run_mock(args: argparse.Namespace) -> int:
     for token, scopes in state.tokens.items():
         print(f"  token:          {token}  (scopes: {','.join(sorted(scopes))})")
     enabled = "enabled" if state.integration_enabled else "disabled"
-    print(f'  integration:    {enabled}  (POST {base}/_tdkit/integration {{"enabled": true|false}})')
+    print(
+        f'  integration:    {enabled}  (POST {base}/_tdkit/integration {{"enabled": true|false}})'
+    )
     print(f"  signing secret: {MOCK_SECRET}  (a public test value)")
     print(f"  make a send:    POST {base}/_tdkit/send  (optional JSON body overrides fields)")
     print(f"  level 4:        POST {base}/_tdkit/media  {{fields?, width?, height?}} -> asset_id")

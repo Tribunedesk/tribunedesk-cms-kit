@@ -274,10 +274,9 @@ point for the behaviour, the guide's sentence that requires it.
 | `l3-backlinks-rules` | 3 any | B with `backlink_sources=[A]`, then without the key, then `[]` | A's `read_more`: `[B]`, `[B]`, `[]` | The "read more" box follows `backlink_sources`, including the missing-key and empty-list rules. |
 | `l3-seo-author-language` | 3 any | the sample's SEO, author and language | stored as sent; author not empty | SEO fields, author and language are stored on the post. |
 | `l3-ai-label` | 3 any | a delivery with `ai_provenance`, published | `ai_provenance_jws` equals the delivery's `jws` | The AI label is in the `<head>` of every public page made from a delivery whose `ai_provenance` is not `null`. |
-
-| `l4-first-poll` | 4 | two syncs | every poll after the first sends the stored cursor | Your CMS polls `GET /v3/cms/changes` and stores the cursor only after applying the changes it returned. |
+| `l4-first-poll` | 4 | two syncs | every poll after the first sends a cursor the previous answer gave | Your CMS polls `GET /v3/cms/changes` and stores the cursor only after applying the changes it returned. |
 | `l4-new-asset-linked` | 4 | 101 field changes, then a new file in Tribune Desk; one sync | `/link` with your `cms_media_id`; the stored file has the same `sha256` and texts; every page was read | Call `POST /v3/cms/media/{asset_id}/link` with `cms_media_id` … |
-| `l4-cursor-after-apply` | 4 | a new file whose download fails; sync; then it works; sync | not linked while it failed, linked after: the cursor stayed before it | (as `l4-first-poll`) |
+| `l4-cursor-after-apply` | 4 | a new file whose download fails; sync; then it works; sync | not linked while it failed; the next poll's cursor is before it | (as `l4-first-poll`) |
 | `l4-field-versions` | 4 | versions 2, 3, then an older 2, then 3 repeated with a new value | the older version skipped, the same version applied | Apply by version: skip a change only when its `version` is lower than yours, … |
 | `l4-cms-new-file` | 4 | `--media-add-cmd`, an edit, the import pairs it | `POST /media` with `width`, `height`, `mime_type`; the edit made before the import arrives; `asset_id` learned; no other id for the file | New files, field changes and deletions on your side reach Tribune Desk, and a repeated request creates no duplicates. |
 | `l4-cms-field-edit` | 4 | an edit in Tribune Desk, then in your CMS; two syncs | one write, with the `base_version` you held | (same) |
@@ -286,7 +285,7 @@ point for the behaviour, the guide's sentence that requires it.
 | `l4-both-sides-edited` | 4 | a local edit, then a change of that field in the feed | the local edit is sent with the version you held, the feed's value is not applied over it | If a change from the feed touches a field you edited and have not sent yet, … |
 | `l4-held-not-resent` | 4 | threshold 1, two edits | the `held` field is not sent again and no batch is decided by the sync (the operator's screen is yours to check) | Held batches are shown to a person who decides them. |
 | `l4-settings-and-unknown-kinds` | 4 | `kind="settings"`, an unknown kind, a new file | `GET /settings` read again; the unknown kind skipped, the file linked | A `kind="settings"` change has no `asset_id` and no values: … |
-| `l4-td-trash-mark` | 4 | a file trashed, then restored in Tribune Desk | `deleted_in_td` true, then false; the file stays | Do what suits your CMS, such as a hidden mark; … |
+| `l4-td-trash-mark` | 4 | a file trashed, then restored in Tribune Desk | the sync goes on; a reported `deleted_in_td` is true, then false (deleting an unused file is allowed) | Do what suits your CMS, such as a hidden mark; … |
 | `l4-backfill-answered` | 4, with `--backfill` | a request with candidates and one without | each got a page and is closed (`is_last`) | If you have no candidates, send one page with an empty `items` and `is_last` true: … |
 | `l4-cursor-expired-resync` | 4 (runs last) | an unsent edit, then `410` | no poll from now; the edit sent, then a `td_to_cms` preview with `is_last`; not confirmed by the sync | An expired cursor (`410`) leads to a resync, not to a fresh start from now. |
 
