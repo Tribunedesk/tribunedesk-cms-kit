@@ -316,3 +316,15 @@ def test_manifest_checks_expect_the_eval_contract() -> None:
     made every django-l12, drupal-l12 and update-3.2 run report a false FAIL `manifest`."""
     source = (ROOT / "evals" / "run.py").read_text(encoding="utf-8")
     assert 'contract="3.4.1-draft"' not in source
+
+
+def test_no_local_sources_allows_the_ca_bundle(tmp_path: Path) -> None:
+    """D5: TD_CA_BUNDLE points into the kit (`src/tdkit/mock/tls/ca.pem`); using it is allowed."""
+    tls_dir = (runner.KIT / "src" / "tdkit" / "mock" / "tls").as_posix()
+    calls = [
+        ("Bash", {"command": f'ls "{tls_dir}/"'}),
+        ("Bash", {"command": f'export TD_CA_BUNDLE="{tls_dir}/ca.pem"; php artisan test'}),
+    ]
+    assert runner.no_local_sources(make_run(tmp_path, _calls(*calls)))[0]
+    reading_code = [("Bash", {"command": f'sed -n 1,40p "{tls_dir}/__init__.py"'})]
+    assert not runner.no_local_sources(make_run(tmp_path, _calls(*reading_code)))[0]

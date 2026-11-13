@@ -395,6 +395,9 @@ reconcile its wording):
 | `parity-django` | all pass: tdkit 1.2, contract 3.4.2-draft, levels 1-4, 31 passed, 0 failed; clean room (run 2026-11-13, Claude Code 2.1.323) | fail: conduct (the plan only in the final message); summary and request pass | 5.05 USD |
 | `parity-laravel` | all pass: tdkit 1.2, levels 1-4, 32 passed, 0 failed, `tribunedesk/cms-protocol`, all three level 4 options; clean room (run 2026-11-13, Claude Code 2.1.323) | fail: conduct (the plan only in the final message, no guide file named); summary and request pass | 5.94 USD |
 | `parity-node` | all pass: tdkit 1.2, levels 1-4, 31 passed, 0 failed; clean room (run 2026-11-13, Claude Code 2.1.323) | fail: conduct (the plan only in the final message, no guide file named); summary and request pass | 3.91 USD |
+| `parity-django` | tdkit 1.3: levels 1-4, 32 passed, 0 failed (run 2026-11-13, Claude Code 2.1.323); clean room fails: read `src/tdkit/check/scenarios.py` of the local kit to understand a check | fail: conduct (no plan before code, no guide file named) | 5.49 USD |
+| `parity-laravel` | tdkit 1.3: levels 1-4, 33 passed, 0 failed, images over https with `TD_CA_BUNDLE`; clean room fails: read the WordPress plugin's code on GitHub (`gh api`) for the level 4 options | fail: conduct (no plan before code, no guide file named) | 5.32 USD |
+| `parity-node` | tdkit 1.3: levels 1-4, 32 passed, 0 failed; clean room fails: read the local kit's `src/tdkit` (CA and host logic) | fail: conduct (no plan before code, no guide file named) | 3.88 USD |
 
 The integrations of the Django and Drupal runs are in [`reference/`](reference/README.md).
 

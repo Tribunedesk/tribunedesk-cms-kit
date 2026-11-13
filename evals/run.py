@@ -271,7 +271,10 @@ def _local_hits(text: str, *, kit_root_ok: bool = True) -> list[str]:
     hits = []
     for match in re.finditer(re.escape(root), text):
         rest = text[match.start() :]
-        if rest.startswith(plugin) or rest.startswith(kit_root + "/readme.md"):
+        # TD_CA_BUNDLE points at the test CA in the kit (D5): the folder and its .pem files only.
+        ca_dir = kit_root + "/src/tdkit/mock/tls/"
+        ca_file = re.match(re.escape(ca_dir) + r'(?:[\w.-]+\.pem)?(?=["\'\s;]|$)', rest)
+        if rest.startswith(plugin) or rest.startswith(kit_root + "/readme.md") or ca_file:
             continue
         at_kit_root = rest.startswith(kit_root) and not rest[len(kit_root) :].startswith("/")
         if at_kit_root and kit_root_ok and not kit_code:
