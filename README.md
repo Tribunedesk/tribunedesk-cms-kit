@@ -386,6 +386,9 @@ reconcile its wording):
 | `no-public-endpoint` | all pass: tdkit read mode 3 passed, 0 failed | pass | 1.66 USD |
 | `update-3.2` | all pass: tdkit 13 passed, 0 failed, manifest 3.4.1-draft | pass | 1.08 USD |
 | `ghost` | all pass: no code, bridge or read mode explained | pass | 0.30 USD |
+| `parity-django` | all pass: tdkit 1.2, contract 3.4.2-draft, levels 1-4, 31 passed, 0 failed; clean room (run 2026-11-13, Claude Code 2.1.323) | fail: conduct (the plan only in the final message); summary and request pass | 5.05 USD |
+| `parity-laravel` | all pass: tdkit 1.2, levels 1-4, 32 passed, 0 failed, `tribunedesk/cms-protocol`, all three level 4 options; clean room (run 2026-11-13, Claude Code 2.1.323) | fail: conduct (the plan only in the final message, no guide file named); summary and request pass | 5.94 USD |
+| `parity-node` | all pass: tdkit 1.2, levels 1-4, 31 passed, 0 failed; clean room (run 2026-11-13, Claude Code 2.1.323) | fail: conduct (the plan only in the final message, no guide file named); summary and request pass | 3.91 USD |
 
 The integrations of the Django and Drupal runs are in [`reference/`](reference/README.md).
 

@@ -202,7 +202,6 @@ def test_manifest_write_refuses_a_report_of_another_contract_or_mode() -> None:
         )
 
 
-@pytest.mark.xfail(strict=True, reason="the parity rows arrive with the 1.2.0 eval round")
 def test_readme_has_parity_rows_for_this_minor() -> None:
     """Spec D4: a kit minor is not released without the clean-room parity evals."""
     import re
