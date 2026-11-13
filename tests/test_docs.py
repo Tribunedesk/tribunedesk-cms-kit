@@ -80,3 +80,32 @@ def test_fixture_is_3_4_2_with_guide_4() -> None:
 
     assert load_docs(FIXTURE).version == "3.4.2-draft"
     assert (FIXTURE / "guide/4-media-library.md").is_file()
+
+
+def test_readme_lists_every_scenario() -> None:
+    from pathlib import Path
+
+    from tdkit.check.scenarios import SCENARIOS
+    from tdkit.check.scenarios_media import MEDIA_SCENARIOS
+
+    readme = (Path(__file__).parent.parent / "README.md").read_text(encoding="utf-8")
+    missing = [s.id for s in (*SCENARIOS, *MEDIA_SCENARIOS) if f"`{s.id}`" not in readme]
+    assert not missing
+
+
+def test_readme_lists_every_check_and_mock_option() -> None:
+    import argparse
+    from pathlib import Path
+
+    from tdkit.cli import build_parser
+
+    readme = (Path(__file__).parent.parent / "README.md").read_text(encoding="utf-8")
+    parser = build_parser()
+    subparsers = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
+    missing = []
+    for name in ("mock", "check"):
+        for action in subparsers.choices[name]._actions:
+            for flag in action.option_strings:
+                if flag.startswith("--") and flag != "--help" and flag not in readme:
+                    missing.append(f"{name} {flag}")
+    assert not missing
