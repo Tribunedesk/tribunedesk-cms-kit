@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal
 
+from tdkit.mock.media import MediaLibrary
+
 ALL_SCOPES = (
     "media:read",
     "media:write",
@@ -109,6 +111,8 @@ class MockState:
     run: str = field(default_factory=lambda: secrets.token_hex(3))
     epoch: int = 1
     switched: bool = False  # the first GET /changes since the integration was enabled came
+    acked: int = 0  # the highest feed position any client passed as cursor
+    media: MediaLibrary = field(default_factory=MediaLibrary)
 
     def cursor_for(self, seq: int) -> str:
         return f"c{self.run}-{self.epoch}-{seq}"
