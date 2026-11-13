@@ -251,3 +251,38 @@ def test_no_local_sources_allows_tdkit_cmd(tmp_path: Path) -> None:
         _calls(("Bash", {"command": command}), ("Read", {"file_path": str(tmp_path / "a.py")})),
     )
     assert runner.no_local_sources(run)[0]
+
+
+def test_no_local_sources_allows_the_skill_itself(tmp_path: Path) -> None:
+    """The plugin is loaded from this kit; SKILL.md tells the agent to read its references."""
+    ref = runner.PLUGIN / "skills" / "tribunedesk-integration" / "references" / "scope.md"
+    run = make_run(tmp_path, _calls(("Read", {"file_path": str(ref)})))
+    assert runner.no_local_sources(run)[0]
+
+
+def test_no_local_sources_allows_public_github_urls(tmp_path: Path) -> None:
+    command = (
+        "composer config repositories.tribunedesk-cms-php vcs "
+        "https://github.com/Tribunedesk/tribunedesk-cms-php"
+    )
+    run = make_run(tmp_path, _calls(("Bash", {"command": command})))
+    assert runner.no_local_sources(run)[0]
+
+
+def test_no_local_sources_flags_bash_into_the_kit(tmp_path: Path) -> None:
+    for path in (runner.KIT / "reference" / "django", runner.KIT / "evals"):
+        for form in (path.as_posix(), str(path)):
+            run = make_run(tmp_path, _calls(("Bash", {"command": f'ls "{form}"'})))
+            assert not runner.no_local_sources(run)[0], form
+
+
+def test_no_local_sources_flags_a_glob_pattern_into_the_kit(tmp_path: Path) -> None:
+    pattern = (runner.KIT / "reference" / "**" / "*.py").as_posix()
+    run = make_run(tmp_path, _calls(("Glob", {"pattern": pattern})))
+    assert not runner.no_local_sources(run)[0]
+
+
+def test_no_local_sources_flags_a_sibling_checkout(tmp_path: Path) -> None:
+    sibling = runner.KIT.parent / "tribunedesk-wordpress" / "src" / "WordPress" / "CmsSync.php"
+    run = make_run(tmp_path, _calls(("Read", {"file_path": str(sibling)})))
+    assert not runner.no_local_sources(run)[0]

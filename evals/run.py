@@ -245,24 +245,48 @@ def env_ignored(run: Run) -> tuple[bool, str]:
     return done.returncode == 0, "ignored" if done.returncode == 0 else ".env is not ignored"
 
 
-LOCAL_SOURCES = re.compile(r"tribunedesk-wordpress|tribunedesk-cms-php|headlinesforge|src/tdkit")
+def _norm(text: str) -> str:
+    """Lower case, forward slashes, and Git Bash drive paths (`/c/Users`) as `c:/users`."""
+    text = text.replace("\\", "/").lower()
+    return re.sub(r"(?<![\w:/])/([a-z])/", r"\1:/", text)
+
+
+SIBLINGS = re.compile(
+    r"(?<!github\.com/tribunedesk/)(?<![\w.-])(?:tribunedesk-wordpress|tribunedesk-cms-php"
+    r"|headlinesforge)(?:/|\b)"
+)
+
+
+def _local_hits(text: str) -> list[str]:
+    """Paths in `text` inside the folder holding this kit's checkout (the kit itself, the
+    WordPress plugin, the PHP library, headlinesforge…), except the Claude Code plugin under
+    test, which the skill is meant to read. Running tdkit with `--project <kit>` is allowed."""
+    root, plugin = _norm(KIT.parent.as_posix()), _norm(PLUGIN.as_posix())
+    kit = re.escape(_norm(KIT.as_posix()))
+    text = re.sub(rf'--project\s+"?{kit}/?"?', "--project <kit>", _norm(text))
+    hits = []
+    for match in re.finditer(re.escape(root), text):
+        rest = text[match.start() :]
+        if not rest.startswith(plugin):
+            hits.append(rest[:100])
+    # A relative path to a sibling checkout (`../tribunedesk-wordpress`), not a GitHub URL.
+    for match in SIBLINGS.finditer(text):
+        hits.append(text[max(0, match.start() - 20) : match.end() + 40])
+    return hits
 
 
 def no_local_sources(run: Run) -> tuple[bool, str]:
     """Clean room (spec 2026-11-13 kontrakt najpierw, D4): the agent learns only from the skill
-    and the public documentation. No Read, Glob or Grep inside this kit, and no Bash command
-    naming the plugin, the library, headlinesforge or tdkit's source. Running tdkit through
-    TDKIT_CMD names the kit's folder and is allowed."""
-    kit = KIT.as_posix().lower()
+    and the public documentation. No Read, Glob, Grep or Bash command touching a local checkout
+    next to the project's sources (this kit outside its plugin folder, the WordPress plugin, the
+    PHP library, headlinesforge); public GitHub URLs are fine."""
     found: list[str] = []
     for name in ("Read", "Glob", "Grep"):
         for call in run.tool_calls(name):
-            path = str(call.get("file_path") or call.get("path") or "")
-            if path and Path(path).as_posix().lower().startswith(kit):
-                found.append(f"{name} {path}")
+            for key in ("file_path", "path", "pattern"):
+                found += [f"{name} {hit}" for hit in _local_hits(str(call.get(key) or ""))]
     for command in (c.get("command", "") for c in run.tool_calls("Bash")):
-        if LOCAL_SOURCES.search(command.replace("\\", "/")):
-            found.append(f"Bash {command[:80]}")
+        found += [f"Bash {hit}" for hit in _local_hits(command)]
     return not found, f"local sources: {found}" if found else "none"
 
 
