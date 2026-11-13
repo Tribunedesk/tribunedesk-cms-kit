@@ -154,12 +154,16 @@ def routes(server: MockServer) -> list[Route]:
 
     def c_new(request: Request) -> Answer:
         body = _json(request)
-        asset = media.td_new_file(
-            state,
-            fields=body.get("fields"),
-            width=int(body.get("width", 1200)),
-            height=int(body.get("height", 800)),
-        )
+        try:
+            asset = media.td_new_file(
+                state,
+                fields=body.get("fields"),
+                width=int(body.get("width", 1200)),
+                height=int(body.get("height", 800)),
+                source=str(body.get("source", "editor")),
+            )
+        except ValueError as exc:
+            raise ApiError(422, "validation_error", str(exc)) from None
         return Answer(200, {"asset_id": asset.asset_id})
 
     def c_field(request: Request) -> Answer:

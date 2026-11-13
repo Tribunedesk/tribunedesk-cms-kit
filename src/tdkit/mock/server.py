@@ -291,7 +291,7 @@ class MockServer:
         with state.lock:
             state.last_changes_poll_at = now_iso()
             if cursor is None:
-                start = state.floor
+                start = state.seq  # "starts from now and returns no history" (guides 1, 4)
             else:
                 try:
                     start = state.parse_cursor(cursor)

@@ -6,6 +6,7 @@ import copy
 import json
 import os
 import re
+import shutil
 import tempfile
 import time
 import uuid
@@ -77,6 +78,13 @@ class Context:
         state.image_hosts = [self.image_host]
         self.secret = opts.secret or MOCK_SECRET
         self.started = time.monotonic()
+        self._folder: Path | None = None
+
+    def close(self) -> None:
+        """Remove the files this check wrote for `--media-add-cmd`."""
+        if self._folder is not None:
+            shutil.rmtree(self._folder, ignore_errors=True)
+            self._folder = None
 
     # -- articles --------------------------------------------------------------------------
 
@@ -265,8 +273,9 @@ class Context:
 
     def media_add(self) -> str:
         """Add a 1200x800 PNG to the CMS's library as an editor would; its `cms_media_id`."""
-        folder = Path(tempfile.mkdtemp(prefix="tdkit-"))
-        path = folder / f"tdkit-{uuid.uuid4().hex[:8]}.png"
+        if self._folder is None:
+            self._folder = Path(tempfile.mkdtemp(prefix="tdkit-"))
+        path = self._folder / f"tdkit-{uuid.uuid4().hex[:8]}.png"
         path.write_bytes(png(1200, 800, (40, 90, 160)))
         out = self._run(self._media_cmd("media_add_cmd"), "--media-add-cmd", "", file=str(path))
         try:

@@ -80,6 +80,7 @@ BREAKS = {
     "--cursor-before-apply": "l4-cursor-after-apply",
     "--ignore-versions": "l4-field-versions",
     "--duplicate-new-files": "l4-cms-new-file",
+    "--drop-unknown-edits": "l4-cms-new-file",
     "--no-base-version": "l4-cms-field-edit",
     "--skip-deletions": "l4-cms-deletion",
     "--resend-conflict": "l4-conflict-winning-value",
@@ -174,3 +175,13 @@ def test_failing_reset_fails_level4_with_a_report(tmp_path: Path, docs: Contract
     report = run_check([4], "none", broken)
     assert all(r.passed is False for r in report.results)
     assert report.results[0].detail.startswith("not run: --reset-cmd failed")
+
+
+def test_check_removes_the_files_it_wrote(tmp_path: Path, docs: ContractDocs) -> None:
+    import tempfile
+
+    before = set(Path(tempfile.gettempdir()).glob("tdkit-*"))
+    run_check(
+        [4], "none", media_options(docs, tmp_path / "store.json"), stop_after="l4-cms-new-file"
+    )
+    assert set(Path(tempfile.gettempdir()).glob("tdkit-*")) == before

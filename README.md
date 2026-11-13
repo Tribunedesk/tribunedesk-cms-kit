@@ -72,7 +72,7 @@ i gita.
 You need [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer. No installation:
 
 ```bash
-uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.1.0 tdkit --help
+uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.1.1 tdkit --help
 ```
 
 ### Which contract
@@ -224,6 +224,11 @@ For example `python manage.py td_inspect {article_id}` (Django) or
 | 3 | `read_more` | the `article_id`s of the articles shown in **this** post's "read more" box |
 | 3 | `ai_provenance_jws` | the `jws` of the AI label on the public page, or `null` |
 
+**Windows and `.cmd`/`.bat` programs.** A template whose program resolves to a `.cmd` or
+`.bat` file (`npx.cmd`, `wp.bat`) runs through `cmd.exe`, which parses the arguments again: a
+value with `"`, `&` or `%` may not arrive as one argument. The values `check` passes are free of
+them; for your own tests, prefer an `.exe` or `python script.py`.
+
 **What `--media-inspect-cmd` prints.** `cms_media_id`; `asset_id` (the Tribune Desk file it is
 paired with, or `null`); `sha256` of the stored file; `fields`, an object of the fields your CMS
 maps (`alt`, `caption`, `title`, `description`); `deleted_in_td`, the mark a `kind="deleted"`
@@ -237,7 +242,7 @@ stdout; for a failed scenario it quotes the guide's point and names the guide fi
 also writes:
 
 ```json
-{"tdkit": "1.1.0", "contract": "3.4.2-draft", "levels": [1, 2], "mode": "webhook",
+{"tdkit": "1.1.1", "contract": "3.4.2-draft", "levels": [1, 2], "mode": "webhook",
  "results": [{"id": "l1-creates-draft", "level": 1, "done_when": "An editor's …",
               "guide": "guide/1-article-delivery.md#done-when", "passed": true, "detail": "…"}]}
 ```

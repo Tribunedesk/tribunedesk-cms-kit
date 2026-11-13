@@ -569,3 +569,50 @@ def test_resync_cms_to_td_field_the_file_never_had(st: MockState) -> None:
     asset = st.media.paired("m1")
     assert asset is not None
     assert asset.fields["title"].value == "new title"
+
+
+def test_held_cms_to_td_resync_keeps_newer_td_change(st: MockState) -> None:
+    asset = paired(st)
+    st.media.options["mass_change_threshold"] = 1
+    body = {
+        "direction": "cms_to_td",
+        "items": [
+            {
+                "cms_media_id": "m1",
+                "fields": [{"field": "alt", "value": "a"}, {"field": "title", "value": "t"}],
+            }
+        ],
+        "is_last": True,
+    }
+    ready = media.resync(st, body)
+    answer = media.resync(st, {"resync_id": ready["resync_id"], "confirm": True})
+    assert answer["status"] == "held"
+    media.td_edit(st, asset.asset_id, "alt", "changed in Tribune Desk meanwhile")
+    media.decide_held(st, answer["held_batch_id"], "send")
+    assert asset.fields["alt"].value == "changed in Tribune Desk meanwhile"
+    assert asset.fields["title"].value == "t"
+
+
+def test_resync_confirm_after_reenable_409_even_when_applied(st: MockState) -> None:
+    paired(st)
+    ready = preview(st, "cms_to_td", "x")
+    media.resync(st, {"resync_id": ready["resync_id"], "confirm": True})
+    st.set_enabled(False)
+    st.set_enabled(True)
+    with pytest.raises(MediaError) as err:
+        media.resync(st, {"resync_id": ready["resync_id"], "confirm": True})
+    assert err.value.status == 409
+
+
+@pytest.mark.parametrize(
+    ("source", "option"),
+    [("editor", "td_to_cms_editor_files"), ("graphic", "td_to_cms_graphics")],
+)
+def test_new_asset_follows_editor_and_graphic_options(
+    st: MockState, source: str, option: str
+) -> None:
+    media.td_new_file(st, source=source)
+    change = st.changes[-1]
+    assert media.change_body(st, change) is not None
+    st.media.options[option] = False
+    assert media.change_body(st, change) is None

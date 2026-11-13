@@ -108,3 +108,10 @@ def test_disable_then_disable_keeps_epoch(state: MockState) -> None:
     assert state.epoch == 2
     state.set_enabled(True)
     assert state.epoch == 2
+
+
+def test_tokens_file_with_bom(tmp_path: Path) -> None:
+    path = tmp_path / "tokens.json"
+    body = json.dumps({"tokens": [{"token": "a", "scopes": ["media:read"]}]})
+    path.write_bytes(b"\xef\xbb\xbf" + body.encode("utf-8"))
+    assert load_tokens(path) == {"a": {"media:read"}}

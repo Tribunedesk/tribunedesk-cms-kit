@@ -167,7 +167,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 def load_tokens(path: Path) -> dict[str, set[str]]:
     """Tokens and their scopes from `{"tokens": [{"token": "…", "scopes": ["…"]}]}`."""
     try:
-        body = json.loads(path.read_text(encoding="utf-8"))
+        body = json.loads(path.read_text(encoding="utf-8-sig"))  # Notepad writes a BOM
     except OSError as exc:
         raise UsageError(f"cannot read {path}: {exc}") from None
     except ValueError as exc:

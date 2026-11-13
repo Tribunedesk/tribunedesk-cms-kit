@@ -49,6 +49,7 @@ BREAKS = (
     "cache-settings",
     "keep-trash-mark",
     "keep-first-cursor",
+    "drop-unknown-edits",
     "no-backfill-last",
 )
 KINDS = ("new_asset", "fields", "deleted", "restored", "settings")
@@ -299,7 +300,7 @@ def push_new_files(data: dict[str, Any], flags: set[str]) -> None:
 def push_fields(data: dict[str, Any], flags: set[str]) -> None:
     items = []
     for cms_media_id, item in data["media"].items():
-        if not item["dirty"] or item["asset_id"] is None:
+        if not item["dirty"] or (item["asset_id"] is None and item["pushed"] != "ok"):
             continue
         writes = []
         for name, changed_at in item["dirty"].items():
@@ -319,6 +320,11 @@ def push_fields(data: dict[str, Any], flags: set[str]) -> None:
         return
     for result in body["results"]:
         item = data["media"][result["id"]]
+        if result["status"] == "unknown":
+            # Not paired yet (the import is pending): keep the edit and send it again later.
+            if "drop-unknown-edits" in flags:
+                item["dirty"].clear()
+            continue
         for f in result.get("fields", []):
             name, outcome = f["field"], f["status"]
             if outcome in ("ok", "unchanged"):

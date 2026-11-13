@@ -105,6 +105,7 @@ class Asset:
     created_at: datetime
     fields: dict[str, FieldValue]
     origin: str = "td"  # "td": a Tribune Desk file; "cms": imported from the CMS
+    source: str = "editor"  # a Tribune Desk file: "editor" upload or generated "graphic"
     cms_media_id: str | None = None
     link_url: str | None = None
     reencoded: bool = False
@@ -125,6 +126,7 @@ class HeldBatch:
     created_at: datetime
     writes: list[tuple[str, str, str]] = field(default_factory=list)  # asset, field, value
     state: str = "pending"
+    start_seq: int | None = None  # a resync batch: the feed position its preview started at
 
     def view(self) -> dict[str, Any]:
         return {
@@ -282,10 +284,14 @@ def td_new_file(
     fields: dict[str, str] | None = None,
     width: int = 1200,
     height: int = 800,
+    source: str = "editor",
 ) -> Asset:
-    """An editor uploads a file in Tribune Desk: a `new_asset` change (Taking files)."""
+    """A new file in Tribune Desk (an editor's upload or a generated graphic): `new_asset`."""
+    if source not in ("editor", "graphic"):
+        raise ValueError(f"source is editor or graphic, not {source!r}")
     with state.lock:
         asset = _new_asset(state, origin="td", width=width, height=height, fields=fields)
+        asset.source = source
         state.add_change("new_asset", payload={"asset_id": asset.asset_id})
         return asset
 
@@ -400,11 +406,9 @@ def change_body(state: MockState, change: Change) -> dict[str, Any] | None:
         return None
     body["asset_id"] = asset.asset_id
     if change.kind == "new_asset":
-        if (
-            asset.trashed
-            or asset.cms_media_id is not None
-            or not lib.options["new_files_td_to_cms"]
-        ):
+        kind = "td_to_cms_graphics" if asset.source == "graphic" else "td_to_cms_editor_files"
+        allowed = lib.options["new_files_td_to_cms"] and lib.options[kind]
+        if asset.trashed or asset.cms_media_id is not None or not allowed:
             return None
         body.update(
             file_url=f"{lib.files_base}/files/{asset.filename}",
@@ -644,7 +648,11 @@ def decide_held(state: MockState, held_id: str, decision: str) -> dict[str, Any]
         if decision == "send" and stale:
             raise MediaError(409, "state_conflict", "the batch is stale: discard it, resync")
         if decision == "send":
-            _apply_writes(state, batch.direction, batch.writes)
+            writes = batch.writes
+            if batch.start_seq is not None and batch.direction == "cms_to_td":
+                # A field changed in Tribune Desk after the preview started is not overwritten.
+                writes = [w for w in writes if _td_seq(state.media, w) <= batch.start_seq]
+            _apply_writes(state, batch.direction, writes)
             batch.state = "sent"
         else:
             batch.state = "discarded"
@@ -729,6 +737,8 @@ def _resync_confirm(state: MockState, resync_id: str) -> dict[str, Any]:
     session = lib.resyncs.get(resync_id)
     if session is None:
         raise MediaError(404, "not_found", "no such resync")
+    if session.epoch != state.epoch:
+        raise MediaError(409, "state_conflict", "the resync started before a re-enable")
     if session.answer is not None:  # applied or held: the same answer again
         return session.answer
     if session.status != "ready" or session.epoch != state.epoch or now() > session.expires:
@@ -736,7 +746,15 @@ def _resync_confirm(state: MockState, resync_id: str) -> dict[str, Any]:
     diffs = _differences(lib, session)
     cursor = state.cursor_for(max(session.start_seq, state.floor))
     if len(diffs) > int(lib.options["mass_change_threshold"]):
-        batch = HeldBatch(str(uuid.uuid4()), session.direction, state.epoch, now(), diffs)
+        batch = HeldBatch(
+            str(uuid.uuid4()),
+            session.direction,
+            state.epoch,
+            now(),
+            diffs,
+            "pending",
+            session.start_seq,
+        )
         lib.held[batch.id] = batch
         session.answer = {"status": "held", "cursor": cursor, "held_batch_id": batch.id}
     else:

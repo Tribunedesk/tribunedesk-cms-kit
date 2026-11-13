@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import traceback
 from dataclasses import asdict, dataclass
@@ -134,8 +135,15 @@ def run_check(
         _, port = server.start()
     except OSError as exc:
         raise UsageError(f"cannot run the mock on 127.0.0.1:{opts.port}: {exc}") from exc
+    ctx: Context | None = None
     try:
         ctx = Context(opts, mode, state, port)
+        if mode == "read" and opts.poll_cmd:
+            # A poll without a cursor starts from now: let the client take its first cursor
+            # before the editor sends anything, as a client running in production would. A
+            # failure here shows again, with its reason, in the first read mode scenario.
+            with contextlib.suppress(Fail):
+                ctx.poll()
         results = []
         reset = False
         broken: str | None = None
@@ -162,6 +170,8 @@ def run_check(
             if scenario.id == stop_after:
                 break
     finally:
+        if ctx is not None:
+            ctx.close()
         server.stop()
     return Report(__version__, opts.docs.version, sorted(levels), mode, results)
 

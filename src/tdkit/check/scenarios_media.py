@@ -442,12 +442,15 @@ def td_trash_mark(ctx: Context) -> str:
 
 
 def backfill_answered(ctx: Context) -> str:
-    some = media.td_backfill_request(ctx.state, {"min_width": 1000})
-    none = media.td_backfill_request(ctx.state, {"date_from": "2999-01-01T00:00:00+00:00"})
-    mark = ctx.mark()
-    ctx.sync()
     lib = ctx.state.media
-    for request_id, what in ((some, "with candidates"), (none, "without candidates")):
+    # An organization has one open request at a time (Historical import): one, then the other.
+    for filters, what in (
+        ({"min_width": 1000}, "with candidates"),
+        ({"date_from": "2999-01-01T00:00:00+00:00"}, "without candidates"),
+    ):
+        request_id = media.td_backfill_request(ctx.state, filters)
+        mark = ctx.mark()
+        ctx.sync()
         pages = ctx.requests_since(mark, "POST", rf"/v3/cms/backfill/requests/{request_id}/pages")
         expect(bool(pages), f"the request {what} got no page")
         expect(

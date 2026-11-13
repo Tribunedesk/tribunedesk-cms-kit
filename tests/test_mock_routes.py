@@ -129,13 +129,16 @@ def test_changes_shows_article_sent_only_to_articles_read(
     state: MockState, base: str, docs: ContractDocs
 ) -> None:
     state.tokens["tdcms_media"] = {"media:read"}
+    start = call(base, "GET", "/v3/cms/changes")[1]["next_cursor"]
     sent = state.add_send(sample(docs))
-    status, page, _ = call(base, "GET", "/v3/cms/changes")
+    status, page, _ = call(base, "GET", f"/v3/cms/changes?cursor={start}")
     assert status == 200
     assert [(c["kind"], c["article_id"]) for c in page["changes"]] == [
         ("article_sent", sent.article_id)
     ]
-    status, page_media, _ = call(base, "GET", "/v3/cms/changes", token="tdcms_media")
+    status, page_media, _ = call(
+        base, "GET", f"/v3/cms/changes?cursor={start}", token="tdcms_media"
+    )
     assert status == 200
     assert page_media["changes"] == []
     assert page_media["next_cursor"] == page["next_cursor"]
@@ -226,5 +229,17 @@ def test_control_send_queues_an_article_in_read_mode(state: MockState, base: str
     assert send is not None
     assert send.delivery_id == made["delivery_id"]
     assert send.body["title"] == "Hello"
-    changes = call(base, "GET", "/v3/cms/changes")[1]["changes"]
-    assert [c["article_id"] for c in changes] == [made["article_id"]]
+    assert call(base, "GET", "/v3/cms/changes")[1]["changes"] == []  # from now
+    sent = [c for c in state.changes if c.kind == "article_sent"]
+    assert [c.article_id for c in sent] == [made["article_id"]]
+
+
+def test_poll_without_cursor_starts_from_now(
+    state: MockState, base: str, docs: ContractDocs
+) -> None:
+    state.add_send(sample(docs))
+    status, page, _ = call(base, "GET", "/v3/cms/changes")
+    assert (status, page["changes"]) == (200, [])
+    later = state.add_send(sample(docs))
+    page = call(base, "GET", f"/v3/cms/changes?cursor={page['next_cursor']}")[1]
+    assert [c["article_id"] for c in page["changes"]] == [later.article_id]
