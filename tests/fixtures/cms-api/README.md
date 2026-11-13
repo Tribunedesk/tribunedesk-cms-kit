@@ -20,6 +20,17 @@ Each level works without the higher ones. Start with level 1, which is a day of 
 
 The contract is described by the [OpenAPI document](openapi.json) (also served at `https://api.tribunedesk.com/v3/cms/openapi.json`). How versions change: [Versioning](VERSIONING.md). What changed: [CHANGELOG](CHANGELOG.md). Working clients in Python: [level 1](examples/python/level1_receiver.py) and [level 2](examples/python/level2_link_back.py).
 
+## Build it with Claude
+
+An open-source plugin for Claude Code builds and tests an integration for your CMS, at the levels you choose. It reads this guide at a tagged version, asks what you need, tells you what to ask Tribune Desk for, writes the code and checks it against a local mock of Tribune Desk before any real delivery. When the contract changes, it lists what your integration must change and updates it.
+
+```
+/plugin marketplace add tribunedesk/tribunedesk-cms-kit
+/plugin install tribunedesk-integration@tribunedesk
+```
+
+Then ask: “Build me an integration with Tribune Desk.” The plugin does not order tokens and does not deploy: the setup on the Tribune Desk side stays with your contact (see [What to ask Tribune Desk for](#what-to-ask-tribune-desk-for)). The same repository, [tribunedesk/tribunedesk-cms-kit](https://github.com/tribunedesk/tribunedesk-cms-kit), has `tdkit`: the local mock and the conformance checks, which you can run without Claude. A CMS written in PHP can use the protocol rules from [tribunedesk/tribunedesk-cms-php](https://github.com/tribunedesk/tribunedesk-cms-php).
+
 ## What works today
 
 - **Working now:** `GET /v3/cms/status` and `GET /v3/cms/changes` (need `media:read` or `articles:read`), `GET /v3/cms/held` (needs `media:read`), `GET /v3/cms/articles/{article_id}` and `GET /v3/cms/articles/awaiting` (need `articles:read`), `POST /v3/cms/articles/{article_id}/result` and `POST /v3/cms/articles/published` (need `articles:write`),`POST /v3/cms/media`, `POST /v3/cms/media/fields`, `POST /v3/cms/media/{asset_id}/link`, `POST /v3/cms/media/push-existing`, `POST /v3/cms/media/deletions`, `POST /v3/cms/resync` and `POST /v3/cms/held/{held_id}/decision` (need `media:write`), `GET /v3/cms/settings` and `PUT /v3/cms/settings` (need `settings:read` and `settings:write`), `GET /v3/cms/backfill/requests` and `POST /v3/cms/backfill/requests/{request_id}/pages` (need `backfill:write`) and `GET /v3/cms/openapi.json` (no token). A super admin enables the integration for your organization; the first poll does not enable it, but it does switch your organization to this API (see Switching to this API). Until then `state` in `/status` is `disabled` and `GET /changes`, `/settings` and `POST /resync` answer `409` with `state_conflict`. Once enabled, `state` is `active`, or `stalled` when there has been no poll for 24 hours. `last_changes_poll_at` and `pending_changes` are `null` while disabled. `held_batches` counts the batches waiting for a decision (`null` while disabled). `recent_errors` is always empty today: nothing fills it yet, so an empty list does not mean there were no errors, and a file that failed to import does not show up there. Today the feed carries changes of `kind="fields"`, `kind="new_asset"`, `kind="settings"`, with `td_deletion_marks_in_cms`, `kind="deleted"` and `kind="restored"`, and, in read mode for tokens with `articles:read`, `article_sent`. The organization has one acknowledged position in the feed, whichever token passes the cursor, and only polls of a token with `media:read` move it and count for `stalled` and `pending_changes`; a token with only article scopes reads with the same kind of cursor without moving them. In read mode without a media client, `stalled` means a send has waited more than 24 hours for your CMS to read it. New files, field changes and deletions sent by the CMS are accepted now.
@@ -53,7 +64,7 @@ curl -sS https://api.tribunedesk.com/v3/cms/status \
 ```
 
 ```
-{"org_code":"example-org","contract_version":"3.4.1-draft","scopes":["media:read"],"state":"active", ...}
+{"org_code":"example-org","contract_version":"3.4.2-draft","scopes":["media:read"],"state":"active", ...}
 ```
 
 ## What to ask Tribune Desk for

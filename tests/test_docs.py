@@ -71,3 +71,12 @@ def test_latest_tag_sorts_versions() -> None:
 def test_every_patch_of_the_supported_minor_is_accepted(version, ok):
     """A patch changes no shape (VERSIONING), so a docs patch must not stop the skill."""
     assert is_supported(version) is ok
+
+
+def test_fixture_is_3_4_2_with_guide_4() -> None:
+    from tdkit.docs import load_docs
+
+    from .conftest import FIXTURE
+
+    assert load_docs(FIXTURE).version == "3.4.2-draft"
+    assert (FIXTURE / "guide/4-media-library.md").is_file()

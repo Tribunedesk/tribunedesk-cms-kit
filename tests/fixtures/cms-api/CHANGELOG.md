@@ -2,6 +2,18 @@
 
 Changes of the Tribune Desk CMS API contract, newest first. Versions follow [Versioning](VERSIONING.md).
 
+## 3.4.2-draft – 2026-11-12
+
+- README: “Build it with Claude”, the Claude Code plugin that builds and tests an integration.
+- Guide 1: “Done when” covers overlapping attempts, `image_hosts` and read mode; read mode says where a poll without a cursor starts and how `GET /v3/cms/articles/awaiting` pages.
+- Guide 2: `published_at` without a time zone fails the whole request with `422`; “Done when” covers `social_queue_exclude`.
+- Guide 3: going back to earlier posts when a link target is published is optional, as the chapter says.
+- `examples/python/level1_receiver.py` answers an older send with `status`.
+
+**Integrators:**
+
+- Nothing to do.
+
 ## 3.4.1-draft – 2026-11-08
 
 - README: what to ask Tribune Desk for, per level.
