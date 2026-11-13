@@ -7,7 +7,7 @@ def test_cli_version_prints_version(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exc:
         main(["--version"])
     assert exc.value.code == 0
-    assert capsys.readouterr().out.strip() == "tdkit 1.2.0"
+    assert capsys.readouterr().out.strip() == "tdkit 1.3.0"
 
 
 def test_cli_unknown_command_exits_2() -> None:

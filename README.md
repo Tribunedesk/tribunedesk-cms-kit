@@ -72,7 +72,7 @@ i gita.
 You need [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer. No installation:
 
 ```bash
-uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.2.0 tdkit --help
+uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.3.0 tdkit --help
 ```
 
 ### Which contract
@@ -251,7 +251,7 @@ stdout; for a failed scenario it quotes the guide's point and names the guide fi
 also writes:
 
 ```json
-{"tdkit": "1.2.0", "contract": "3.4.2-draft", "levels": [1, 2], "mode": "webhook",
+{"tdkit": "1.3.0", "contract": "3.4.2-draft", "levels": [1, 2], "mode": "webhook",
  "results": [{"id": "l1-creates-draft", "level": 1, "done_when": "An editor's …",
               "guide": "guide/1-article-delivery.md#done-when", "passed": true, "detail": "…"}]}
 ```
@@ -309,7 +309,7 @@ In read mode the webhook-only `l1-*` scenarios are skipped and the report says s
 **Your clock.** `check` cannot see your server's clock. A receiver more than 5 minutes off
 answers `401` to real deliveries and loses articles: keep it in sync.
 
-## Limits of 1.2
+## Limits of 1.3
 
 - `check` sends each delivery attempt itself; the mock's retries are for `tdkit mock`.
 - `push-existing` and `PUT /settings` work in the mock but have no scenario: both are an
