@@ -220,3 +220,34 @@ def test_photos_only_checks_a_green_level_4_report(tmp_path: Path) -> None:
     red.mkdir()
     write_report(red, [True, False], [4], "none")
     assert not green(make_run(red))[0]
+
+
+def _calls(*calls: tuple[str, dict]) -> list[dict]:
+    content = [{"type": "tool_use", "name": n, "input": i} for n, i in calls]
+    return [{"type": "assistant", "message": {"content": content}}]
+
+
+def test_parity_scenarios_are_registered() -> None:
+    names = {"parity-django", "parity-laravel", "parity-node"}
+    assert names <= set(runner.SCENARIO)
+    for name in names:
+        assert runner.SCENARIO[name].checks == runner.PARITY
+
+
+def test_no_local_sources_flags_a_read_of_the_kit(tmp_path: Path) -> None:
+    kit_file = str(runner.KIT / "src" / "tdkit" / "docs.py")
+    run = make_run(tmp_path, _calls(("Read", {"file_path": kit_file})))
+    assert not runner.no_local_sources(run)[0]
+    run = make_run(tmp_path, _calls(("Bash", {"command": "cat ../tribunedesk-wordpress/x.php"})))
+    assert not runner.no_local_sources(run)[0]
+    run = make_run(tmp_path, _calls(("Grep", {"pattern": "x", "path": str(runner.KIT)})))
+    assert not runner.no_local_sources(run)[0]
+
+
+def test_no_local_sources_allows_tdkit_cmd(tmp_path: Path) -> None:
+    command = f'"uv" run --project "{runner.KIT.as_posix()}" tdkit check --levels 1,2,3,4'
+    run = make_run(
+        tmp_path,
+        _calls(("Bash", {"command": command}), ("Read", {"file_path": str(tmp_path / "a.py")})),
+    )
+    assert runner.no_local_sources(run)[0]

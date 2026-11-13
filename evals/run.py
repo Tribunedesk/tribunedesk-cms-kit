@@ -245,6 +245,27 @@ def env_ignored(run: Run) -> tuple[bool, str]:
     return done.returncode == 0, "ignored" if done.returncode == 0 else ".env is not ignored"
 
 
+LOCAL_SOURCES = re.compile(r"tribunedesk-wordpress|tribunedesk-cms-php|headlinesforge|src/tdkit")
+
+
+def no_local_sources(run: Run) -> tuple[bool, str]:
+    """Clean room (spec 2026-11-13 kontrakt najpierw, D4): the agent learns only from the skill
+    and the public documentation. No Read, Glob or Grep inside this kit, and no Bash command
+    naming the plugin, the library, headlinesforge or tdkit's source. Running tdkit through
+    TDKIT_CMD names the kit's folder and is allowed."""
+    kit = KIT.as_posix().lower()
+    found: list[str] = []
+    for name in ("Read", "Glob", "Grep"):
+        for call in run.tool_calls(name):
+            path = str(call.get("file_path") or call.get("path") or "")
+            if path and Path(path).as_posix().lower().startswith(kit):
+                found.append(f"{name} {path}")
+    for command in (c.get("command", "") for c in run.tool_calls("Bash")):
+        if LOCAL_SOURCES.search(command.replace("\\", "/")):
+            found.append(f"Bash {command[:80]}")
+    return not found, f"local sources: {found}" if found else "none"
+
+
 def _git(cwd: Path, *args: str) -> str:
     done = subprocess.run(
         ["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8", check=False
@@ -383,6 +404,25 @@ def drupal_template() -> Path:
     return cache
 
 
+def laravel_app(root: Path) -> None:
+    """A Laravel 12 blog with posts and a photo library (SQLite)."""
+    composer = shutil.which("composer")
+    php = shutil.which("php")
+    assert composer and php, "PHP 8.3 and Composer are required"
+    _run(root, composer, "create-project", "--no-interaction", "--quiet",
+         "laravel/laravel:12.*", ".")  # fmt: skip
+    _write(root, LARAVEL_FILES)
+    _run(root, php, "artisan", "migrate", "--force", "--quiet")
+
+
+def node_app(root: Path) -> None:
+    """An Express 5 blog with posts and a photo library (node:sqlite, Node 22.13+)."""
+    npm = shutil.which("npm")
+    assert npm, "Node 22.13+ with npm is required"
+    _write(root, NODE_FILES)
+    _run(root, npm, "install", "--silent", "--no-audit", "--no-fund")
+
+
 def _writable_and_retry(function: Callable[..., Any], path: str, _error: BaseException) -> None:
     """Drupal makes some files read-only; rmtree on Windows needs them writable."""
     os.chmod(path, stat.S_IWRITE)
@@ -416,8 +456,26 @@ WEBHOOK_L12: dict[str, Check] = {
     ".env ignored": env_ignored,
 }
 
+PARITY: dict[str, Check] = {
+    "skill fired": skill_fired,
+    "final message stands alone": final_message_complete,
+    "tdkit check ran": ran(r"\bcheck\s+--"),
+    "manifest written by tdkit from the report": ran(r"\bmanifest write\b[^\n]*--conformance"),
+    "report and manifest not written by hand": results_from_tdkit,
+    "report green (1-4 webhook)": report_green([1, 2, 3, 4], "webhook"),
+    "manifest": manifest(
+        contract=CONTRACT, levels=[1, 2, 3, 4], delivery="webhook", passed=[1, 2, 3, 4]
+    ),
+    "no secret in git": no_secret_in_git,
+    ".env ignored": env_ignored,
+    "no local sources": no_local_sources,
+}
+
 SCENARIO: dict[str, Scenario] = {
     "django-l12": Scenario(django_blog, WEBHOOK_L12),
+    "parity-django": Scenario(lambda root: django_blog(root, photos=True), PARITY),
+    "parity-laravel": Scenario(laravel_app, PARITY),
+    "parity-node": Scenario(node_app, PARITY),
     "photos-only": Scenario(
         lambda root: django_blog(root, photos=True),
         {
@@ -727,6 +785,122 @@ from .models import Photo
 class PhotoAdmin(admin.ModelAdmin):
     list_display = ["title", "credit", "uploaded_at"]
 """,
+}
+
+
+LARAVEL_FILES = {
+    "app/Models/Post.php": r"""<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Post extends Model
+{
+    protected $fillable = ['title', 'slug', 'excerpt', 'body', 'status', 'published_at'];
+
+    protected $casts = ['published_at' => 'datetime'];
+}
+""",
+    "app/Models/Photo.php": r"""<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Photo extends Model
+{
+    protected $fillable = ['path', 'title', 'caption', 'alt', 'author'];
+}
+""",
+    "database/migrations/2026_01_01_000000_create_posts_and_photos.php": r"""<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('posts', function (Blueprint $table) {
+            $table->id();
+            $table->string('title', 300);
+            $table->string('slug', 300)->unique();
+            $table->text('excerpt')->nullable();
+            $table->longText('body');
+            $table->string('status', 20)->default('draft');
+            $table->timestamp('published_at')->nullable();
+            $table->timestamps();
+        });
+        Schema::create('photos', function (Blueprint $table) {
+            $table->id();
+            $table->string('path');
+            $table->string('title')->nullable();
+            $table->text('caption')->nullable();
+            $table->string('alt')->nullable();
+            $table->string('author')->nullable();
+            $table->timestamps();
+        });
+    }
+};
+""",
+    "routes/web.php": r"""<?php
+
+use App\Models\Post;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', fn () => Post::where('status', 'published')->latest('published_at')->get());
+Route::get('/posts/{slug}', fn (string $slug) => Post::where('slug', $slug)
+    ->where('status', 'published')->firstOrFail())->name('posts.show');
+""",
+}
+
+NODE_FILES = {
+    "package.json": """{
+  "name": "newsroom-blog",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=22.13"},
+  "scripts": {"start": "node app.js", "test": "node --test"},
+  "dependencies": {"express": "5.1.0"}
+}
+""",
+    "db.js": """import { DatabaseSync } from "node:sqlite";
+
+export const db = new DatabaseSync(process.env.DB_PATH ?? "blog.sqlite");
+db.exec(`
+  CREATE TABLE IF NOT EXISTS posts (
+    id INTEGER PRIMARY KEY, title TEXT NOT NULL, slug TEXT NOT NULL UNIQUE,
+    excerpt TEXT, body TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'draft', published_at TEXT
+  );
+  CREATE TABLE IF NOT EXISTS photos (
+    id INTEGER PRIMARY KEY, path TEXT NOT NULL, title TEXT, caption TEXT, alt TEXT, author TEXT
+  );
+`);
+""",
+    "app.js": """import express from "express";
+import { db } from "./db.js";
+
+export const app = express();
+app.use("/media", express.static("media"));
+
+app.get("/", (req, res) => {
+  res.json(db.prepare("SELECT * FROM posts WHERE status = 'published' ORDER BY published_at DESC").all());
+});
+
+app.get("/posts/:slug", (req, res) => {
+  const post = db.prepare("SELECT * FROM posts WHERE slug = ? AND status = 'published'").get(req.params.slug);
+  if (!post) return res.status(404).end();
+  res.json(post);
+});
+
+if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith("app.js")) {
+  app.listen(process.env.PORT ?? 3000);
+}
+""",
+    ".gitignore": "node_modules/\nblog.sqlite\nmedia/\n.env\n",
+    "README.md": "# Newsroom blog\n\nExpress 5, `node:sqlite`. Posts in `posts`, the photo library in `photos`\n(files in `media/`). `npm start`.\n",
 }
 
 

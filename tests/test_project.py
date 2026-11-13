@@ -200,3 +200,17 @@ def test_manifest_write_refuses_a_report_of_another_contract_or_mode() -> None:
             report=_report("3.4.1-draft", "read"),
             **common,
         )
+
+
+@pytest.mark.xfail(strict=True, reason="the parity rows arrive with the 1.2.0 eval round")
+def test_readme_has_parity_rows_for_this_minor() -> None:
+    """Spec D4: a kit minor is not released without the clean-room parity evals."""
+    import re
+
+    from tdkit import __version__
+
+    minor = ".".join(__version__.split(".")[:2])
+    readme = (Path(__file__).parent.parent / "README.md").read_text(encoding="utf-8")
+    for name in ("parity-django", "parity-laravel", "parity-node"):
+        rows = [line for line in readme.splitlines() if line.startswith(f"| `{name}` |")]
+        assert any(re.search(rf"\btdkit {re.escape(minor)}\b", row) for row in rows), name
