@@ -38,7 +38,7 @@ def test_integrators_ignores_unknown_tags(capsys: pytest.CaptureFixture[str]) ->
         "- `L5`: send your archive.\n- `L1`, `L5`: something for level 1.",
         1,
     )
-    items = integrators(text, "3.4.0-draft", "3.4.1-draft", levels=[1, 5], mode="webhook")
+    items = integrators(text, "3.4.1-draft", "3.4.2-draft", levels=[1, 5], mode="webhook")
     assert [item["action"] for item in items] == ["something for level 1."]
     assert items[0]["tags"] == ["L1"]
     assert "L5" in capsys.readouterr().err

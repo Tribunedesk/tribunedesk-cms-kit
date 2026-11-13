@@ -94,8 +94,8 @@ def test_docs_writes_gitignore_entry_once(tmp_path: Path, monkeypatch: pytest.Mo
     first = fetch_docs(tmp_path, tag=None, dest=None)
     second = fetch_docs(tmp_path, tag=None, dest=None)
     assert first == second
-    assert first["version"] == "3.4.1-draft"
-    assert Path(first["path"]) == tmp_path / ".tribunedesk" / "cms-api@v3.4.1-draft"
+    assert first["version"] == "3.4.2-draft"
+    assert Path(first["path"]) == tmp_path / ".tribunedesk" / "cms-api@v3.4.2-draft"
     assert (Path(first["path"]) / "openapi.json").is_file()
     lines = (tmp_path / ".gitignore").read_text(encoding="utf-8").splitlines()
     assert lines.count(".tribunedesk/") == 1
@@ -104,7 +104,7 @@ def test_docs_writes_gitignore_entry_once(tmp_path: Path, monkeypatch: pytest.Mo
 def _tarball() -> bytes:
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
-        archive.add(FIXTURE, arcname="tribunedesk-cms-api-3.4.1-draft")
+        archive.add(FIXTURE, arcname="tribunedesk-cms-api-3.4.2-draft")
     return buffer.getvalue()
 
 
@@ -119,11 +119,11 @@ def test_docs_fetch_without_git_uses_tarball(
         asked.append(url)
         return _tarball()
 
-    result = fetch_docs(tmp_path, tag="v3.4.1-draft", dest=None, transport=transport)
+    result = fetch_docs(tmp_path, tag="v3.4.2-draft", dest=None, transport=transport)
     assert asked == [
-        "https://codeload.github.com/Tribunedesk/tribunedesk-cms-api/tar.gz/refs/tags/v3.4.1-draft"
+        "https://codeload.github.com/Tribunedesk/tribunedesk-cms-api/tar.gz/refs/tags/v3.4.2-draft"
     ]
-    assert result["tag"] == "v3.4.1-draft"
+    assert result["tag"] == "v3.4.2-draft"
     assert (Path(result["path"]) / "guide" / "1-article-delivery.md").is_file()
     # No .gitignore and no git repository: nothing is written.
     assert not (tmp_path / ".gitignore").exists()
@@ -131,13 +131,13 @@ def test_docs_fetch_without_git_uses_tarball(
 
 def test_docs_reuses_an_existing_copy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("TRIBUNEDESK_DOCS_DIR", raising=False)
-    dest = tmp_path / ".tribunedesk" / "cms-api@v3.4.1-draft"
+    dest = tmp_path / ".tribunedesk" / "cms-api@v3.4.2-draft"
     shutil.copytree(FIXTURE, dest)
 
     def transport(url: str) -> bytes:
         raise AssertionError("no download for an existing copy")
 
-    result = fetch_docs(tmp_path, tag="v3.4.1-draft", dest=None, transport=transport)
+    result = fetch_docs(tmp_path, tag="v3.4.2-draft", dest=None, transport=transport)
     assert Path(result["path"]) == dest
 
 
