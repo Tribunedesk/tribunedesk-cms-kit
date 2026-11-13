@@ -85,11 +85,14 @@ def test_fixture_is_the_ci_contract_tag() -> None:
     assert (FIXTURE / "guide/4-media-library.md").is_file()
 
 
-def test_ci_names_the_contract_once() -> None:
+def test_ci_reads_the_pin_file() -> None:
+    """No contract version in ci.yml; each job that tests the contract reads ci/contract-tag."""
     from .conftest import CI_YML
 
     text = CI_YML.read_text(encoding="utf-8")
-    assert len(re.findall(r"v\d+\.\d+\.\d+(?:-draft)?", text)) == 1
+    assert not re.findall(r"v\d+\.\d+\.\d+(?:-draft)?", text)
+    reads = text.count('echo "CONTRACT_TAG=$(cat ci/contract-tag)" >> "$GITHUB_ENV"')
+    assert reads == 3  # examples, reference-django, reference-drupal
 
 
 def test_readme_lists_every_scenario() -> None:

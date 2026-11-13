@@ -8,10 +8,10 @@ on:
   # starts no workflow by itself, a workflow_dispatch does.
   workflow_dispatch:
 
-env:
-  # The one pin of the contract. contract-drift.yml rewrites this line and refreshes
-  # tests/fixtures/cms-api from the same tag (tests check the two agree).
-  CONTRACT_TAG: v3.4.2-draft
+# The one pin of the contract is ci/contract-tag, read into CONTRACT_TAG by each job that tests
+# the contract. contract-drift.yml rewrites it and refreshes tests/fixtures/cms-api from the same
+# tag (tests check the two agree). It is not a line of this file: GITHUB_TOKEN may not push
+# changes under .github/workflows/.
 
 jobs:
   ci:
@@ -34,6 +34,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Contract tag
+        run: echo "CONTRACT_TAG=$(cat ci/contract-tag)" >> "$GITHUB_ENV"
       - uses: astral-sh/setup-uv@v7
         with:
           version: "0.12.20"
@@ -93,6 +95,8 @@ jobs:
       TD_CMS_TOKEN: tdcms_mock
     steps:
       - uses: actions/checkout@v6
+      - name: Contract tag
+        run: echo "CONTRACT_TAG=$(cat ci/contract-tag)" >> "$GITHUB_ENV"
       - uses: astral-sh/setup-uv@v7
         with:
           version: "0.12.20"
@@ -136,6 +140,8 @@ jobs:
       SITE: ${{ github.workspace }}/../drupal-site
     steps:
       - uses: actions/checkout@v6
+      - name: Contract tag
+        run: echo "CONTRACT_TAG=$(cat ci/contract-tag)" >> "$GITHUB_ENV"
       - uses: astral-sh/setup-uv@v7
         with:
           version: "0.12.20"

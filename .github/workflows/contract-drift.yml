@@ -1,13 +1,15 @@
 name: contract-drift
 
-# Spec 2026-11-13 kontrakt najpierw, D2b: once a day, compare CONTRACT_TAG in ci.yml with the
-# newest tag of Tribunedesk/tribunedesk-cms-api. When the pin is behind, move it (and the
-# fixture copy) on the branch contract/latest, open or update one pull request, start CI on
-# it, and fail this run: a pin left behind stays red every day. The pull request never merges
-# itself; main lands through /ship, and a push to main publishes the Claude Code plugin.
+# Spec 2026-11-13 kontrakt najpierw, D2b: once a day, compare ci/contract-tag with the newest
+# tag of Tribunedesk/tribunedesk-cms-api. When the pin is behind, move it (and the fixture copy)
+# on the branch contract/latest, open or update one pull request, start CI on it, and fail this
+# run: a pin left behind stays red every day. The pull request never merges itself; main lands
+# through /ship, and a push to main publishes the Claude Code plugin.
 #
-# GITHUB_TOKEN only. A pull request opened with it starts no workflow, so CI is started with
-# `gh workflow run` (workflow_dispatch is the exception GitHub allows).
+# GITHUB_TOKEN only. It may not push changes under .github/workflows/, so the pin lives in
+# ci/contract-tag. A pull request opened with it starts no workflow, so CI is started with
+# `gh workflow run` (workflow_dispatch is the exception GitHub allows). The branch is rebuilt
+# only when a newer tag replaces the one it pins: commits pushed onto it survive.
 
 on:
   schedule:
@@ -33,11 +35,21 @@ jobs:
           version: "0.12.20"
           enable-cache: true
       - run: uv sync
+      - name: The pin on contract/latest, if the branch exists
+        id: open
+        run: |
+          if git fetch --quiet origin contract/latest 2>/dev/null; then
+            echo "pin=$(git show FETCH_HEAD:ci/contract-tag 2>/dev/null)" >> "$GITHUB_OUTPUT"
+          else
+            echo "pin=" >> "$GITHUB_OUTPUT"
+          fi
       - name: Compare the pin with the newest tag
         id: drift
-        run: uv run python ci/contract_drift.py --body-out "$RUNNER_TEMP/body.md"
-      - name: Push contract/latest and open the pull request
-        if: steps.drift.outputs.behind == 'true'
+        env:
+          OPEN_PR_PIN: ${{ steps.open.outputs.pin }}
+        run: uv run python ci/contract_drift.py --body-out "$RUNNER_TEMP/body.md" --open-pr-pin "$OPEN_PR_PIN"
+      - name: Push contract/latest, open the pull request, start CI
+        if: steps.drift.outputs.rebuild == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PINNED: ${{ steps.drift.outputs.pinned }}
@@ -48,7 +60,7 @@ jobs:
           git config user.name "tribunedesk-contract-drift"
           git config user.email "tribunedesk-contract-drift@users.noreply.github.com"
           git checkout -B "$branch"
-          git add -A .github/workflows/ci.yml tests/fixtures/cms-api
+          git add -A ci/contract-tag tests/fixtures/cms-api
           git commit -q -m "$title"
           git push --force origin "$branch"
           open="$(gh pr list --head "$branch" --state open --json number --jq '.[0].number')"
@@ -58,5 +70,11 @@ jobs:
             gh pr edit "$open" --title "$title" --body-file "$RUNNER_TEMP/body.md"
           fi
           gh workflow run ci.yml --ref "$branch"
-          echo "::error::CONTRACT_TAG $PINNED is behind $TAG: merge the contract/latest pull request"
+      - name: Stay red while the pin is behind
+        if: steps.drift.outputs.behind == 'true'
+        env:
+          PINNED: ${{ steps.drift.outputs.pinned }}
+          TAG: ${{ steps.drift.outputs.tag }}
+        run: |
+          echo "::error::ci/contract-tag $PINNED is behind $TAG: land the contract/latest pull request"
           exit 1

@@ -342,12 +342,13 @@ uv run pytest -q
 
 ### Keeping up with the contract
 
-- **One pin.** `CONTRACT_TAG` in `.github/workflows/ci.yml` is the contract every CI job tests;
+- **One pin.** `ci/contract-tag` is the contract every CI job tests (read as `CONTRACT_TAG`);
   `tests/fixtures/cms-api` is a copy of that tag (a test checks they agree).
 - **Drift.** `.github/workflows/contract-drift.yml` runs every day: when a newer tag exists,
   `ci/contract_drift.py` moves the pin and the fixture on the branch `contract/latest`, opens
   (or updates) one pull request listing the `Integrators` items in between, starts CI on it and
-  fails the run. It stays red every day until the pull request lands; it never merges itself.
+  fails the run. It stays red every day until the pull request lands; it never merges itself,
+  and it rebuilds the branch only for a newer tag, so fixes pushed onto it stay.
 - **Coverage.** `tests/test_coverage.py` fails when a point of a guide's "Done when" has no
   scenario quoting it and no entry in `src/tdkit/check/coverage.toml`, or when a CHANGELOG
   `Integrators` item has no entry there naming the scenario, the skill file or `none` (with a
