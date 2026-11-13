@@ -77,7 +77,7 @@ uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.1.2 tdkit -
 
 ### Which contract
 
-`tdkit` supports every patch of contract 3.4 (`3.4.0-draft`, `3.4.1-draft`, `3.4.2-draft` and later patches). It takes the documentation from,
+`tdkit` supports every patch of contract 3.4 (`3.4.0-draft`, `3.4.1-draft`, `3.4.2-draft` and later patches). A release for a new minor also takes the previous one, until the release after the new tag. It takes the documentation from,
 first found:
 
 1. `--docs DIR`, a checkout of `tribunedesk-cms-api`;

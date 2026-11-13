@@ -19,16 +19,19 @@ from typing import Any
 from tdkit import __version__
 from tdkit.errors import UsageError
 
-# Every patch of contract 3.4: a patch changes descriptions only (VERSIONING), so a docs patch
-# must not stop the skill. A new minor or major needs a tdkit release that knows it.
-SUPPORTED_MINOR = (3, 4)
+# Every patch of these minors: a patch changes descriptions only (VERSIONING), so a docs patch
+# must not stop the skill. A new minor or major needs a tdkit release that knows it, and that
+# release keeps the previous minor until the release after the new tag: until the tag exists,
+# `tdkit docs` still finds the old one (spec 2026-11-13 kontrakt najpierw, D2c). The tag guard
+# of tribunedesk-cms-api reads this line with a regex: keep it on one line, in this form.
+SUPPORTED_MINORS = frozenset({(3, 4)})
 _VERSION = re.compile(r"^(\d+)\.(\d+)\.\d+(-draft)?$")
 
 
 def is_supported(version: str) -> bool:
-    """True for any `3.4.<patch>` contract, draft or not."""
+    """True for any patch of a supported minor, draft or not."""
     match = _VERSION.match(version)
-    return bool(match) and (int(match.group(1)), int(match.group(2))) == SUPPORTED_MINOR
+    return bool(match) and (int(match.group(1)), int(match.group(2))) in SUPPORTED_MINORS
 
 
 REPO_URL = "https://github.com/Tribunedesk/tribunedesk-cms-api"

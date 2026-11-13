@@ -68,6 +68,7 @@ def test_two_minors_are_accepted_in_a_transition(monkeypatch):
     assert docs.is_supported("3.4.2-draft") and docs.is_supported("3.5.0-draft")
     assert not docs.is_supported("3.6.0-draft")
 
+
 def test_supported_minors_line_is_machine_readable():
     # the cms-api tag guard (spec D2c) reads this line with a regex
     text = Path(docs.__file__).read_text(encoding="utf-8")
@@ -93,6 +94,7 @@ def test_supported_minors_line_is_machine_readable():
 ```python
 def test_fixture_is_the_ci_contract_tag():
     assert "v" + load_docs(FIXTURE).version == ci_contract_tag()
+
 
 def test_ci_names_the_contract_once():
     text = CI_YML.read_text(encoding="utf-8")

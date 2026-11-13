@@ -1,9 +1,11 @@
 import json
+import re
 import shutil
 from pathlib import Path
 
 import pytest
 
+from tdkit import docs
 from tdkit.docs import is_supported, latest_tag, resolve_docs
 from tdkit.errors import UsageError
 
@@ -109,3 +111,17 @@ def test_readme_lists_every_check_and_mock_option() -> None:
                 if flag.startswith("--") and flag != "--help" and flag not in readme:
                     missing.append(f"{name} {flag}")
     assert not missing
+
+
+def test_two_minors_are_accepted_in_a_transition(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A release for a new minor still takes the previous one until the new tag exists."""
+    monkeypatch.setattr(docs, "SUPPORTED_MINORS", frozenset({(3, 4), (3, 5)}))
+    assert docs.is_supported("3.4.2-draft")
+    assert docs.is_supported("3.5.0-draft")
+    assert not docs.is_supported("3.6.0-draft")
+
+
+def test_supported_minors_line_is_machine_readable() -> None:
+    """The tag guard of tribunedesk-cms-api reads this line with a regex (spec D2c)."""
+    text = Path(docs.__file__).read_text(encoding="utf-8")
+    assert re.search(r"^SUPPORTED_MINORS = frozenset\(\{(\(\d+, \d+\)(, )?)+\}\)$", text, re.M)
