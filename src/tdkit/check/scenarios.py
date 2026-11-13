@@ -517,9 +517,7 @@ D2_SOCIAL = (
     "Once your CMS has the setting, send the field every time, also as `false`; otherwise "
     "clearing the setting never reaches Tribune Desk."
 )
-D3_LINKS = (
-    "Placeholders are replaced with your addresses, or the link text is left without a link."
-)
+D3_LINKS = "Placeholders are replaced with your addresses, or the link text is left without a link."
 D3_BOX = (
     "The “read more” box follows `backlink_sources`, including the missing-key and "
     "empty-list rules."

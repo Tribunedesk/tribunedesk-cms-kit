@@ -6,6 +6,8 @@ the contract; shapes come from the OpenAPI document (see `server.py`).
 
 from __future__ import annotations
 
+import re
+import secrets
 import threading
 import uuid
 from dataclasses import dataclass, field
@@ -53,10 +55,19 @@ class Change:
     kind: str
     changed_at: str
     article_id: str | None = None
+    cursor: str = ""
+    payload: dict[str, Any] = field(default_factory=dict)
 
-    @property
-    def cursor(self) -> str:
-        return f"c{self.seq}"
+
+class CursorError(Exception):
+    """A cursor the feed cannot take: `status` 422 (not ours) or 410 (expired)."""
+
+    def __init__(self, status: int, code: str, message: str) -> None:
+        super().__init__(message)
+        self.status, self.code, self.message = status, code, message
+
+
+_CURSOR = re.compile(r"c([0-9a-f]{6})-(\d+)-(\d+)")
 
 
 @dataclass
@@ -92,6 +103,66 @@ class MockState:
     pulls: dict[str, int] = field(default_factory=dict)
     calls: list[tuple[str, str, int]] = field(default_factory=list)
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
+    # Cursors are `c<run>-<epoch>-<seq>`: `run` tells this mock from an earlier one (a cursor an
+    # integration kept from another `tdkit check`), `epoch` grows when the integration is enabled
+    # again, which expires the cursors from before the break (guide 4, Cursors and expiry).
+    run: str = field(default_factory=lambda: secrets.token_hex(3))
+    epoch: int = 1
+    switched: bool = False  # the first GET /changes since the integration was enabled came
+
+    def cursor_for(self, seq: int) -> str:
+        return f"c{self.run}-{self.epoch}-{seq}"
+
+    def parse_cursor(self, value: str) -> int:
+        """The position of `value`; `CursorError` for a foreign or expired cursor."""
+        match = _CURSOR.fullmatch(value)
+        if match is None:
+            raise CursorError(422, "validation_error", "cursor: not a cursor of this feed")
+        run, epoch, seq = match.group(1), int(match.group(2)), int(match.group(3))
+        if run != self.run:
+            raise CursorError(
+                422,
+                "validation_error",
+                "cursor from an earlier tdkit run: clear the integration's state or pass "
+                "--reset-cmd",
+            )
+        if epoch != self.epoch or seq < self.floor:
+            raise CursorError(410, "cursor_expired", "the cursor has expired")
+        return seq
+
+    def add_change(
+        self,
+        kind: str,
+        *,
+        article_id: str | None = None,
+        payload: dict[str, Any] | None = None,
+        changed_at: str | None = None,
+    ) -> Change:
+        with self.lock:
+            self.seq += 1
+            change = Change(
+                self.seq,
+                kind,
+                changed_at or now_iso(),
+                article_id,
+                self.cursor_for(self.seq),
+                payload or {},
+            )
+            self.changes.append(change)
+            return change
+
+    def set_enabled(self, enabled: bool) -> None:
+        """The super admin's switch. Enabling after a break expires the earlier cursors."""
+        with self.lock:
+            if enabled and not self.integration_enabled:
+                self.epoch += 1
+                self.floor = self.seq
+                self.switched = False
+                self.on_reenable()
+            self.integration_enabled = enabled
+
+    def on_reenable(self) -> None:
+        """Hook for level 4 state (resync sessions and held batches from before the break)."""
 
     def add_send(self, body: dict[str, Any], *, delivery_id: str | None = None) -> Send:
         """Record a new send of `body["article_id"]`; it supersedes older waiting sends.
@@ -113,8 +184,7 @@ class MockState:
             )
             self.sends.setdefault(article_id, []).append(send)
             if self.read_mode:
-                self.seq += 1
-                self.changes.append(Change(self.seq, "article_sent", now_iso(), article_id))
+                self.add_change("article_sent", article_id=article_id)
             return send
 
     def newest_send(self, article_id: str) -> Send | None:

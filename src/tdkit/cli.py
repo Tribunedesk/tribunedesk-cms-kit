@@ -33,6 +33,14 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"comma-separated scopes of the token {DEFAULT_TOKEN} (default: all of them)",
     )
     mock.add_argument("--webhook", help="where POST /_tdkit/send delivers articles (webhook mode)")
+    mock.add_argument(
+        "--tokens", type=Path, help='JSON file {"tokens": [{"token": "…", "scopes": […]}]}'
+    )
+    mock.add_argument(
+        "--disabled",
+        action="store_true",
+        help="start with the integration disabled (POST /_tdkit/integration enables it)",
+    )
 
     check = sub.add_parser("check", help="run the conformance scenarios against your integration")
     check.add_argument("--levels", default="1", help="comma-separated levels, e.g. 1,2,3")
@@ -122,8 +130,38 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
 
+def load_tokens(path: Path) -> dict[str, set[str]]:
+    """Tokens and their scopes from `{"tokens": [{"token": "…", "scopes": ["…"]}]}`."""
+    try:
+        body = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise UsageError(f"cannot read {path}: {exc}") from None
+    except ValueError as exc:
+        raise UsageError(f"{path} is not JSON: {exc}") from None
+    items = body.get("tokens") if isinstance(body, dict) else None
+    if not isinstance(items, list) or not items:
+        raise UsageError(f'{path}: expected {{"tokens": [{{"token": …, "scopes": […]}}]}}')
+    tokens: dict[str, set[str]] = {}
+    for item in items:
+        token = item.get("token") if isinstance(item, dict) else None
+        scopes = item.get("scopes") if isinstance(item, dict) else None
+        if not isinstance(token, str) or not token or not isinstance(scopes, list):
+            raise UsageError(f"{path}: every item needs a token (text) and scopes (a list)")
+        if token in tokens:
+            raise UsageError(f"{path}: the token {token!r} is listed twice")
+        unknown = sorted(set(map(str, scopes)) - set(ALL_SCOPES))
+        if unknown:
+            raise UsageError(f"{path}: unknown scope {', '.join(unknown)}")
+        tokens[token] = set(map(str, scopes))
+    return tokens
+
+
 def mock_state(args: argparse.Namespace) -> MockState:
-    state = MockState(read_mode=args.read_mode)
+    state = MockState(read_mode=args.read_mode, integration_enabled=not args.disabled)
+    if args.tokens and args.token_scopes:
+        raise UsageError("--tokens and --token-scopes exclude each other")
+    if args.tokens:
+        state.tokens = load_tokens(args.tokens)
     if args.token_scopes:
         scopes = {s.strip() for s in args.token_scopes.split(",") if s.strip()}
         unknown = sorted(scopes - set(ALL_SCOPES))
@@ -145,13 +183,16 @@ def run_mock(args: argparse.Namespace) -> int:
     except OSError as exc:
         raise UsageError(f"cannot listen on 127.0.0.1:{args.port}: {exc}") from exc
     base = f"http://{host}:{port}"
-    scopes = ",".join(sorted(state.tokens[DEFAULT_TOKEN]))
     print(f"tdkit {__version__} mock of Tribune Desk, contract {docs.version}")
     print(f"  API:            {base}/v3/cms/  (mode: {'read' if state.read_mode else 'webhook'})")
-    print(f"  token:          {DEFAULT_TOKEN}  (scopes: {scopes})")
+    for token, scopes in state.tokens.items():
+        print(f"  token:          {token}  (scopes: {','.join(sorted(scopes))})")
+    enabled = "enabled" if state.integration_enabled else "disabled"
+    print(f'  integration:    {enabled}  (POST {base}/_tdkit/integration {{"enabled": …}})')
     print(f"  signing secret: {MOCK_SECRET}  (a public test value)")
     print(f"  make a send:    POST {base}/_tdkit/send  (optional JSON body overrides fields)")
-    print(f"  your CMS:       TD_API_BASE={base} TD_CMS_TOKEN={DEFAULT_TOKEN}")
+    first = next(iter(state.tokens))
+    print(f"  your CMS:       TD_API_BASE={base} TD_CMS_TOKEN={first}")
     print("Ctrl+C stops it.", flush=True)
     try:
         server.serve_forever()

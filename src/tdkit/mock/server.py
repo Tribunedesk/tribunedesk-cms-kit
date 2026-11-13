@@ -23,7 +23,7 @@ from referencing import Registry
 from referencing.jsonschema import DRAFT202012
 
 from tdkit.docs import ContractDocs
-from tdkit.mock.state import ORG_CODE, MockState, ResultCall, now_iso
+from tdkit.mock.state import ORG_CODE, CursorError, MockState, ResultCall, now_iso
 from tdkit.sender import deliver
 from tdkit.signing import MOCK_SECRET
 
@@ -120,6 +120,7 @@ class MockServer:
             ("POST", re.compile(r"/v3/cms/articles/(?P<article_id>[^/]+)/result"), self._result),
             ("GET", re.compile(r"/v3/cms/openapi\.json"), self._openapi),
             ("POST", re.compile(r"/_tdkit/send"), self._control_send),
+            ("POST", re.compile(r"/_tdkit/integration"), self._control_integration),
         ]
         self._planned = [
             (method.upper(), re.compile(re.sub(r"\{[^}]+\}", "[^/]+", path)))
@@ -299,19 +300,19 @@ class MockServer:
             if cursor is None:
                 start = state.floor
             else:
-                if not re.fullmatch(r"c\d+", cursor):
-                    raise ApiError(422, "validation_error", "cursor: not a cursor of this feed")
-                start = int(cursor[1:])
+                try:
+                    start = state.parse_cursor(cursor)
+                except CursorError as exc:
+                    raise ApiError(exc.status, exc.code, exc.message) from None
                 if state.expire_cursor_once:
                     state.expire_cursor_once = False
                     state.floor = state.seq
                     raise ApiError(410, "cursor_expired", "the cursor has expired")
-                if start < state.floor:
-                    raise ApiError(410, "cursor_expired", "the cursor has expired")
+            state.switched = True
             after = [c for c in state.changes if c.seq > max(start, state.floor)]
             page, more = after[:limit], len(after) > limit
             visible = [c for c in page if c.kind != "article_sent" or "articles:read" in scopes]
-            next_cursor = page[-1].cursor if page else f"c{max(start, state.floor)}"
+            next_cursor = page[-1].cursor if page else state.cursor_for(max(start, state.floor))
         return Answer(
             200,
             {
@@ -453,6 +454,14 @@ class MockServer:
             200,
             {"article_id": send.article_id, "delivery_id": send.delivery_id, "delivery": delivery},
         )
+
+    def _control_integration(self, request: _Request) -> Answer:
+        """`POST /_tdkit/integration {"enabled": bool}`: the super admin's switch."""
+        body = json.loads(request.raw) if request.raw else None
+        if not isinstance(body, dict) or not isinstance(body.get("enabled"), bool):
+            raise ApiError(422, "validation_error", 'the body is {"enabled": true|false}')
+        self.state.set_enabled(body["enabled"])
+        return Answer(200, {"enabled": self.state.integration_enabled, "epoch": self.state.epoch})
 
     def _file(self, handler: BaseHTTPRequestHandler, name: str) -> None:
         self.state.record_pull(name)
