@@ -309,3 +309,10 @@ def test_no_local_sources_flags_kit_code_next_to_the_readme(tmp_path: Path) -> N
     ):
         run = make_run(tmp_path, _calls(("Bash", {"command": command})))
         assert not runner.no_local_sources(run)[0], command
+
+
+def test_manifest_checks_expect_the_eval_contract() -> None:
+    """A manifest written by tdkit carries the contract the run tested, CONTRACT; a stale literal
+    made every django-l12, drupal-l12 and update-3.2 run report a false FAIL `manifest`."""
+    source = (ROOT / "evals" / "run.py").read_text(encoding="utf-8")
+    assert 'contract="3.4.1-draft"' not in source

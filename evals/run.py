@@ -484,7 +484,7 @@ WEBHOOK_L12: dict[str, Check] = {
     "manifest written by tdkit from the report": ran(r"\bmanifest write\b[^\n]*--conformance"),
     "report and manifest not written by hand": results_from_tdkit,
     "report green (1,2 webhook)": report_green([1, 2], "webhook"),
-    "manifest": manifest(contract="3.4.1-draft", levels=[1, 2], delivery="webhook", passed=[1, 2]),
+    "manifest": manifest(contract=CONTRACT, levels=[1, 2], delivery="webhook", passed=[1, 2]),
     "no secret in git": no_secret_in_git,
     ".env ignored": env_ignored,
 }
@@ -545,7 +545,7 @@ SCENARIO: dict[str, Scenario] = {
         {
             **WEBHOOK_L12,
             "manifest": manifest(
-                contract="3.4.1-draft",
+                contract=CONTRACT,
                 levels=[1, 2],
                 delivery="webhook",
                 passed=[1, 2],
@@ -569,7 +569,7 @@ SCENARIO: dict[str, Scenario] = {
             "tdkit check ran": ran(r"\bcheck\s+--"),
             "report green (1,2 webhook)": report_green([1, 2], "webhook"),
             "manifest": manifest(
-                contract="3.4.1-draft", levels=[1, 2], delivery="webhook", passed=[1, 2]
+                contract=CONTRACT, levels=[1, 2], delivery="webhook", passed=[1, 2]
             ),
             "link back on the v3 route": file_matches(
                 "blog/tribunedesk.py", r"/v3/cms/articles/published"
