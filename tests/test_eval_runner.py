@@ -286,3 +286,26 @@ def test_no_local_sources_flags_a_sibling_checkout(tmp_path: Path) -> None:
     sibling = runner.KIT.parent / "tribunedesk-wordpress" / "src" / "WordPress" / "CmsSync.php"
     run = make_run(tmp_path, _calls(("Read", {"file_path": str(sibling)})))
     assert not runner.no_local_sources(run)[0]
+
+
+def test_no_local_sources_allows_the_kit_readme(tmp_path: Path) -> None:
+    """SKILL.md and references/tdkit.md send the agent to the kit README (public on GitHub);
+    all three parity runs of 13.11 read it from the local checkout and listed its root."""
+    kit = runner.KIT.as_posix()
+    calls = [
+        ("Read", {"file_path": str(runner.KIT / "README.md")}),
+        ("Bash", {"command": f'cd "{kit}" && ls && grep -n "^#" README.md'}),
+        ("Bash", {"command": f'K="{kit}"; ls "$K"; grep -n "^#" "$K/README.md"'}),
+    ]
+    assert runner.no_local_sources(make_run(tmp_path, _calls(*calls)))[0]
+
+
+def test_no_local_sources_flags_kit_code_next_to_the_readme(tmp_path: Path) -> None:
+    kit = runner.KIT.as_posix()
+    for command in (
+        f'cd "{kit}" && cat reference/django/td/webhook.py',
+        f'K="{kit}"; grep -rn signature "$K/src"',
+        f'cd "{kit}" && ls evals/scenarios',
+    ):
+        run = make_run(tmp_path, _calls(("Bash", {"command": command})))
+        assert not runner.no_local_sources(run)[0], command

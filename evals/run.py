@@ -257,18 +257,26 @@ SIBLINGS = re.compile(
 )
 
 
-def _local_hits(text: str) -> list[str]:
+def _local_hits(text: str, *, kit_root_ok: bool = True) -> list[str]:
     """Paths in `text` inside the folder holding this kit's checkout (the kit itself, the
     WordPress plugin, the PHP library, headlinesforge…), except the Claude Code plugin under
     test, which the skill is meant to read. Running tdkit with `--project <kit>` is allowed."""
     root, plugin = _norm(KIT.parent.as_posix()), _norm(PLUGIN.as_posix())
     kit = re.escape(_norm(KIT.as_posix()))
     text = re.sub(rf'--project\s+"?{kit}/?"?', "--project <kit>", _norm(text))
+    kit_root = _norm(KIT.as_posix())
+    # The skill sends the agent to the kit README (public on GitHub); the kit's own folder may
+    # be listed and its README read, but no code or data next to it.
+    kit_code = re.search(r"(?<![\w.-])(?:reference|src|evals|tests|ci|docs)(?:/|\b)", text)
     hits = []
     for match in re.finditer(re.escape(root), text):
         rest = text[match.start() :]
-        if not rest.startswith(plugin):
-            hits.append(rest[:100])
+        if rest.startswith(plugin) or rest.startswith(kit_root + "/readme.md"):
+            continue
+        at_kit_root = rest.startswith(kit_root) and not rest[len(kit_root) :].startswith("/")
+        if at_kit_root and kit_root_ok and not kit_code:
+            continue
+        hits.append(rest[:100])
     # A relative path to a sibling checkout (`../tribunedesk-wordpress`), not a GitHub URL.
     for match in SIBLINGS.finditer(text):
         hits.append(text[max(0, match.start() - 20) : match.end() + 40])
@@ -284,7 +292,8 @@ def no_local_sources(run: Run) -> tuple[bool, str]:
     for name in ("Read", "Glob", "Grep"):
         for call in run.tool_calls(name):
             for key in ("file_path", "path", "pattern"):
-                found += [f"{name} {hit}" for hit in _local_hits(str(call.get(key) or ""))]
+                hits = _local_hits(str(call.get(key) or ""), kit_root_ok=name == "Read")
+                found += [f"{name} {hit}" for hit in hits]
     for command in (c.get("command", "") for c in run.tool_calls("Bash")):
         found += [f"Bash {hit}" for hit in _local_hits(command)]
     return not found, f"local sources: {found}" if found else "none"
