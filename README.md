@@ -72,7 +72,7 @@ i gita.
 You need [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer. No installation:
 
 ```bash
-uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.1.2 tdkit --help
+uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.2.0 tdkit --help
 ```
 
 ### Which contract
@@ -247,7 +247,7 @@ stdout; for a failed scenario it quotes the guide's point and names the guide fi
 also writes:
 
 ```json
-{"tdkit": "1.1.1", "contract": "3.4.2-draft", "levels": [1, 2], "mode": "webhook",
+{"tdkit": "1.2.0", "contract": "3.4.2-draft", "levels": [1, 2], "mode": "webhook",
  "results": [{"id": "l1-creates-draft", "level": 1, "done_when": "An editor's …",
               "guide": "guide/1-article-delivery.md#done-when", "passed": true, "detail": "…"}]}
 ```
@@ -305,7 +305,7 @@ In read mode the webhook-only `l1-*` scenarios are skipped and the report says s
 **Your clock.** `check` cannot see your server's clock. A receiver more than 5 minutes off
 answers `401` to real deliveries and loses articles: keep it in sync.
 
-## Limits of 1.1
+## Limits of 1.2
 
 - `check` sends each delivery attempt itself; the mock's retries are for `tdkit mock`.
 - `push-existing` and `PUT /settings` work in the mock but have no scenario: both are an
@@ -340,6 +340,24 @@ uv run pytest -q
 
 `ci/example_harness.py` wraps the official examples for the CI job `examples`.
 
+### Keeping up with the contract
+
+- **One pin.** `CONTRACT_TAG` in `.github/workflows/ci.yml` is the contract every CI job tests;
+  `tests/fixtures/cms-api` is a copy of that tag (a test checks they agree).
+- **Drift.** `.github/workflows/contract-drift.yml` runs every day: when a newer tag exists,
+  `ci/contract_drift.py` moves the pin and the fixture on the branch `contract/latest`, opens
+  (or updates) one pull request listing the `Integrators` items in between, starts CI on it and
+  fails the run. It stays red every day until the pull request lands; it never merges itself.
+- **Coverage.** `tests/test_coverage.py` fails when a point of a guide's "Done when" has no
+  scenario quoting it and no entry in `src/tdkit/check/coverage.toml`, or when a CHANGELOG
+  `Integrators` item has no entry there naming the scenario, the skill file or `none` (with a
+  reason) that handles it. Stale entries fail too.
+- **A new minor.** `tdkit` must know a contract minor before its tag exists:
+  `SUPPORTED_MINORS` in `src/tdkit/docs.py` takes the new minor and keeps the previous one until
+  the release after the new tag.
+- **Parity.** Every kit minor is released with the three clean-room parity evals (below); a test
+  fails until the README table has their rows for the current minor.
+
 The plugin is validated in CI (job `plugin`) with `claude plugin validate --strict .` and
 `claude plugin validate --strict plugins/tribunedesk-integration`; run both before a PR that
 touches `.claude-plugin/` or `plugins/`. To try the skill with a local `tdkit` before a release,
@@ -347,9 +365,12 @@ set `TDKIT_CMD="uv run --project <this checkout> tdkit" (`--project`, not `--dir
 
 ## Evals
 
-Six scenarios check the skill on real projects (`evals/scenarios/`): a Django blog with levels 1
+Nine scenarios check the skill on real projects (`evals/scenarios/`): a Django blog with levels 1
 and 2 in Polish, the same on Drupal 11 in English with the PHP library, a photos-only site, a
-site on an intranet (read mode), an update from contract 3.2.0-draft and a Ghost(Pro) site. Run
+site on an intranet (read mode), an update from contract 3.2.0-draft, a Ghost(Pro) site, and
+three clean-room parity runs (`parity-django`, `parity-laravel`, `parity-node`): everything the
+official WordPress plugin does, levels 1-4, built from the skill and the public documentation
+alone. The parity runs come with every kit minor. Run
 one with `uv run python evals/run.py <scenario>`; it works on Windows, macOS and Linux and needs
 Claude Code, uv and git (and PHP 8.3 with Composer for Drupal). See [`evals/README.md`](evals/README.md).
 
