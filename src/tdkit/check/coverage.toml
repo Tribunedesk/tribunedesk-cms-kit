@@ -1,0 +1,141 @@
+# Coverage of the contract by tdkit and the skill (spec 2026-11-13 kontrakt najpierw, D3).
+#
+# tests/test_coverage.py reads this file against tests/fixtures/cms-api (a copy of CONTRACT_TAG):
+# - every point of a guide's "Done when" is covered when some scenario's `done_when` is part of
+#   it; otherwise it needs a [[done_when]] entry naming the scenarios that test it, or a reason;
+# - every tagged item of a CHANGELOG `**Integrators:**` list needs an [[integrators]] entry,
+#   keyed by version and the exact text, with `handled_by`: `scenario:<id>`, `skill:<path>`
+#   (relative to the skill folder) or `none` with a reason.
+# An entry that matches nothing is stale and fails too. Texts are quoted literally.
+
+[[done_when]]
+guide = "guide/1-article-delivery.md"
+point = "Two attempts of one send that overlap make one post, not two."
+scenarios = ["l1-overlapping-attempts"]
+
+[[done_when]]
+guide = "guide/1-article-delivery.md"
+point = "Images are downloaded only from the hosts in `image_hosts`; an image on any other host is not fetched."
+scenarios = ["l1-image-host"]
+
+[[done_when]]
+guide = "guide/1-article-delivery.md"
+point = "Every result carries the `delivery_id` of the send it answers, or `error` when your CMS could not take the article."
+scenarios = ["read-delivers-result"]
+
+[[done_when]]
+guide = "guide/1-article-delivery.md"
+point = "After `409 state_conflict` from the result, the article is fetched again and the newer send is answered."
+scenarios = ["read-superseded-409"]
+
+[[done_when]]
+guide = "guide/1-article-delivery.md"
+point = "After `410 cursor_expired`, the sends listed by `GET /v3/cms/articles/awaiting` are handled before polling `GET /v3/cms/changes` again without a cursor."
+scenarios = ["read-cursor-expired"]
+
+[[done_when]]
+guide = "guide/2-link-back.md"
+point = "Your token for this route is a `tdcms_` token with `articles:write`, not the webhook secret."
+scenarios = ["l2-reports-url"]
+
+[[done_when]]
+guide = "guide/2-link-back.md"
+point = "If your CMS has a setting that keeps a post off Facebook, every report carries `social_queue_exclude`, `false` included."
+scenarios = ["l2-social-flag"]
+
+[[integrators]]
+version = "3.4.0-draft"
+action = "answer `401` to a delivery without a valid signature; every delivery is signed now."
+handled_by = ["scenario:l1-bad-signature"]
+
+[[integrators]]
+version = "3.4.0-draft"
+action = "do not validate deliveries with a schema that rejects unknown properties."
+handled_by = ["scenario:l1-unknown-fields"]
+
+[[integrators]]
+version = "3.4.0-draft"
+action = "skip a body whose `sent_at` is older than the one you applied last; `sent_at` is now the time of the send."
+handled_by = ["scenario:l1-older-send-ignored"]
+
+[[integrators]]
+version = "3.4.0-draft"
+action = "read `cms_media_id` (text) instead of `cms_attachment_id`, and answer `featured_image.cms_media_id` instead of `attachment_id`."
+handled_by = ["scenario:l4-new-asset-linked", "skill:references/cms/generic.md"]
+
+[[integrators]]
+version = "3.4.0-draft"
+action = "send `social_queue_exclude` together with `permalink` in the delivery answer when your CMS has such a setting."
+handled_by = ["scenario:l2-social-flag"]
+
+[[integrators]]
+version = "3.4.0-draft"
+action = "treat `forbidden` from `POST /v3/cms/articles/published` like `not_found`."
+handled_by = ["none"]
+reason = "the route no longer returns forbidden (3.4.0); the mock never sends it, so there is nothing to test"
+
+[[integrators]]
+version = "3.4.0-draft"
+action = "without `settings:read`, take `image_hosts` from `GET /v3/cms/status`; a token with `articles:read` is enough."
+handled_by = ["scenario:l1-image-host"]
+
+[[integrators]]
+version = "3.4.0-draft"
+action = "send `delivery_id` (from `X-Delivery-Id`) with the result, send `error` when your CMS could not take the article, and after `410 cursor_expired` go through `GET /v3/cms/articles/awaiting`."
+handled_by = ["scenario:read-delivers-result", "scenario:read-cursor-expired"]
+
+[[integrators]]
+version = "3.4.0-draft"
+action = "match `state_conflict` on a `409` from `POST /v3/cms/articles/{article_id}/result`; the docs used to say `conflict`."
+handled_by = ["scenario:read-superseded-409"]
+
+[[integrators]]
+version = "3.3.0-draft"
+action = "verify the signature; `X-Webhook-Secret` is no longer sent."
+handled_by = ["scenario:l1-bad-signature"]
+
+[[integrators]]
+version = "3.3.0-draft"
+action = "move from `POST /v2/cms/published-urls` to `POST /v3/cms/articles/published`."
+handled_by = ["none"]
+reason = "POST /v2/cms/published-urls is removed; a new integration cannot call it and the mock does not serve it"
+
+[[integrators]]
+version = "3.3.0-draft"
+action = "send `social_queue_exclude` with each item when your CMS has such a setting."
+handled_by = ["scenario:l2-social-flag"]
+
+[[integrators]]
+version = "3.2.0-draft"
+action = "verify the Standard Webhooks signature of deliveries."
+handled_by = ["scenario:l1-bad-signature"]
+
+[[integrators]]
+version = "3.2.0-draft"
+action = "use a `tdcms_` token with `articles:write` for the link back."
+handled_by = ["scenario:l2-reports-url"]
+
+[[integrators]]
+version = "3.2.0-draft"
+action = "read `link_placeholder_prefix` from each delivery instead of a fixed prefix."
+handled_by = ["scenario:l3-placeholder-unwrapped"]
+
+[[integrators]]
+version = "3.2.0-draft"
+action = "download images only from the hosts in `image_hosts` of `GET /v3/cms/settings`."
+handled_by = ["scenario:l1-image-host"]
+
+[[integrators]]
+version = "3.2.0-draft"
+action = "read mode is available for a CMS without a public endpoint."
+handled_by = ["scenario:read-delivers-result", "skill:SKILL.md"]
+
+[[integrators]]
+version = "3.1.0-draft"
+action = "answer with `cms_post_id` and `edit_url`, and use `excerpt` and `featured_image`."
+handled_by = ["scenario:l1-answer-fields", "scenario:l1-creates-draft"]
+
+[[integrators]]
+version = "3.0.0-draft"
+action = "first version of the media sync; build it from the guide."
+handled_by = ["scenario:l4-first-poll", "skill:references/scope.md"]
