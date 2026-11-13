@@ -277,6 +277,40 @@ koszt). Test `tests/test_project.py`: tabela ma wiersze `parity-*` z wersją kit
 - **Rewizja:** gdy ten sam scenariusz parytetu padnie dwa wydania z rzędu z tego samego powodu,
   albo koszt rundy przekroczy 20 USD.
 
+### D5. Atrapa podaje pliki po https (dopisane 13.11, do zatwierdzenia)
+
+Decyzja ownera z 13.11: zadanie ledgera `2026-11-13-tribunedesk-cms-kit-atrapa-obrazy-https`
+wchodzi do tego specu zamiast osobnego. Sprawdzone w kodzie: atrapa podaje obrazy dostaw i
+`file_url` biblioteki mediów po `http` (`src/tdkit/check/context.py:99`,
+`src/tdkit/mock/media.py:180`, `src/tdkit/mock/server.py:306`), a `ImageHostRule::allows` w
+`tribunedesk/cms-protocol` przyjmuje tylko `https` (`src/ImageHostRule.php:21`). Integracja na
+bibliotece PHP — Drupal, Laravel, wtyczka WordPress z D2e — nigdy nie pobierze więc obrazu z
+atrapy, a `l1-image-host` przechodzi także integracji, która nic nie pobiera. Łańcuch dowodu
+(ogniwo 4) ma tu dziurę dokładnie dla CMS-ów PHP.
+
+**Rekomendacja:** atrapa serwuje `/files/*` także po `https` na drugim porcie, z **certyfikatem
+testowym dołączonym do kitu** (`src/tdkit/mock/tls/`: certyfikat dla `127.0.0.1` i `localhost`
+z długą ważnością i jego klucz, jawne, tylko na pętlę zwrotną). `tdkit check` i `tdkit mock`
+podają adresy plików po `https`, a ścieżkę certyfikatu przekazują komendom integracji jako
+`TD_CA_BUNDLE`; README i `references/cms/*.md` mówią, jak zaufać mu w środowisku testowym
+(curl/Guzzle: `CURLOPT_CAINFO`, Python: `REQUESTS_CA_BUNDLE`, Node: `NODE_EXTRA_CA_CERTS`). API
+atrapy zostaje po `http` (adres podaje integratorowi `TD_API_BASE`, biblioteka go nie filtruje).
+`l1-image-host` dostaje drugą połowę: obraz z dozwolonego hosta **jest** pobrany (atrapa widzi
+żądanie), obraz spoza listy nie jest.
+
+- **Why:** bez nowej zależności (TLS z biblioteki standardowej `ssl`, certyfikat wygenerowany raz
+  i zapisany w repo), reguła biblioteki zostaje bez wyjątków, a test pobrania obejmuje też CMS-y
+  PHP — także wtyczkę w D2e.
+- **Odrzucone: certyfikat generowany przy każdym starcie.** Biblioteka standardowa nie umie
+  wystawić certyfikatu; potrzebny byłby `cryptography` (nowa zależność) albo `openssl` w PATH,
+  którego na Windows zwykle nie ma.
+- **Odrzucone: tryb „http dla 127.0.0.1” w `ImageHostRule`.** Zmienia regułę bezpieczeństwa
+  biblioteki dla testów; produkcja i test zachowywałyby się inaczej, a to ukrywa błędy.
+- **Odrzucone: tylko opis w README (tunel https jak dla webhooka).** Nic nie sprawdza, a wynik
+  zależy od narzędzia integratora — anty-cel „zieleń bez dowodu”.
+- **Rewizja:** gdy certyfikat zbliży się do końca ważności (test w kicie czerwieni na rok przed),
+  albo gdy któryś język nie da się zmusić do zaufania jednemu plikowi CA.
+
 ## 5. Przepływ jednej zmiany (przykład: wtyczka zaczyna filtrować embedy)
 
 1. Klasa (b). PR w headlinesforge: zdanie w `guide/3-full-content.md` + punkt „Done when”,
@@ -310,6 +344,12 @@ Headlinesforge: istniejący `CMS_API_DOCS_TOKEN` (teraz wymagany).
   biblioteki z przewodnikiem złapie częściowo job `reference-drupal` kitu (biblioteka, poziomy
   1–2) i D2e (wtyczka używa kopii biblioteki, poziomy 1–4).
 - Kit sam ma ten sam dryf (CI na 3.4.1, fixture 3.4.2): pierwszy run driftu kitu go naprawi.
+  (Wykonane w etapie 1: przypinka od razu na `v3.4.2-draft`.)
+- `2026-11-13-tribunedesk-cms-kit-atrapa-obrazy-https` — zastępuje D5 (decyzja ownera 13.11).
+
+**Poprawka po etapie 1:** przypinka kitu to plik `ci/contract-tag`, nie linia `CONTRACT_TAG` w
+`ci.yml` (D2b): `GITHUB_TOKEN` nie może wypchnąć zmiany w `.github/workflows/`, a D2b zabrania
+nowych sekretów. To samo dotyczy przypinek `cms-php` i wtyczki — żyją już poza workflowami.
 
 ## 8. Dla budowniczego
 
@@ -319,6 +359,9 @@ Headlinesforge: istniejący `CMS_API_DOCS_TOKEN` (teraz wymagany).
    `tests/test_coverage.py` (z wpisami dla dzisiejszego 3.4.2), `workflow_dispatch` w `ci.yml`,
    `contract-drift.yml`, test tabeli evalów, scenariusze `parity-*` w `evals/`. Wydanie kitu
    minorem (1.2.0), pierwsza runda D4.
+1b. **Kit, D5:** pliki atrapy po https z certyfikatem testowym, `TD_CA_BUNDLE`, druga połowa
+   `l1-image-host`; wydanie kitu (minor: nowy wymóg w scenariuszu). Przed etapem 5 (wtyczka
+   w `tdkit check` potrzebuje https).
 2. **headlinesforge:** D2d (token) i strażnik ścieżek API → CHANGELOG (D1).
 3. **`cms-api`:** `pr.yml`, `tag.yml` ze strażnikiem D2c (czyta format z etapu 1, więc po nim).
 4. **`cms-php`:** `workflow_dispatch` w CI, `contract-drift.yml`.
