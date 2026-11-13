@@ -243,3 +243,43 @@ def test_poll_without_cursor_starts_from_now(
     later = state.add_send(sample(docs))
     page = call(base, "GET", f"/v3/cms/changes?cursor={page['next_cursor']}")[1]
     assert [c["article_id"] for c in page["changes"]] == [later.article_id]
+
+
+def _https_get(url: str) -> tuple[int, bytes]:
+    import ssl
+
+    from tdkit.mock import tls
+
+    context = ssl.create_default_context(cafile=str(tls.CA_BUNDLE))
+    with urllib.request.urlopen(url, timeout=10, context=context) as response:
+        return response.status, response.read()
+
+
+def test_files_are_served_over_https(state: MockState, docs: ContractDocs) -> None:
+    """D5: integrations on tribunedesk/cms-protocol download only over https."""
+    server = MockServer(state, docs)
+    server.start()
+    try:
+        host, tls_port = server.tls_address()
+        status, data = _https_get(f"https://{host}:{tls_port}/files/x.jpg")
+        assert status == 200 and data
+        assert state.pulls.get("x.jpg") == 1
+        assert server.files_base("localhost") == f"https://localhost:{tls_port}"
+    finally:
+        server.stop()
+
+
+def test_api_stays_on_http(base: str) -> None:
+    assert base.startswith("http://")
+    assert call(base, "GET", "/v3/cms/status")[0] == 200
+
+
+def test_two_mocks_get_distinct_tls_ports(state: MockState, docs: ContractDocs) -> None:
+    first, second = MockServer(state, docs), MockServer(MockState(), docs)
+    first.start()
+    second.start()
+    try:
+        assert first.tls_address()[1] != second.tls_address()[1]
+    finally:
+        first.stop()
+        second.stop()

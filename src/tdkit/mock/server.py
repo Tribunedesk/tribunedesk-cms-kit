@@ -23,7 +23,7 @@ from referencing import Registry
 from referencing.jsonschema import DRAFT202012
 
 from tdkit.docs import ContractDocs
-from tdkit.mock import media, media_routes
+from tdkit.mock import media, media_routes, tls
 from tdkit.mock.api import Answer, ApiError
 from tdkit.mock.api import Request as _Request
 from tdkit.mock.retries import Retrier
@@ -114,6 +114,9 @@ class MockServer:
         ]
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
+        # D5: the same handler over https on a free port, for files (the API stays on http).
+        self._tls_server: ThreadingHTTPServer | None = None
+        self._tls_thread: threading.Thread | None = None
 
     # -- lifecycle -------------------------------------------------------------------------
 
@@ -144,6 +147,15 @@ class MockServer:
             target=self._server.serve_forever, args=(0.05,), daemon=True
         )
         self._thread.start()
+        self._tls_server = ThreadingHTTPServer((HOST, 0), Handler)
+        self._tls_server.daemon_threads = True
+        self._tls_server.socket = tls.server_context().wrap_socket(
+            self._tls_server.socket, server_side=True
+        )
+        self._tls_thread = threading.Thread(
+            target=self._tls_server.serve_forever, args=(0.05,), daemon=True
+        )
+        self._tls_thread.start()
         return HOST, self.bound_address()[1]
 
     def bound_address(self) -> tuple[str, int]:
@@ -152,12 +164,24 @@ class MockServer:
         host, port = self._server.server_address[:2]
         return str(host), int(port)
 
+    def tls_address(self) -> tuple[str, int]:
+        """Where the mock answers over https (test certificate, `tdkit.mock.tls`)."""
+        if self._tls_server is None:
+            raise RuntimeError("the mock is not running")
+        host, port = self._tls_server.server_address[:2]
+        return str(host), int(port)
+
+    def files_base(self, host: str) -> str:
+        """The base of file addresses on `host`: https, on the mock's TLS port (D5)."""
+        return f"https://{host}:{self.tls_address()[1]}"
+
     def stop(self) -> None:
         self.retrier.stop()
-        if self._server is not None:
-            self._server.shutdown()
-            self._server.server_close()
-            self._server = None
+        for server in (self._server, self._tls_server):
+            if server is not None:
+                server.shutdown()
+                server.server_close()
+        self._server = self._tls_server = None
 
     def serve_forever(self) -> None:
         """Block until interrupted (`tdkit mock`)."""
@@ -303,7 +327,7 @@ class MockServer:
                     raise ApiError(410, "cursor_expired", "the cursor has expired")
             state.switched = True
             state.acked = max(state.acked, start)
-            state.media.files_base = f"http://{state.image_hosts[0]}:{self.bound_address()[1]}"
+            state.media.files_base = self.files_base(state.image_hosts[0])
             after = [c for c in state.changes if c.seq > max(start, state.floor)]
             page, more = after[:limit], len(after) > limit
             next_cursor = page[-1].cursor if page else state.cursor_for(max(start, state.floor))

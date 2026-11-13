@@ -177,7 +177,7 @@ class MediaLibrary:
     held: dict[str, HeldBatch] = field(default_factory=dict)
     resyncs: dict[str, Resync] = field(default_factory=dict)
     backfills: dict[str, Backfill] = field(default_factory=dict)
-    files_base: str = "http://127.0.0.1:8787"
+    files_base: str = "https://127.0.0.1"  # set by the server on each poll (D5)
     media_hosts: list[str] = field(default_factory=list)
 
     def paired(self, cms_media_id: str) -> Asset | None:

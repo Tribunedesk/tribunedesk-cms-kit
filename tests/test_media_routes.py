@@ -85,7 +85,10 @@ def test_changes_new_asset_shape_validates_against_change_schema(
     validator(docs, "ChangesResponse").validate(page)
     (change,) = page["changes"]
     assert change["kind"] == "new_asset"
-    assert change["file_url"].startswith(base + "/files/")
+    # D5: files over https, on the mock's TLS port, not the API's.
+    assert change["file_url"].startswith("https://")
+    assert "/files/" in change["file_url"]
+    assert not change["file_url"].startswith(base)
 
 
 def test_files_png_served_and_fail_download_500(state: MockState, base: str) -> None:
