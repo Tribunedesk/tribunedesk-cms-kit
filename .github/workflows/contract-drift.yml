@@ -1,0 +1,62 @@
+name: contract-drift
+
+# Spec 2026-11-13 kontrakt najpierw, D2b: once a day, compare CONTRACT_TAG in ci.yml with the
+# newest tag of Tribunedesk/tribunedesk-cms-api. When the pin is behind, move it (and the
+# fixture copy) on the branch contract/latest, open or update one pull request, start CI on
+# it, and fail this run: a pin left behind stays red every day. The pull request never merges
+# itself; main lands through /ship, and a push to main publishes the Claude Code plugin.
+#
+# GITHUB_TOKEN only. A pull request opened with it starts no workflow, so CI is started with
+# `gh workflow run` (workflow_dispatch is the exception GitHub allows).
+
+on:
+  schedule:
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: contract-drift
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.20"
+          enable-cache: true
+      - run: uv sync
+      - name: Compare the pin with the newest tag
+        id: drift
+        run: uv run python ci/contract_drift.py --body-out "$RUNNER_TEMP/body.md"
+      - name: Push contract/latest and open the pull request
+        if: steps.drift.outputs.behind == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PINNED: ${{ steps.drift.outputs.pinned }}
+          TAG: ${{ steps.drift.outputs.tag }}
+        run: |
+          branch="contract/latest"
+          title="contract: $PINNED → $TAG"
+          git config user.name "tribunedesk-contract-drift"
+          git config user.email "tribunedesk-contract-drift@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add -A .github/workflows/ci.yml tests/fixtures/cms-api
+          git commit -q -m "$title"
+          git push --force origin "$branch"
+          open="$(gh pr list --head "$branch" --state open --json number --jq '.[0].number')"
+          if [ -z "$open" ]; then
+            gh pr create --base main --head "$branch" --title "$title" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr edit "$open" --title "$title" --body-file "$RUNNER_TEMP/body.md"
+          fi
+          gh workflow run ci.yml --ref "$branch"
+          echo "::error::CONTRACT_TAG $PINNED is behind $TAG: merge the contract/latest pull request"
+          exit 1
