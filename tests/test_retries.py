@@ -72,8 +72,10 @@ def test_schedule_is_the_guides() -> None:
 
 @pytest.mark.parametrize(
     ("status", "retry"),
-    [(500, True), (503, True), (408, True), (425, True), (429, True), (None, True)]
-    + [(404, False), (401, False), (301, False), (200, False)],
+    [
+        *[(s, True) for s in (500, 503, 408, 425, 429, None)],
+        *[(s, False) for s in (404, 401, 301, 200)],
+    ],
 )
 def test_should_retry_codes(status: int | None, retry: bool) -> None:
     assert should_retry(status) is retry
