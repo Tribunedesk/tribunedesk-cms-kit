@@ -23,8 +23,9 @@ from referencing import Registry
 from referencing.jsonschema import DRAFT202012
 
 from tdkit.docs import ContractDocs
-from tdkit.mock.state import ORG_CODE, CursorError, MockState, ResultCall, now_iso
-from tdkit.sender import deliver
+from tdkit.mock.retries import Retrier
+from tdkit.mock.state import ORG_CODE, CursorError, MockState, ResultCall, Send, now_iso
+from tdkit.sender import DeliveryResult, deliver
 from tdkit.signing import MOCK_SECRET
 
 HOST = "127.0.0.1"
@@ -94,10 +95,12 @@ class MockServer:
         *,
         webhook: str | None = None,
         secrets: list[str] | None = None,
+        retry_scale: float = 1.0,
     ) -> None:
         self.state, self.docs, self.port = state, docs, port
         self.webhook = webhook
         self.secrets = secrets or [MOCK_SECRET]
+        self.retrier = Retrier(retry_scale, self._attempt, state)
         registry: Registry = Registry().with_resource(
             OPENAPI_URI, DRAFT202012.create_resource(docs.openapi)
         )
@@ -169,6 +172,7 @@ class MockServer:
         return str(host), int(port)
 
     def stop(self) -> None:
+        self.retrier.stop()
         if self._server is not None:
             self._server.shutdown()
             self._server.server_close()
@@ -440,19 +444,23 @@ class MockServer:
         send = self.state.add_send(body)
         delivery = None
         if not self.state.read_mode and self.webhook:
-            result = deliver(
-                self.webhook,
-                json.dumps(body, ensure_ascii=False).encode(),
-                secrets=self.secrets,
-                delivery_id=send.delivery_id,
-                attempt=1,
-            )
+            result = self._attempt(send, 1)
             delivery = {"status": result.status, "error": result.error, "answer": result.json}
-            if result.status is not None and 200 <= result.status < 300:
-                send.state = "delivered"
+            self.retrier.after(send, 1, result)
         return Answer(
             200,
             {"article_id": send.article_id, "delivery_id": send.delivery_id, "delivery": delivery},
+        )
+
+    def _attempt(self, send: Send, number: int) -> DeliveryResult:
+        """One signed attempt of `send` to `--webhook`, signed anew with a new timestamp."""
+        assert self.webhook is not None
+        return deliver(
+            self.webhook,
+            json.dumps(send.body, ensure_ascii=False).encode(),
+            secrets=self.secrets,
+            delivery_id=send.delivery_id,
+            attempt=number,
         )
 
     def _control_integration(self, request: _Request) -> Answer:

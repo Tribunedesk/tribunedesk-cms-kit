@@ -102,7 +102,7 @@ def run_check(levels: list[int], mode: str, opts: CheckOptions) -> Report:
         secret=opts.secret,
     )
     state = MockState(read_mode=mode == "read")
-    server = MockServer(state, opts.docs, opts.port)
+    server = MockServer(state, opts.docs, opts.port, retry_scale=0)
     try:
         _, port = server.start()
     except OSError as exc:

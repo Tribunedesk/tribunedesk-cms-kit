@@ -37,6 +37,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--tokens", type=Path, help='JSON file {"tokens": [{"token": "…", "scopes": […]}]}'
     )
     mock.add_argument(
+        "--retry-scale",
+        type=float,
+        default=1.0,
+        help="seconds per minute of the guide's retry schedule (default 1; 0: no retries)",
+    )
+    mock.add_argument(
         "--disabled",
         action="store_true",
         help="start with the integration disabled (POST /_tdkit/integration enables it)",
@@ -177,7 +183,7 @@ def run_mock(args: argparse.Namespace) -> int:
 
     state = mock_state(args)
     docs = resolve_docs(args.contract, args.docs)
-    server = MockServer(state, docs, args.port, webhook=args.webhook)
+    server = MockServer(state, docs, args.port, webhook=args.webhook, retry_scale=args.retry_scale)
     try:
         host, port = server.start()
     except OSError as exc:
