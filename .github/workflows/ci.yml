@@ -4,6 +4,14 @@ on:
   push:
     branches: [main]
   pull_request:
+  # contract-drift.yml starts CI on its contract/latest branch: a PR opened with GITHUB_TOKEN
+  # starts no workflow by itself, a workflow_dispatch does.
+  workflow_dispatch:
+
+env:
+  # The one pin of the contract. contract-drift.yml rewrites this line and refreshes
+  # tests/fixtures/cms-api from the same tag (tests check the two agree).
+  CONTRACT_TAG: v3.4.2-draft
 
 jobs:
   ci:
@@ -24,8 +32,6 @@ jobs:
     # The official Python examples of the contract tag must pass `tdkit check`: if they do
     # not, the mock or the example disagrees with the guide (spec D6).
     runs-on: ubuntu-latest
-    env:
-      CONTRACT_TAG: v3.4.1-draft
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
@@ -112,7 +118,7 @@ jobs:
       - name: tdkit check, levels 1 and 2, webhook mode
         working-directory: reference/django
         run: |
-          uv run --project "$GITHUB_WORKSPACE" tdkit check --levels 1,2 --mode webhook --contract v3.4.1-draft \
+          uv run --project "$GITHUB_WORKSPACE" tdkit check --levels 1,2 --mode webhook --contract "$CONTRACT_TAG" \
             --webhook http://127.0.0.1:8000/td/webhook/ \
             --inspect-cmd ".venv/bin/python manage.py td_inspect {article_id}" \
             --publish-cmd ".venv/bin/python manage.py td_publish {article_id}"
@@ -167,7 +173,7 @@ jobs:
       - name: tdkit check, levels 1 and 2, webhook mode
         run: |
           cd "$SITE"
-          uv run --project "$GITHUB_WORKSPACE" tdkit check --levels 1,2 --mode webhook --contract v3.4.1-draft \
+          uv run --project "$GITHUB_WORKSPACE" tdkit check --levels 1,2 --mode webhook --contract "$CONTRACT_TAG" \
             --webhook http://127.0.0.1:8888/td/webhook \
             --inspect-cmd "vendor/bin/drush td:inspect {article_id}" \
             --publish-cmd "vendor/bin/drush td:publish {article_id}"

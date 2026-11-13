@@ -75,13 +75,21 @@ def test_every_patch_of_the_supported_minor_is_accepted(version, ok):
     assert is_supported(version) is ok
 
 
-def test_fixture_is_3_4_2_with_guide_4() -> None:
+def test_fixture_is_the_ci_contract_tag() -> None:
+    """The fixture is a copy of the tag CI tests against; the drift job refreshes both."""
     from tdkit.docs import load_docs
 
-    from .conftest import FIXTURE
+    from .conftest import FIXTURE, ci_contract_tag
 
-    assert load_docs(FIXTURE).version == "3.4.2-draft"
+    assert "v" + load_docs(FIXTURE).version == ci_contract_tag()
     assert (FIXTURE / "guide/4-media-library.md").is_file()
+
+
+def test_ci_names_the_contract_once() -> None:
+    from .conftest import CI_YML
+
+    text = CI_YML.read_text(encoding="utf-8")
+    assert len(re.findall(r"v\d+\.\d+\.\d+(?:-draft)?", text)) == 1
 
 
 def test_readme_lists_every_scenario() -> None:

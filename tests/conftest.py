@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -13,6 +14,14 @@ from tdkit.mock.server import MockServer
 from tdkit.mock.state import MockState
 
 FIXTURE = Path(__file__).parent / "fixtures" / "cms-api"
+CI_YML = Path(__file__).parent.parent / ".github" / "workflows" / "ci.yml"
+
+
+def ci_contract_tag() -> str:
+    """The contract tag CI tests against: the one `CONTRACT_TAG` line of `ci.yml`."""
+    match = re.search(r"^  CONTRACT_TAG: (v\S+)$", CI_YML.read_text(encoding="utf-8"), re.M)
+    assert match, "ci.yml has no workflow-level CONTRACT_TAG"
+    return match[1]
 
 
 @pytest.fixture(scope="session")
