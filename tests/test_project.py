@@ -44,6 +44,13 @@ def test_manifest_validate_rejects_level_5_and_bad_delivery(
     assert main(["manifest", "validate", str(path)]) == 0
 
 
+def test_manifest_validate_rejects_delivery_none_below_level_4() -> None:
+    assert validate_manifest({**GOOD, "levels": [4], "delivery": "none"}) == []
+    for levels in ([1], [2, 3], [1, 4]):
+        errors = validate_manifest({**GOOD, "levels": levels, "delivery": "none"})
+        assert any("delivery" in e for e in errors), levels
+
+
 def test_manifest_write_takes_passed_levels_from_report(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

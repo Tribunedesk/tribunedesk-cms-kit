@@ -16,7 +16,7 @@ Every mechanical step goes through `tdkit`, the kit's command line tool. In this
 means:
 
 ```
-uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.1.1 tdkit
+uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.1.2 tdkit
 ```
 
 If the environment variable `TDKIT_CMD` is set, use its value instead (kit developers and evals
@@ -63,7 +63,7 @@ say what you found and recommend the mode that fits the repository.
 
 - **The documentation is the only source of truth.** Run `TDKIT docs` early; it puts the
   contract documentation of a tag into `.tribunedesk/cms-api@<tag>/` and adds `.tribunedesk/` to
-  `.gitignore`. Read fields, routes, error codes, retry rules and "Done when" points from there,
+  `.gitignore` when the project has a `.gitignore` or is a git repository. Read fields, routes, error codes, retry rules and "Done when" points from there,
   never from memory. Whenever you state a rule of the contract, cite the file and section, for
   example "`guide/1-article-delivery.md`, Verifying the signature". If the documentation does
   not answer something, say so plainly and choose the safer behaviour; do not invent.

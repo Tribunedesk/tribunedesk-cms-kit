@@ -18,6 +18,11 @@ Environment variables or the platform's secret store: `TD_WEBHOOK_SECRET`, `TD_C
 `TD_API_BASE`. Never in the repository, in exported configuration or in database seeds;
 `.env.example` with names only.
 
+**Secrets without environment variables.** If the platform has neither environment variables nor a
+secret store, keep the signing secret and the token in a file outside the repository and outside
+the web root, readable by the web server's user only, and put its path in a configuration value.
+Never a constant in code, a seed, a fixture or exported configuration.
+
 ## 3. Unique key and lock
 
 - A table keyed by `article_id` with a unique constraint, plus `last_sent_at` and the delivery id.
@@ -30,10 +35,23 @@ Find where the CMS makes a post public (an event, a hook, the publish action). F
 retrying job that sends the link back. For posts published at once in the delivery, answer with
 the permalink instead (guide 2).
 
+**Scheduled publication.** A post with a publish date in the future is not public yet: answer the
+delivery without `permalink`. Report the address with `POST /v3/cms/articles/published` when the
+post goes public, from the scheduler's own event or the first job after that time, because guide 2
+asks for the report once the post is public. Take the address from the post as it is then, not
+from the scheduled time.
+
 ## 5. Edit URL
 
 An absolute `http(s)` address of the post's editor, built from the post id and the site's base URL
 without checking the current user (there is none during a delivery).
+
+**No logged-in user.** A delivery and the CLI commands run without an editor's session. So the
+absolute addresses they build (`edit_url`, `permalink`) come from `TD_SITE_URL`, the public address
+of the site, read from the environment like the other `TD_` names (section 2). The post author comes
+from the `author` field of the delivery (guide 1, The fields of the request), and the body goes
+through the text filter your CMS applies to editor content, chosen for the system because there is
+no user to take it from; check that it keeps the elements listed in guide 1, "The HTML body".
 
 ## 6. Images
 
@@ -46,11 +64,19 @@ Three commands runnable without a shell (a script, a CLI entry point):
 `<cli> inspect <article_id>`, `<cli> publish <article_id>`, `<cli> poll`. Their output contract is
 in the kit README, "The commands your integration provides".
 
+`publish` sends the link back before it exits, so `check` finds it: it reads the report right after
+the command returns. A retry queue may still handle a failed send later.
+
 ## 8. Running the project's tests
 
 Use the project's own test runner. Add tests for the signature check (with the contract's
 signature vectors, `examples/vectors/webhook-signature.json` in the downloaded docs), for two
 attempts of one send, and for an older send after a newer one.
+
+**No tests in the project.** If the project has no test runner, do not start one on your own: tell
+the user and ask before adding a runner or a dependency, since that choice is theirs. The signature
+check can still be tested against the contract's vectors (`examples/vectors/webhook-signature.json`)
+with a small script the user can run.
 
 ## 9. Pitfalls
 

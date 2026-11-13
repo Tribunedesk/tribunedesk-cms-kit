@@ -3,6 +3,11 @@
 A custom module, e.g. `tribunedesk`, built on `tribunedesk/cms-protocol`
 (`references/php-library.md`). Contract rules come from the downloaded guide.
 
+Start from the reviewed reference in the kit repository: `reference/drupal`
+(https://github.com/Tribunedesk/tribunedesk-cms-kit/tree/main/reference/drupal) is a Drupal module
+with the webhook controller, a lock per article, the link-back queue, the Drush commands and kernel
+tests. Read it before writing your own, and copy the order of the steps, not its names.
+
 ## 1. Raw body and the webhook route
 
 - `tribunedesk.routing.yml`: a route `/td/webhook` with `methods: [POST]`,
@@ -54,6 +59,10 @@ Check the host with `ImageHostRule`, then download in a queue worker, save as a 
 Drush commands in `src/Drush/Commands/TribunedeskCommands.php` (Drush 12+ attributes):
 `drush td:inspect <article_id>`, `drush td:publish <article_id>`, `drush td:poll`. On Windows run
 `vendor\bin\drush.bat` or `vendor/bin/drush` explicitly.
+
+`publish` sends the link back before it exits, so `check` finds it: it reads the report right after
+the command returns. A retry queue may still handle a failed send later. The reference module does
+this: `drush td:publish` processes the link-back queue before it exits.
 
 ## 8. Running the project's tests
 

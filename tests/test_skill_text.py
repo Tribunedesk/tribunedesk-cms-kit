@@ -144,6 +144,39 @@ def test_last_message_stands_alone() -> None:
     assert "Never say you showed something you did not" in text
 
 
+def test_publish_finishes_the_link_back() -> None:
+    """`check` reads the report right after --publish-cmd returns (scenario l2-reports-url)."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "before it exits" in readme
+    for path in sorted((REFERENCES / "cms").glob("*.md")):
+        assert "before it exits" in path.read_text(encoding="utf-8"), path.name
+
+
+def test_generic_reference_covers_cases_without_a_user_or_tests() -> None:
+    generic = (REFERENCES / "cms" / "generic.md").read_text(encoding="utf-8")
+    for needle in (
+        "**Scheduled publication.**",
+        "**No logged-in user.**",
+        "`TD_SITE_URL`",
+        "**Secrets without environment variables.**",
+        "**No tests in the project.**",
+    ):
+        assert needle in generic, needle
+
+
+def test_drupal_reference_points_to_the_kit_reference() -> None:
+    drupal = (REFERENCES / "cms" / "drupal.md").read_text(encoding="utf-8")
+    assert "reference/drupal" in drupal
+
+
+def test_docs_flag_is_the_same_in_update_mode_and_tdkit_reference() -> None:
+    update = (REFERENCES / "update-mode.md").read_text(encoding="utf-8")
+    assert "--contract <new tag>" not in update
+    assert "TDKIT check --docs <path>" in update
+    tdkit = (REFERENCES / "tdkit.md").read_text(encoding="utf-8")
+    assert "cms-api@v3." not in tdkit
+
+
 def test_tdkit_reference_gives_the_mock_secret() -> None:
     """Second django-l12 run: the agent could not find the mock's secret and made its own."""
     from tdkit.signing import MOCK_SECRET
@@ -173,3 +206,7 @@ def test_message_rules_do_not_contradict() -> None:
     stage5 = text.split("### Stage 5.", 1)[1].split("###", 1)[0]
     for part in (template, stage5):
         assert "pre-approv" in part.lower(), part[:80]
+
+
+def test_skill_gitignore_sentence_matches_docs_command() -> None:
+    assert "when the project has a `.gitignore` or is a git repository" in skill_text()

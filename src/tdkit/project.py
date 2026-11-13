@@ -169,6 +169,8 @@ def validate_manifest(data: Any) -> list[str]:
         errors.append("levels: a non-empty list of levels 1 to 4 is required")
     if data.get("delivery") not in DELIVERIES:
         errors.append(f"delivery: one of {', '.join(DELIVERIES)} is required")
+    elif data["delivery"] == "none" and isinstance(levels, list) and any(v != 4 for v in levels):
+        errors.append("delivery: none is only for level 4 alone (no webhook or read mode)")
     if "protocol" in data and not isinstance(data["protocol"], str):
         errors.append("protocol: a string (the cms-protocol library version)")
     if "conformance" in data:

@@ -72,7 +72,7 @@ i gita.
 You need [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer. No installation:
 
 ```bash
-uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.1.1 tdkit --help
+uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.1.2 tdkit --help
 ```
 
 ### Which contract
@@ -206,6 +206,11 @@ without a shell, with a 60-second limit. A non-zero exit code fails the scenario
 | `--media-edit-cmd` | level 4 | sets `{field}` of `{cms_media_id}` to `{value}` as an editor would (`{value}` is one argument, spaces included) |
 | `--media-delete-cmd` | level 4 | deletes `{cms_media_id}` as an editor would |
 | `--reset-cmd` | level 4, optional | clears your level 4 state (cursor, versions, queues, pairs) before the scenarios; without it a rerun polls with a cursor of the previous mock and the first scenario fails with a hint |
+
+`--publish-cmd` must finish the link back before it exits. `check` reads the post's report right
+after the command returns (scenario `l2-reports-url`), so a link back left for a later cron run or
+worker fails it. Send it in the same run; a retry queue may still handle a failed send afterwards.
+The Drupal reference does this: `drush td:publish` processes the queue before it exits.
 
 For example `python manage.py td_inspect {article_id}` (Django) or
 `drush td:inspect {article_id}` (Drupal).

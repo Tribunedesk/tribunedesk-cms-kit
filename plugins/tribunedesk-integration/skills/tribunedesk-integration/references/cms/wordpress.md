@@ -48,6 +48,9 @@ the link back with `wp_remote_post` and `LinkBack`.
 WP-CLI commands: `wp td inspect <article_id>`, `wp td publish <article_id>`, `wp td poll`
 (`WP_CLI::add_command`).
 
+`publish` sends the link back before it exits, so `check` finds it: it reads the report right after
+the command returns. A retry queue may still handle a failed send later.
+
 ## 8. Running the project's tests
 
 The project's PHPUnit setup (`wp-env run tests-cli` or `vendor/bin/phpunit` with the WordPress

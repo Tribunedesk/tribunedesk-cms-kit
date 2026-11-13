@@ -50,6 +50,9 @@ Bridge CLI scripts: `node bridge.js inspect <article_id>`, `node bridge.js publi
 (publishes through the Admin API), `node bridge.js poll`. `inspect` reads the bridge database and
 Ghost.
 
+`publish` sends the link back before it exits, so `check` finds it: it reads the report right after
+the command returns. A retry queue may still handle a failed send later.
+
 ## 8. Running the project's tests
 
 The bridge's own tests (`npm test`), with the Ghost Admin API faked (e.g. `nock`) or a local Ghost

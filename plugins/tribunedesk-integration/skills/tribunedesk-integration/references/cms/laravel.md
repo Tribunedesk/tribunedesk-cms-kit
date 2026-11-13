@@ -49,6 +49,9 @@ Artisan commands in `app/Console/Commands`: `php artisan td:inspect {article_id}
 `php artisan td:publish {article_id}`, `php artisan td:poll`. Print with
 `$this->line(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))`.
 
+`publish` sends the link back before it exits, so `check` finds it: it reads the report right after
+the command returns. A retry queue may still handle a failed send later.
+
 ## 8. Running the project's tests
 
 `php artisan test` (or `vendor/bin/phpunit`/`pest`). Feature test: post a signed request

@@ -35,10 +35,11 @@ TDKIT check --levels 1,2 --mode webhook \
   --webhook http://127.0.0.1:8000/td/webhook \
   --inspect-cmd "python manage.py td_inspect {article_id}" \
   --publish-cmd "python manage.py td_publish {article_id}" \
-  --docs .tribunedesk/cms-api@v3.4.2-draft \
+  --docs <path> \
   --json .tribunedesk/tdkit-report.json
 ```
 
+- `--docs <path>`: the `path` that `TDKIT docs` printed, the contract of the tag you build against.
 - `--mode read` with `--poll-cmd "…"` instead of `--webhook`.
 - `--port` changes the mock's port (default 8787); the integration's `TD_API_BASE` must match.
   `check` also sets `TD_API_BASE` and `TD_CMS_TOKEN` in the environment of the three commands.

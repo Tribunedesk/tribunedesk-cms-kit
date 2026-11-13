@@ -58,6 +58,9 @@ Management commands in `<app>/management/commands/`:
 
 Print with `self.stdout.write(json.dumps(..., ensure_ascii=False))`.
 
+`publish` sends the link back before it exits, so `check` finds it: it reads the report right after
+the command returns. A retry queue may still handle a failed send later.
+
 ## 8. Running the project's tests
 
 `python manage.py test` or `pytest` (with `pytest-django`), whichever the project uses. Test the

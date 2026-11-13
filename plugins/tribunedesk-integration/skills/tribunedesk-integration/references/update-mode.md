@@ -34,8 +34,8 @@ first. Stop for approval before changing code, unless the user pre-approved.
 ## After the changes
 
 1. Run the project's tests.
-2. Run `TDKIT check` for the manifest's levels and mode against the new documentation
-   (`--contract <new tag>`).
+2. Run `TDKIT check --docs <path>` for the manifest's levels and mode, with the `path` that
+   `TDKIT docs` printed for the new contract.
 3. `TDKIT manifest write` with the new contract and the new report; `TDKIT manifest validate`.
 4. Summarise: what changed, what was already done, what did not apply.
 

@@ -47,6 +47,9 @@ Scripts in `package.json`, run with node directly so `tdkit` can call them witho
 `node scripts/td.js poll`. (`npm run td -- inspect …` works too; on Windows `tdkit` finds
 `npm.cmd` on `PATH`.)
 
+`publish` sends the link back before it exits, so `check` finds it: it reads the report right after
+the command returns. A retry queue may still handle a failed send later.
+
 ## 8. Running the project's tests
 
 `npm test` (Jest, Vitest or `node --test`), with `supertest` for the route: a signed request
