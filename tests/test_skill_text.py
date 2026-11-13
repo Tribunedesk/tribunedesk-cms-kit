@@ -176,6 +176,14 @@ def test_php_library_reference_names_the_secret_variables() -> None:
     assert "WebhookSignature::verify($secret" in php
 
 
+def test_php_library_reference_explains_the_library_readme_name() -> None:
+    """The library README reads TRIBUNEDESK_WEBHOOK_SECRET; the kit names it TD_WEBHOOK_SECRET."""
+    php = (REFERENCES / "php-library.md").read_text(encoding="utf-8")
+    section = php.split("## Secret and token names", 1)[1]
+    assert "TRIBUNEDESK_WEBHOOK_SECRET" in section
+    assert "do not give the library other names" not in section
+
+
 def test_drupal_link_back_queue_is_flushed_by_publish() -> None:
     drupal = (REFERENCES / "cms" / "drupal.md").read_text(encoding="utf-8")
     section = drupal.split("## 4. Publish hook and link back", 1)[1].split("\n## ", 1)[0]

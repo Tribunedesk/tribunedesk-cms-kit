@@ -56,4 +56,8 @@ The library takes the secret and the token as arguments: `WebhookSignature::veri
 (see `references/cms/laravel.md`, section 1). The names of the environment variables that hold them
 are the kit's names, the same in every CMS reference and in `.env.example`: `TD_WEBHOOK_SECRET`
 (the signing secret), `TD_CMS_TOKEN` (the `tdcms_` token) and `TD_API_BASE` (the API address). Read
-them in your CMS's configuration and pass the values on; do not give the library other names.
+them in your CMS's configuration and pass the values on.
+
+The library's own README reads the secret with `getenv('TRIBUNEDESK_WEBHOOK_SECRET')`. That name
+is only its example: in an integration built with this kit use `TD_WEBHOOK_SECRET`, so the
+variable matches the CMS reference, `.env.example` and the kit's checks.
