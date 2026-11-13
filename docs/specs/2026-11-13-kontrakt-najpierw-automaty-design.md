@@ -1,6 +1,6 @@
 # Kontrakt najpierw: jak zmiany wtyczki i API same docierają do kontraktu, `cms-php`, `tdkit` i skilla — projekt
 
-Data: 2026-11-13. Status: **szkic do zatwierdzenia przez ownera.** Repozytoria: `Tribunedesk/tribunedesk-cms-kit`
+Data: 2026-11-13. Status: **zatwierdzony przez ownera 13.11 (wariant 1: w całości).** Repozytoria: `Tribunedesk/tribunedesk-cms-kit`
 (ten), `Tribunedesk/tribunedesk-cms-api`, `Tribunedesk/tribunedesk-cms-php`,
 `Tribunedesk/tribunedesk-wordpress`, headlinesforge (`docs/api/cms/`,
 `.github/workflows/cms-api-docs.yml`). Kontekst: spec E9 (headlinesforge
