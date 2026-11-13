@@ -56,6 +56,8 @@ URLs are right.
 Check the host with `ImageHostRule`, then download in a queue worker, save as a file entity
 (`file_system`, `public://`) and a Media entity if the site uses Media; set `alt` and `title`.
 
+Testing with `tdkit`: the mock serves images over https with a test certificate. Trust its CA, the file `TDKIT check` prints as `TD_CA_BUNDLE`, in the test environment only, through Guzzle's `verify` option (`['verify' => getenv('TD_CA_BUNDLE')]`). Never in production: there the system's CAs stay.
+
 ## 7. Developer commands
 
 Drush commands in `src/Drush/Commands/TribunedeskCommands.php` (Drush 12+ attributes):

@@ -205,6 +205,13 @@ def mock_state(args: argparse.Namespace) -> MockState:
     return state
 
 
+def ca_bundle_line() -> str:
+    """Files come over https with a test certificate (D5): the CA an integration trusts in tests."""
+    from tdkit.mock.tls import CA_BUNDLE
+
+    return f"  CA for files:   TD_CA_BUNDLE={CA_BUNDLE}  (test environments only, never production)"
+
+
 def run_mock(args: argparse.Namespace) -> int:
     from tdkit.mock.server import MockServer
     from tdkit.signing import MOCK_SECRET
@@ -243,6 +250,7 @@ def run_mock(args: argparse.Namespace) -> int:
     print(f"                  POST {base}/_tdkit/expire-cursors  (the next cursor answers 410)")
     first = next(iter(state.tokens))
     print(f"  your CMS:       TD_API_BASE={base} TD_CMS_TOKEN={first}")
+    print(ca_bundle_line())
     print("Ctrl+C stops it.", flush=True)
     try:
         server.serve_forever()
@@ -306,6 +314,8 @@ def run_checks(args: argparse.Namespace) -> int:
         media_fields=fields,
         media_hosts=tuple(split_list(args.media_hosts)),
     )
+    # A webhook server started outside tdkit needs TD_CA_BUNDLE in its own environment.
+    print(ca_bundle_line().strip(), file=sys.stderr, flush=True)
     report = run_check(levels, args.mode, opts)
     print(render_text(report, opts), flush=True)
     if args.json:

@@ -40,6 +40,8 @@ outbox table polled by a worker) that sends the link back with `fetch`. A repeat
 Check the host, answer, then download in the job (`fetch` with `AbortSignal.timeout`), store and
 attach.
 
+Testing with `tdkit`: the mock serves images over https with a test certificate. Trust its CA, the file `TDKIT check` prints as `TD_CA_BUNDLE`, in the test environment only, through `NODE_EXTRA_CA_CERTS=$TD_CA_BUNDLE` in the environment of the process. Never in production: there the system's CAs stay.
+
 ## 7. Developer commands
 
 Scripts in `package.json`, run with node directly so `tdkit` can call them without a shell:

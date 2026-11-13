@@ -58,6 +58,8 @@ no user to take it from; check that it keeps the elements listed in guide 1, "Th
 Download only from the allowed hosts (guide 1, Where images come from), in the background after
 answering, with a timeout and a size limit.
 
+Testing with `tdkit`: the mock serves images over https with a test certificate. Trust its CA, the file `TDKIT check` prints as `TD_CA_BUNDLE`, in the test environment only, through your HTTP client's CA option: Python `cafile=`/`REQUESTS_CA_BUNDLE`, PHP `CURLOPT_CAINFO` or Guzzle `verify`, Node `NODE_EXTRA_CA_CERTS`. Never in production: there the system's CAs stay.
+
 ## 7. Developer commands
 
 Three commands runnable without a shell (a script, a CLI entry point):

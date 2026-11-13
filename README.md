@@ -101,6 +101,9 @@ It prints what your CMS needs and stays in the foreground (Ctrl+C stops it):
 
 - the API at `http://127.0.0.1:8787/v3/cms/`; set `TD_API_BASE=http://127.0.0.1:8787` in your
   CMS;
+- `TD_CA_BUNDLE=<path>`: images and `file_url` come over https, on a second, free port, with a
+  test certificate (public, loopback only, in `src/tdkit/mock/tls/`). Trust that CA in your
+  test environment, never in production;
 - the token `tdcms_mock`, with every scope unless `--token-scopes` narrows it, or the tokens
   of `--tokens FILE`:
 
@@ -184,8 +187,9 @@ integration must be running and configured for the mock:
   secret, or with `--secret` if you configured your own. The report only says whether you gave
   a secret, never its value;
 - level 2, level 3 and read mode: your CMS calls the API at `TD_API_BASE=http://127.0.0.1:<port>`
-  with the token `tdcms_mock`. `check` also sets `TD_API_BASE` and `TD_CMS_TOKEN` in the
-  environment of the commands below.
+  with the token `tdcms_mock`. `check` also sets `TD_API_BASE`, `TD_CMS_TOKEN` and
+  `TD_CA_BUNDLE` in the environment of the commands below, and prints `TD_CA_BUNDLE` on start:
+  a webhook server you started yourself needs it in its own environment to download images.
 
 ### The commands your integration provides
 
@@ -272,7 +276,7 @@ point for the behaviour, the guide's sentence that requires it.
 | `l1-overlapping-attempts` | 1 webhook | two attempts of one send at once | one post | Keep `article_id` unique in your database and lock the row while you write, or you get two posts. |
 | `l1-unknown-fields` | 1 webhook | an unknown field and an unknown link `kind` | 2xx, post made | Fields you do not know are ignored, not rejected; … |
 | `l1-non-ascii` | 1 webhook | title `Zażółć gęślą jaźń — „test”` | the title comes back identical | (as `l1-creates-draft`) |
-| `l1-image-host` | 1 webhook | the image on a host outside `image_hosts`: `localhost`, or `127.0.0.1` when your webhook is on `localhost` (a receiver may trust its own host) | 2xx, and the mock saw no download (also passes for a CMS that never downloads images) | Download images only from these hosts and refuse any other address. |
+| `l1-image-host` | 1 webhook | the image on a host outside `image_hosts`: `localhost`, or `127.0.0.1` when your webhook is on `localhost` (a receiver may trust its own host) | first an image on the allowed host, over https: the mock sees it downloaded within 15 s; then the other host: 2xx, and the mock saw no download | Download images only from these hosts and refuse any other address. |
 | `read-delivers-result` | 1 read | a send, `--poll-cmd` | `POST /result` with the send's `delivery_id`; post made | The body (`ArticleResultReport`) is what your webhook would answer with, plus `delivery_id`: … |
 | `read-superseded-409` | 1 read | a newer send right after your fetch, `--poll-cmd` twice | the old send's result got `409`, the last accepted result is for the newer send | With it the result closes exactly that send; if a newer send of the article replaced it you get `409` … |
 | `read-cursor-expired` | 1 read | `410` on your next cursor, `--poll-cmd` | you listed `/articles/awaiting` and reported the waiting send | List the sends still waiting with `GET /v3/cms/articles/awaiting` … |
@@ -321,6 +325,8 @@ answers `401` to real deliveries and loses articles: keep it in sync.
 - **Shapes** come from the tag's OpenAPI document: request bodies are validated with its schemas.
 - **Behaviour** (cursor, `awaiting`, `409`, `410`, level 4: versions, conflicts, threshold,
   resync, import) is written by hand from the guide.
+- **Files over https** with a test certificate (`TD_CA_BUNDLE`) on a free port, while the API
+  stays on `http`: production serves both over https with public certificates.
 - **Level 4 file hosts** are relaxed: the mock accepts `http` and any port on `127.0.0.1` and
   `localhost` in `file_url` of `POST /media` and `/link` (production wants `https` on port 443
   on your organization's hosts), never downloads those URLs, and pairs files accepted by

@@ -231,3 +231,12 @@ def test_message_rules_do_not_contradict() -> None:
 
 def test_skill_gitignore_sentence_matches_docs_command() -> None:
     assert "when the project has a `.gitignore` or is a git repository" in skill_text()
+
+
+def test_cms_references_name_the_ca_bundle() -> None:
+    """D5: the mock serves files over https with a test CA; each CMS says how to trust it."""
+    for path in sorted((REFERENCES / "cms").glob("*.md")):
+        if path.name == "ghost.md":
+            continue
+        assert "TD_CA_BUNDLE" in path.read_text(encoding="utf-8"), path.name
+    assert "TD_CA_BUNDLE" in (REFERENCES / "tdkit.md").read_text(encoding="utf-8")

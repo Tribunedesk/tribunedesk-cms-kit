@@ -47,6 +47,8 @@ args=[post.pk])` (or the CMS's own editor route). `request.user` does not exist 
 - `requests`/`httpx` with a timeout and a size limit; store through the project's storage
   (`default_storage`).
 
+Testing with `tdkit`: the mock serves images over https with a test certificate. Trust its CA, the file `TDKIT check` prints as `TD_CA_BUNDLE`, in the test environment only, through `ssl.create_default_context(cafile=os.environ['TD_CA_BUNDLE'])` for `urllib`, or `REQUESTS_CA_BUNDLE` for `requests`. Never in production: there the system's CAs stay.
+
 ## 7. Developer commands
 
 Management commands in `<app>/management/commands/`:

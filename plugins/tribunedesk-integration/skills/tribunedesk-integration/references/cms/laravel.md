@@ -43,6 +43,8 @@ app URL from config (`APP_URL`), without auth checks.
 Check the host with `ImageHostRule`, then download in a queued job (`Http::timeout(...)`), store
 with `Storage::put` and attach.
 
+Testing with `tdkit`: the mock serves images over https with a test certificate. Trust its CA, the file `TDKIT check` prints as `TD_CA_BUNDLE`, in the test environment only, through `Http::withOptions(['verify' => env('TD_CA_BUNDLE')])` (Guzzle `verify`). Never in production: there the system's CAs stay.
+
 ## 7. Developer commands
 
 Artisan commands in `app/Console/Commands`: `php artisan td:inspect {article_id}`,

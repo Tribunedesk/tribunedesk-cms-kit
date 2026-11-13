@@ -29,3 +29,23 @@ def test_mock_unknown_scope_is_usage_error(capsys: pytest.CaptureFixture[str]) -
         == 2
     )
     assert "media:everything" in capsys.readouterr().err
+
+
+def test_ca_bundle_line_names_an_existing_file() -> None:
+    """D5: `tdkit mock` and `tdkit check` tell the integrator which CA to trust in tests."""
+    from pathlib import Path
+
+    from tdkit import cli
+
+    line = cli.ca_bundle_line()
+    assert line.startswith("  CA for files:   TD_CA_BUNDLE=")
+    assert Path(line.split("=", 1)[1].split("  ", 1)[0]).is_file()
+
+
+def test_mock_and_check_print_the_ca_bundle() -> None:
+    import inspect
+
+    from tdkit import cli
+
+    assert "ca_bundle_line()" in inspect.getsource(cli.run_mock)
+    assert "ca_bundle_line()" in inspect.getsource(cli.run_checks)
