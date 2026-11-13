@@ -277,7 +277,7 @@ koszt). Test `tests/test_project.py`: tabela ma wiersze `parity-*` z wersją kit
 - **Rewizja:** gdy ten sam scenariusz parytetu padnie dwa wydania z rzędu z tego samego powodu,
   albo koszt rundy przekroczy 20 USD.
 
-### D5. Atrapa podaje pliki po https (dopisane 13.11, do zatwierdzenia)
+### D5. Atrapa podaje pliki po https (dopisane i zatwierdzone przez ownera 13.11)
 
 Decyzja ownera z 13.11: zadanie ledgera `2026-11-13-tribunedesk-cms-kit-atrapa-obrazy-https`
 wchodzi do tego specu zamiast osobnego. Sprawdzone w kodzie: atrapa podaje obrazy dostaw i
