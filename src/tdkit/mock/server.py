@@ -23,6 +23,9 @@ from referencing import Registry
 from referencing.jsonschema import DRAFT202012
 
 from tdkit.docs import ContractDocs
+from tdkit.mock import media, media_routes
+from tdkit.mock.api import Answer, ApiError
+from tdkit.mock.api import Request as _Request
 from tdkit.mock.retries import Retrier
 from tdkit.mock.state import ORG_CODE, CursorError, MockState, ResultCall, Send, now_iso
 from tdkit.sender import DeliveryResult, deliver
@@ -59,31 +62,6 @@ def _date_time(value: object) -> bool:
     return True
 
 
-class ApiError(Exception):
-    def __init__(self, status: int, code: str, message: str) -> None:
-        super().__init__(message)
-        self.status, self.code, self.message = status, code, message
-
-
-class Answer:
-    def __init__(self, status: int, body: Any, headers: dict[str, str] | None = None) -> None:
-        self.status, self.body, self.headers = status, body, headers or {}
-
-
-class _Request:
-    def __init__(
-        self,
-        method: str,
-        path: str,
-        query: dict[str, list[str]],
-        raw: bytes,
-        token: str | None,
-        match: re.Match[str],
-    ) -> None:
-        self.method, self.path, self.query, self.raw = method, path, query, raw
-        self.token, self.match = token, match
-
-
 class MockServer:
     """The mock API over one `MockState`; `start()` returns `(host, port)`."""
 
@@ -96,16 +74,18 @@ class MockServer:
         webhook: str | None = None,
         secrets: list[str] | None = None,
         retry_scale: float = 1.0,
+        media_hosts: list[str] | None = None,
     ) -> None:
         self.state, self.docs, self.port = state, docs, port
         self.webhook = webhook
         self.secrets = secrets or [MOCK_SECRET]
         self.retrier = Retrier(retry_scale, self._attempt, state)
+        state.media.media_hosts = list(media_hosts or [])
         registry: Registry = Registry().with_resource(
             OPENAPI_URI, DRAFT202012.create_resource(docs.openapi)
         )
         self._validators: dict[str, Draft202012Validator] = {}
-        for name in ("PublishedArticlesRequest", "ArticleResultReport"):
+        for name in ("PublishedArticlesRequest", "ArticleResultReport", *media_routes.SCHEMAS):
             self._validators[name] = Draft202012Validator(
                 {"$ref": f"{OPENAPI_URI}#/components/schemas/{name}"},
                 registry=registry,
@@ -124,6 +104,7 @@ class MockServer:
             ("GET", re.compile(r"/v3/cms/openapi\.json"), self._openapi),
             ("POST", re.compile(r"/_tdkit/send"), self._control_send),
             ("POST", re.compile(r"/_tdkit/integration"), self._control_integration),
+            *media_routes.routes(self),
         ]
         self._planned = [
             (method.upper(), re.compile(re.sub(r"\{[^}]+\}", "[^/]+", path)))
@@ -276,7 +257,9 @@ class MockServer:
         scopes = self._require(request, "media:read", "articles:read")
         enabled = self.state.integration_enabled
         with self.state.lock:
-            pending = len([c for c in self.state.changes if c.seq > self.state.floor])
+            done = max(self.state.floor, self.state.acked)
+            pending = len([c for c in self.state.changes if c.seq > done])
+            held = len([b for b in self.state.media.held.values() if b.state == "pending"])
         return Answer(
             200,
             {
@@ -287,7 +270,7 @@ class MockServer:
                 "image_hosts": list(self.state.image_hosts),
                 "last_changes_poll_at": self.state.last_changes_poll_at if enabled else None,
                 "pending_changes": pending if enabled else None,
-                "held_batches": 0 if enabled else None,
+                "held_batches": held if enabled else None,
                 "recent_errors": [],
             },
         )
@@ -313,22 +296,31 @@ class MockServer:
                     state.floor = state.seq
                     raise ApiError(410, "cursor_expired", "the cursor has expired")
             state.switched = True
+            state.acked = max(state.acked, start)
+            state.media.files_base = f"http://{state.image_hosts[0]}:{self.bound_address()[1]}"
             after = [c for c in state.changes if c.seq > max(start, state.floor)]
             page, more = after[:limit], len(after) > limit
-            visible = [c for c in page if c.kind != "article_sent" or "articles:read" in scopes]
             next_cursor = page[-1].cursor if page else state.cursor_for(max(start, state.floor))
+            bodies = []
+            for c in page:
+                if c.kind == "article_sent":
+                    if "articles:read" in scopes:
+                        bodies.append(
+                            {
+                                "cursor": c.cursor,
+                                "kind": c.kind,
+                                "changed_at": c.changed_at,
+                                "article_id": c.article_id,
+                            }
+                        )
+                elif "media:read" in scopes:
+                    body = media.change_body(state, c)
+                    if body is not None:
+                        bodies.append(body)
         return Answer(
             200,
             {
-                "changes": [
-                    {
-                        "cursor": c.cursor,
-                        "kind": c.kind,
-                        "changed_at": c.changed_at,
-                        "article_id": c.article_id,
-                    }
-                    for c in visible
-                ],
+                "changes": bodies,
                 "next_cursor": next_cursor,
                 "has_more": more,
             },
@@ -473,6 +465,23 @@ class MockServer:
 
     def _file(self, handler: BaseHTTPRequestHandler, name: str) -> None:
         self.state.record_pull(name)
+        asset = self.state.media.assets.get(name.removesuffix(".png"))
+        if asset is not None:
+            with self.state.lock:
+                failing = asset.fail_download > 0
+                if failing:
+                    asset.fail_download -= 1
+            status, kind, data = (
+                (500, "text/plain", b"tdkit: a failing download")
+                if failing
+                else (200, asset.mime_type, asset.data)
+            )
+            handler.send_response(status)
+            handler.send_header("Content-Type", kind)
+            handler.send_header("Content-Length", str(len(data)))
+            handler.end_headers()
+            handler.wfile.write(data)
+            return
         handler.send_response(200)
         handler.send_header("Content-Type", "image/jpeg")
         handler.send_header("Content-Length", str(len(JPEG)))

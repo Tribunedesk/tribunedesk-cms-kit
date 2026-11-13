@@ -43,6 +43,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="seconds per minute of the guide's retry schedule (default 1; 0: no retries)",
     )
     mock.add_argument(
+        "--media-hosts",
+        help="extra hosts accepted in file_url of POST /media and /link (127.0.0.1, localhost)",
+    )
+    mock.add_argument(
         "--disabled",
         action="store_true",
         help="start with the integration disabled (POST /_tdkit/integration enables it)",
@@ -183,7 +187,14 @@ def run_mock(args: argparse.Namespace) -> int:
 
     state = mock_state(args)
     docs = resolve_docs(args.contract, args.docs)
-    server = MockServer(state, docs, args.port, webhook=args.webhook, retry_scale=args.retry_scale)
+    server = MockServer(
+        state,
+        docs,
+        args.port,
+        webhook=args.webhook,
+        retry_scale=args.retry_scale,
+        media_hosts=split_list(args.media_hosts),
+    )
     try:
         host, port = server.start()
     except OSError as exc:
@@ -197,6 +208,13 @@ def run_mock(args: argparse.Namespace) -> int:
     print(f'  integration:    {enabled}  (POST {base}/_tdkit/integration {{"enabled": …}})')
     print(f"  signing secret: {MOCK_SECRET}  (a public test value)")
     print(f"  make a send:    POST {base}/_tdkit/send  (optional JSON body overrides fields)")
+    print(f"  level 4:        POST {base}/_tdkit/media  {{fields?, width?, height?}} → asset_id")
+    print(f"                  POST {base}/_tdkit/media/<asset_id>/fields  {{field, value}}")
+    print(f"                  POST {base}/_tdkit/media/<asset_id>/trash  {{trashed}}")
+    print(f"                  POST {base}/_tdkit/settings  {{option: value, …}}")
+    print(f"                  POST {base}/_tdkit/import  (pairs files accepted by POST /media)")
+    print(f"                  POST {base}/_tdkit/backfill  {{filters?}} → request_id")
+    print(f"                  POST {base}/_tdkit/expire-cursors  (the next cursor answers 410)")
     first = next(iter(state.tokens))
     print(f"  your CMS:       TD_API_BASE={base} TD_CMS_TOKEN={first}")
     print("Ctrl+C stops it.", flush=True)
@@ -207,6 +225,10 @@ def run_mock(args: argparse.Namespace) -> int:
     finally:
         server.stop()
     return 0
+
+
+def split_list(value: str | None) -> list[str]:
+    return [part.strip() for part in (value or "").split(",") if part.strip()]
 
 
 def parse_levels(value: str) -> list[int]:

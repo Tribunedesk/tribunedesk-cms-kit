@@ -188,11 +188,8 @@ def test_expired_cursor_is_410_then_awaiting_lists_waiting_sends(
     assert page["next_cursor"] is None
 
 
-def test_unknown_v3_route_is_501(base: str) -> None:
+def test_route_outside_the_contract_is_404(base: str) -> None:
     assert call(base, "GET", "/v3/cms/held", token=None)[0] == 401
-    status, error, _ = call(base, "GET", "/v3/cms/held")
-    assert status == 501
-    assert error["code"] == "not_implemented"
     assert call(base, "GET", "/v3/cms/nothing-here")[0] == 404
 
 
