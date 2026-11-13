@@ -35,7 +35,10 @@ tests. Read it before writing your own, and copy the order of the steps, not its
   misses.
 - Each update can save a new revision (`setNewRevision(TRUE)` with a log message) so editors see
   what Tribune Desk changed. Decide with the user whether an update replaces an already
-  published node or goes through Content Moderation; `DraftRules` covers the contract side.
+  published node or goes through Content Moderation. The contract asks only to update the post
+  made the first time, and allows `skipped_already_published` for a published one; leaving a
+  published node alone is `DraftRules`' policy, and its statuses are WordPress's (`draft`,
+  `pending`), so map the node's state to them first.
 
 ## 4. Publish hook and link back
 
