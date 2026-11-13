@@ -169,6 +169,19 @@ def test_drupal_reference_points_to_the_kit_reference() -> None:
     assert "reference/drupal" in drupal
 
 
+def test_php_library_reference_names_the_secret_variables() -> None:
+    php = (REFERENCES / "php-library.md").read_text(encoding="utf-8")
+    for name in ("TD_WEBHOOK_SECRET", "TD_CMS_TOKEN", "TD_API_BASE"):
+        assert name in php, name
+    assert "WebhookSignature::verify($secret" in php
+
+
+def test_drupal_link_back_queue_is_flushed_by_publish() -> None:
+    drupal = (REFERENCES / "cms" / "drupal.md").read_text(encoding="utf-8")
+    section = drupal.split("## 4. Publish hook and link back", 1)[1].split("\n## ", 1)[0]
+    assert "td:publish" in section
+
+
 def test_docs_flag_is_the_same_in_update_mode_and_tdkit_reference() -> None:
     update = (REFERENCES / "update-mode.md").read_text(encoding="utf-8")
     assert "--contract <new tag>" not in update

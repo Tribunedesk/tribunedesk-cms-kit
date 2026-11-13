@@ -42,6 +42,8 @@ tests. Read it before writing your own, and copy the order of the steps, not its
 - `hook_entity_update()` (or `hook_node_update()`) when `status` flips to published, also for the
   Scheduler module. Put a queue item; a `QueueWorker` plugin (cron) sends the link back with
   Guzzle (`\Drupal::httpClient()`) and `LinkBack`. A repeat is harmless.
+- The developer command `drush td:publish` (section 7) is different: it must send the link back
+  before it exits, so it processes that queue itself at the end, and does not leave the item to cron.
 
 ## 5. Edit URL
 

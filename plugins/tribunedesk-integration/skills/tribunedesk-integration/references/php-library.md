@@ -49,3 +49,11 @@ CHANGELOG between the two with `TDKIT integrators` and handle the difference in 
 There is **no HTTP transport**: the CMS sends requests with its own client (Guzzle in Drupal,
 the `Http` facade in Laravel) and passes bodies and answers to the library. Persistence, locks,
 queues and the publish hook are the CMS's job too (see the CMS reference).
+
+## Secret and token names
+
+The library takes the secret and the token as arguments: `WebhookSignature::verify($secret, ...)`
+(see `references/cms/laravel.md`, section 1). The names of the environment variables that hold them
+are the kit's names, the same in every CMS reference and in `.env.example`: `TD_WEBHOOK_SECRET`
+(the signing secret), `TD_CMS_TOKEN` (the `tdcms_` token) and `TD_API_BASE` (the API address). Read
+them in your CMS's configuration and pass the values on; do not give the library other names.

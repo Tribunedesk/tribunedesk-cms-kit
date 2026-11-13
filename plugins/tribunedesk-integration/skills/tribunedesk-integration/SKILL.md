@@ -32,7 +32,7 @@ Run tdkit from the project root. Three rules for its commands:
   `TDKIT check`, `TDKIT integrators` and `TDKIT mock`, so tdkit tests the same contract you read.
 - Run `TDKIT check` for every chosen level. Level 4 alone runs with `--mode none` and the level
   4 commands (`references/tdkit.md`); with levels 1-3 it runs in their mode, in one check.
-- Write the report to `.tribunedesk/tdkit-report.json` (git-ignored with the docs).
+- Write the report to `.tribunedesk/tdkit-report.json` (git-ignored with the docs, under the rule of section 3).
 
 `tdkit` never connects to Tribune Desk. It downloads the documentation from GitHub, runs the
 mock on `127.0.0.1` and calls the integration's own developer commands.
