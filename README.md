@@ -351,7 +351,7 @@ reconcile its wording):
 |---|---|---|---|
 | `django-l12` | all pass: tdkit 13 passed, 0 failed | pass | 1.61 USD |
 | `drupal-l12` | all pass: tdkit 13 passed, 0 failed, `tribunedesk/cms-protocol` | pass | 3.64 USD |
-| `photos-only` | all pass: no webhook, no tdkit check, manifest level 4 | pass | 2.10 USD |
+| `photos-only` | all pass: no webhook, no tdkit check, manifest level 4 (tdkit 1.0; 1.1 checks a green level 4 report, not run yet) | pass | 2.10 USD |
 | `no-public-endpoint` | all pass: tdkit read mode 3 passed, 0 failed | pass | 1.66 USD |
 | `update-3.2` | all pass: tdkit 13 passed, 0 failed, manifest 3.4.1-draft | pass | 1.08 USD |
 | `ghost` | all pass: no code, bridge or read mode explained | pass | 0.30 USD |

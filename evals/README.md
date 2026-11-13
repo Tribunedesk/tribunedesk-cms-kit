@@ -9,7 +9,7 @@ native Windows).
 |---|---|---|
 | `django-l12` | Django blog | levels 1+2, webhook, Polish, plan approved up front |
 | `drupal-l12` | Drupal 11 | the same in English, with the `tribunedesk/cms-protocol` library (needs PHP 8.3 and Composer on PATH; the site is built once, ~7 min) |
-| `photos-only` | Django blog with a photo library | level 4 only: no webhook, honest about no tdkit test |
+| `photos-only` | Django blog with a photo library | level 4 only: no webhook, a green `tdkit check --levels 4` |
 | `no-public-endpoint` | Django blog on an intranet | read mode chosen and tested |
 | `update-3.2` | Django blog with an integration for 3.2.0-draft | update mode: change list, new manifest |
 | `ghost` | Ghost(Pro) README | bridge or read mode explained, no code written |

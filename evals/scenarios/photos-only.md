@@ -1,6 +1,6 @@
 # photos-only
 
-Level 4 only on a Django site with a photo model: no webhook, no tdkit check.
+Level 4 only on a Django site with a photo model: no webhook, a green `tdkit check --levels 4`.
 
 ## Prompt
 
@@ -10,17 +10,19 @@ Chcę tylko, żeby nasza biblioteka zdjęć (aplikacja `library`) była zsynchro
 
 Judged by reading the run (the runner prints the files and the final message).
 
-### level4-honest (the final message)
+### level4-tested (the final message)
 
-PASS if the final message, in Polish, says plainly that level 4 (the media library) is not tested
-by tdkit 1.0, so there is no green conformance test for it, and its launch steps are only about
-the token, enabling the integration and the media library, and a manual check with one photo.
-FAIL if it claims a passed conformance test for level 4, or its launch steps mention a webhook,
-a webhook address or a signing secret.
+PASS if the final message, in Polish, says that the conformance test of level 4 (tdkit check
+--levels 4) passed, names what was built (the core; the options only if the user asked), and its
+launch steps are about the token, enabling the integration, a separate test organization for
+staging, scheduling the sync, the operator's screen for held batches and the resync preview, and
+a manual check with one photo.
+FAIL if it says level 4 has no conformance test, claims a pass the report does not show, or its
+launch steps mention a webhook, a webhook address or a signing secret.
 
 ### request-list (file tribunedesk-request.md)
 
 PASS if the message asks Tribune Desk to enable the integration and the media library for the
 organization and for a token with `media:read`, `media:write` and `settings:read` (more scopes
-are fine).
+are fine), and for a separate test organization for staging.
 FAIL if it asks for a signing secret, a webhook address or read mode, or contains a token value.

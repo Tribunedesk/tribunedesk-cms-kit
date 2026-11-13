@@ -31,8 +31,8 @@ def make_run(tmp_path: Path, events: list[dict] | None = None):
 def write_report(root: Path, results: list[bool | None], levels: list[int], mode: str) -> None:
     (root / ".tribunedesk").mkdir()
     report = {
-        "tdkit": "1.0.0",
-        "contract": "3.4.1-draft",
+        "tdkit": "1.1.0",
+        "contract": "3.4.2-draft",
         "levels": levels,
         "mode": mode,
         "results": [{"id": str(i), "level": 1, "passed": p} for i, p in enumerate(results)],
@@ -208,3 +208,15 @@ def test_secret_committed_then_deleted_is_found(tmp_path: Path) -> None:
     git(tmp_path, "commit", "-qam", "remove")
     ok, detail = runner.no_secret_in_git(make_run(tmp_path))
     assert not ok and "settings.py" in detail
+
+
+def test_photos_only_checks_a_green_level_4_report(tmp_path: Path) -> None:
+    checks = runner.SCENARIO["photos-only"].checks
+    assert "tdkit check ran" in checks
+    green = checks["report green (4, none)"]
+    write_report(tmp_path, [True, True, None], [4], "none")
+    assert green(make_run(tmp_path))[0]
+    red = tmp_path / "red"
+    red.mkdir()
+    write_report(red, [True, False], [4], "none")
+    assert not green(make_run(red))[0]

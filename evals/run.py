@@ -122,7 +122,7 @@ def file_matches(path: str, pattern: str, *, expected: bool = True) -> Check:
     return check
 
 
-CONTRACT = "3.4.1-draft"
+CONTRACT = "3.4.2-draft"
 
 
 def report_green(levels: list[int], mode: str, contract: str = CONTRACT) -> Check:
@@ -425,10 +425,9 @@ SCENARIO: dict[str, Scenario] = {
             "final message stands alone": final_message_complete,
             "manifest written by tdkit": ran(r"\bmanifest write\b"),
             "report and manifest not written by hand": results_from_tdkit,
-            "no tdkit check": ran(r"\bcheck\s+--", expected=False),
-            "manifest (4, none, no conformance)": manifest(
-                levels=[4], delivery="none", passed=None
-            ),
+            "tdkit check ran": ran(r"\bcheck\s+--"),
+            "report green (4, none)": report_green([4], "none"),
+            "manifest (4, none, passed 4)": manifest(levels=[4], delivery="none", passed=[4]),
             "no webhook route": file_matches("blogsite/urls.py", r"(?i)webhook", expected=False),
             "no secret in git": no_secret_in_git,
             ".env ignored": env_ignored,
