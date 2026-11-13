@@ -20,6 +20,7 @@ import argparse
 import hashlib
 import json
 import os
+import ssl
 import struct
 import sys
 import time
@@ -55,7 +56,11 @@ BREAKS = (
 KINDS = ("new_asset", "fields", "deleted", "restored", "settings")
 ATTEMPTS = 5  # a change that cannot be applied is retried this many syncs, then skipped
 
-_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+_CA = os.environ.get("TD_CA_BUNDLE")
+_OPENER = urllib.request.build_opener(
+    urllib.request.ProxyHandler({}),
+    urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=_CA) if _CA else None),
+)
 
 
 class Stop(Exception):

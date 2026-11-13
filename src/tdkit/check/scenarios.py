@@ -17,6 +17,7 @@ from html.parser import HTMLParser
 from typing import Any, Literal
 
 from tdkit.check.context import Context, Fail, image_hosts_for
+from tdkit.mock import tls
 from tdkit.sender import DeliveryResult
 from tdkit.signing import SECRET_PREFIX
 
@@ -240,10 +241,26 @@ def non_ascii(ctx: Context) -> str:
     return "title kept byte for byte"
 
 
+# Downloading in the background is allowed (guide 1), so the image may come a little later.
+IMAGE_DOWNLOAD_SECONDS = 15
+
+
 def image_host(ctx: Context) -> str:
+    allowed = ctx.article()
+    name = f"{allowed['article_id']}.jpg"
+    ctx.delivered(allowed)
+    deadline = time.monotonic() + IMAGE_DOWNLOAD_SECONDS
+    while time.monotonic() < deadline and not ctx.state.pulls.get(name):
+        time.sleep(0.1)
+    expect(
+        bool(ctx.state.pulls.get(name)),
+        f"the integration did not download the image on {ctx.image_host} within "
+        f"{IMAGE_DOWNLOAD_SECONDS} s; it is served over https with a test certificate: trust "
+        f"TD_CA_BUNDLE ({tls.CA_BUNDLE}) in the test environment",
+    )
     body = ctx.article()
     name = f"{body['article_id']}-not-allowed.jpg"
-    url = f"http://{ctx.forbidden_image_host}:{ctx.port}/files/{name}"
+    url = f"{ctx.files_base(ctx.forbidden_image_host)}/files/{name}"
     body["featured_image"] = {**body["featured_image"], "url": url}
     body["generated_images"] = [body["featured_image"]]
     ctx.delivered(body)
@@ -251,7 +268,10 @@ def image_host(ctx: Context) -> str:
     while time.monotonic() < deadline and not ctx.state.pulls.get(name):
         time.sleep(0.1)
     expect(not ctx.state.pulls.get(name), f"the integration downloaded {url}")
-    return f"the image on {ctx.forbidden_image_host}, outside image_hosts, was not downloaded"
+    return (
+        f"the image on {ctx.image_host} was downloaded over https; the one on "
+        f"{ctx.forbidden_image_host}, outside image_hosts, was not"
+    )
 
 
 # -- level 1, read mode --------------------------------------------------------------------

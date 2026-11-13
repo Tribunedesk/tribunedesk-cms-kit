@@ -14,10 +14,11 @@ import pytest
 
 from tdkit.check.commands import split_command
 from tdkit.check.context import CheckOptions
-from tdkit.check.runner import Report, run_check
+from tdkit.check.runner import Report, Result, run_check
 from tdkit.check.scenarios import SCENARIOS
 from tdkit.cli import main
 from tdkit.docs import ContractDocs
+from tdkit.mock.tls import CA_BUNDLE
 
 from .conftest import FIXTURE
 
@@ -43,6 +44,8 @@ def reference(tmp_path: Path, mock_port: int, *flags: str) -> Iterator[tuple[str
         **__import__("os").environ,
         "TD_API_BASE": f"http://127.0.0.1:{mock_port}",
         "TD_CMS_TOKEN": "tdcms_mock",
+        # What an integrator sets in the test environment of a webhook server (D5).
+        "TD_CA_BUNDLE": str(CA_BUNDLE),
     }
     process = subprocess.Popen(
         [
@@ -242,3 +245,36 @@ def test_done_when_quotes_are_literal() -> None:
         guide = scenario.guide.split("#")[0]
         text = (FIXTURE / guide).read_text(encoding="utf-8")
         assert scenario.done_when in text, scenario.id
+
+
+def _image_host(tmp_path: Path, docs: ContractDocs, *flags: str) -> Result:
+    report = _webhook_check(tmp_path, docs, flags, [1])
+    return next(r for r in report.results if r.id == "l1-image-host")
+
+
+def test_image_host_passes_when_allowed_image_is_downloaded(
+    tmp_path: Path, docs: ContractDocs
+) -> None:
+    """D5: the image on an allowed host is served over https and the integration fetches it."""
+    result = _image_host(tmp_path, docs)
+    assert result.passed is True, result.detail
+
+
+def test_image_host_fails_when_nothing_is_downloaded(tmp_path: Path, docs: ContractDocs) -> None:
+    result = _image_host(tmp_path, docs, "--no-image-download")
+    assert result.passed is False
+    assert "did not download" in result.detail
+
+
+def test_image_host_fail_names_ca_bundle(tmp_path: Path, docs: ContractDocs) -> None:
+    """An integration that does not trust the test CA cannot fetch the image: say why."""
+    result = _image_host(tmp_path, docs, "--no-ca")
+    assert result.passed is False
+    assert "TD_CA_BUNDLE" in result.detail
+    assert str(CA_BUNDLE) in result.detail
+
+
+def test_image_host_still_refuses_the_forbidden_host(tmp_path: Path, docs: ContractDocs) -> None:
+    result = _image_host(tmp_path, docs, "--any-image-host")
+    assert result.passed is False
+    assert "outside image_hosts" in result.detail or "downloaded" in result.detail

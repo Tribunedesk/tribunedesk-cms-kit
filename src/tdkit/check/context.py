@@ -18,6 +18,7 @@ from urllib.parse import urlsplit
 
 from tdkit.check.commands import CommandError, run_template
 from tdkit.docs import ContractDocs
+from tdkit.mock import tls
 from tdkit.mock.png import png
 from tdkit.mock.state import DEFAULT_TOKEN, MockState, Recorded
 from tdkit.sender import DeliveryResult, deliver
@@ -71,8 +72,11 @@ class CheckOptions:
 
 
 class Context:
-    def __init__(self, opts: CheckOptions, mode: str, state: MockState, port: int) -> None:
+    def __init__(
+        self, opts: CheckOptions, mode: str, state: MockState, port: int, tls_port: int = 0
+    ) -> None:
         self.opts, self.mode, self.state, self.port = opts, mode, state, port
+        self.tls_port = tls_port
         self.api_base = f"http://127.0.0.1:{port}"
         self.image_host, self.forbidden_image_host = image_hosts_for(opts.webhook)
         state.image_hosts = [self.image_host]
@@ -96,7 +100,7 @@ class Context:
         """
         body = copy.deepcopy(self.opts.docs.sample_delivery)
         article_id = str(uuid.uuid4())
-        image_url = f"http://{self.image_host}:{self.port}/files/{article_id}.jpg"
+        image_url = f"{self.files_base(self.image_host)}/files/{article_id}.jpg"
         for image in [body.get("featured_image"), *(body.get("generated_images") or [])]:
             if isinstance(image, dict):
                 image["url"] = image_url
@@ -115,6 +119,10 @@ class Context:
         )
         body.update(fields)
         return body
+
+    def files_base(self, host: str) -> str:
+        """Files are served over https with the test certificate (D5), on the TLS port."""
+        return f"https://{host}:{self.tls_port}"
 
     def sent_at(self, minutes: int = 0) -> str:
         moment = datetime.now(UTC) + timedelta(minutes=minutes)
@@ -192,7 +200,12 @@ class Context:
     # -- the integration's commands --------------------------------------------------------
 
     def _env(self) -> dict[str, str]:
-        return {**os.environ, "TD_API_BASE": self.api_base, "TD_CMS_TOKEN": DEFAULT_TOKEN}
+        return {
+            **os.environ,
+            "TD_API_BASE": self.api_base,
+            "TD_CMS_TOKEN": DEFAULT_TOKEN,
+            "TD_CA_BUNDLE": str(tls.CA_BUNDLE),
+        }
 
     def inspect(self, article_id: str) -> dict[str, Any] | None:
         if not self.opts.inspect_cmd:

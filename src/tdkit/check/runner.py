@@ -137,7 +137,7 @@ def run_check(
         raise UsageError(f"cannot run the mock on 127.0.0.1:{opts.port}: {exc}") from exc
     ctx: Context | None = None
     try:
-        ctx = Context(opts, mode, state, port)
+        ctx = Context(opts, mode, state, port, server.tls_address()[1])
         if mode == "read" and opts.poll_cmd:
             # A poll without a cursor starts from now: let the client take its first cursor
             # before the editor sends anything, as a client running in production would. A

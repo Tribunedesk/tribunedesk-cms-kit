@@ -20,6 +20,7 @@ import argparse
 import json
 import os
 import re
+import ssl
 import sys
 import threading
 import time
@@ -106,8 +107,20 @@ def rerender(posts: dict[str, Any]) -> None:
         post["html"] = render(post, posts)
 
 
+def _tls() -> ssl.SSLContext | None:
+    """Trust the mock's test CA, as an integrator does in a test environment (D5)."""
+    bundle = os.environ.get("TD_CA_BUNDLE")
+    return ssl.create_default_context(cafile=bundle) if bundle else None
+
+
 def apply(
-    article: dict[str, Any], data: dict[str, Any], *, overwrite_older: bool, any_host: bool = False
+    article: dict[str, Any],
+    data: dict[str, Any],
+    *,
+    overwrite_older: bool,
+    any_host: bool = False,
+    download: bool = True,
+    trust_ca: bool = True,
 ) -> dict:
     posts = data["posts"]
     article_id = article["article_id"]
@@ -121,9 +134,13 @@ def apply(
     post_id = existing["cms_post_id"] if existing else str(len(posts) + 1)
     post = existing or {"status": "draft", "permalink": None, "backlink_sources": []}
     image = (article.get("featured_image") or {}).get("url")
-    if image and (any_host or urllib.parse.urlsplit(image).hostname in image_hosts()):
-        with urllib.request.urlopen(image, timeout=10) as response:
-            response.read()
+    if image and download and (any_host or urllib.parse.urlsplit(image).hostname in image_hosts()):
+        try:
+            context = _tls() if trust_ca else None
+            with urllib.request.urlopen(image, timeout=10, context=context) as response:
+                response.read()
+        except (urllib.error.URLError, OSError):
+            pass  # an image that cannot be downloaded does not stop the draft
     provenance = article.get("ai_provenance") or {}
     post.update(
         cms_post_id=post_id,
@@ -258,6 +275,8 @@ def serve(args: argparse.Namespace) -> None:
                     data,
                     overwrite_older=args.overwrite_older,
                     any_host=args.any_image_host,
+                    download=not args.no_image_download,
+                    trust_ca=not args.no_ca,
                 )
                 save(store, data)
             self._reply(200, None if args.empty_answer else answer)
@@ -286,6 +305,8 @@ def main() -> None:
     s.add_argument("--overwrite-older", action="store_true")
     s.add_argument("--empty-answer", action="store_true")
     s.add_argument("--any-image-host", action="store_true")
+    s.add_argument("--no-image-download", action="store_true")
+    s.add_argument("--no-ca", action="store_true")
     s.add_argument("--answer-500", action="store_true")
     for name in ("inspect", "publish"):
         sub.add_parser(name).add_argument("article_id")
