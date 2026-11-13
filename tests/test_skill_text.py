@@ -240,3 +240,10 @@ def test_cms_references_name_the_ca_bundle() -> None:
             continue
         assert "TD_CA_BUNDLE" in path.read_text(encoding="utf-8"), path.name
     assert "TD_CA_BUNDLE" in (REFERENCES / "tdkit.md").read_text(encoding="utf-8")
+
+
+def test_wordpress_reference_lets_wordpress_reach_the_mock() -> None:
+    """wp_safe_remote_get refuses loopback hosts and ports other than 80, 443 and 8080."""
+    text = (REFERENCES / "cms" / "wordpress.md").read_text(encoding="utf-8")
+    assert "http_request_host_is_external" in text
+    assert "http_allowed_safe_ports" in text

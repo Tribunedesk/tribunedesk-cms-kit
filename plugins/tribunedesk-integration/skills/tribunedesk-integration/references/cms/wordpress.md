@@ -43,7 +43,7 @@ the link back with `wp_remote_post` and `LinkBack`.
 `media_sideload_image()` in a scheduled event after the answer, only for allowed hosts
 (`ImageHostRule`).
 
-Testing with `tdkit`: the mock serves images over https with a test certificate. Trust its CA, the file `TDKIT check` prints as `TD_CA_BUNDLE`, in the test environment only, through the `http_request_args` filter setting `sslcertificates` to `getenv('TD_CA_BUNDLE')`, or `CURLOPT_CAINFO` through `http_api_curl`. Never in production: there the system's CAs stay.
+Testing with `tdkit`: the mock serves images over https with a test certificate. Trust its CA, the file `TDKIT check` prints as `TD_CA_BUNDLE`, in the test environment only, through the `http_request_args` filter setting `sslcertificates` to `getenv('TD_CA_BUNDLE')`, or `CURLOPT_CAINFO` through `http_api_curl`. `media_sideload_image` and `download_url` go through `wp_safe_remote_get`, which also refuses loopback hosts and ports other than 80, 443 and 8080: in the test environment only, let `127.0.0.1` and `localhost` through the `http_request_host_is_external` filter and the mock's port through `http_allowed_safe_ports`. Never in production: there the system's CAs and WordPress's rules stay.
 
 ## 7. Developer commands
 

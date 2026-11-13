@@ -10,6 +10,9 @@ from __future__ import annotations
 
 import json
 import re
+import socket
+import ssl
+import sys
 import threading
 import uuid
 from collections.abc import Callable
@@ -60,6 +63,33 @@ def _date_time(value: object) -> bool:
     if moment.tzinfo is None:
         raise ValueError("a date-time needs a time zone")
     return True
+
+
+class _TlsServer(ThreadingHTTPServer):
+    """https with the test certificate. The handshake runs in the request's own thread, on its
+    first read, not in the accept loop: a client that connects and never handshakes would
+    otherwise hold up every other download and the shutdown."""
+
+    daemon_threads = True
+
+    def __init__(self, handler: type[BaseHTTPRequestHandler], state: MockState) -> None:
+        super().__init__((HOST, 0), handler)
+        self._context = tls.server_context()
+        self._state = state
+
+    def get_request(self) -> tuple[socket.socket, Any]:
+        sock, address = self.socket.accept()
+        wrapped = self._context.wrap_socket(sock, server_side=True, do_handshake_on_connect=False)
+        return wrapped, address
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        error = sys.exc_info()[1]
+        if isinstance(error, ssl.SSLError | ConnectionError | TimeoutError):
+            if isinstance(error, ssl.SSLError):
+                with self._state.lock:
+                    self._state.tls_failures += 1
+            return
+        super().handle_error(request, client_address)
 
 
 class MockServer:
@@ -141,17 +171,16 @@ class MockServer:
             def log_message(self, format: str, *args: object) -> None:
                 pass
 
+        # A stalled client frees its thread after this many seconds.
+        Handler.timeout = 30
+
         self._server = ThreadingHTTPServer((HOST, self.port), Handler)
         self._server.daemon_threads = True
         self._thread = threading.Thread(
             target=self._server.serve_forever, args=(0.05,), daemon=True
         )
         self._thread.start()
-        self._tls_server = ThreadingHTTPServer((HOST, 0), Handler)
-        self._tls_server.daemon_threads = True
-        self._tls_server.socket = tls.server_context().wrap_socket(
-            self._tls_server.socket, server_side=True
-        )
+        self._tls_server = _TlsServer(Handler, self.state)
         self._tls_thread = threading.Thread(
             target=self._tls_server.serve_forever, args=(0.05,), daemon=True
         )

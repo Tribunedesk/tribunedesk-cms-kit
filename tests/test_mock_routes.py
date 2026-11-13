@@ -283,3 +283,50 @@ def test_two_mocks_get_distinct_tls_ports(state: MockState, docs: ContractDocs) 
     finally:
         first.stop()
         second.stop()
+
+
+def test_stalled_tls_client_blocks_nothing(state: MockState, docs: ContractDocs) -> None:
+    """A client that connects to the TLS port and never handshakes (a probe, a debugger) must
+    not hold up other downloads or the mock's shutdown (review of 1b, important 2)."""
+    import time
+
+    server = MockServer(state, docs)
+    server.start()
+    host, tls_port = server.tls_address()
+    stalled = socket.create_connection((host, tls_port), timeout=5)
+    try:
+        started = time.monotonic()
+        status, _ = _https_get(f"https://{host}:{tls_port}/files/y.jpg")
+        assert status == 200
+        assert time.monotonic() - started < 3
+    finally:
+        started = time.monotonic()
+        server.stop()
+        stalled.close()
+    assert time.monotonic() - started < 3
+
+
+def test_untrusted_tls_client_is_counted(state: MockState, docs: ContractDocs) -> None:
+    """A client that does not trust the test CA fails the handshake; the mock counts it, so
+    `l1-image-host` can say why the image did not arrive."""
+    import ssl
+
+    server = MockServer(state, docs)
+    server.start()
+    try:
+        host, tls_port = server.tls_address()
+        untrusted = ssl.create_default_context()  # the system CAs only
+        try:
+            urllib.request.urlopen(
+                f"https://{host}:{tls_port}/files/z.jpg", timeout=5, context=untrusted
+            )
+            raise AssertionError("expected a certificate error")
+        except urllib.error.URLError:
+            pass
+        deadline = time.monotonic() + 3 if (time := __import__("time")) else 0
+        while state.tls_failures == 0 and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert state.tls_failures == 1
+        assert not state.pulls.get("z.jpg")
+    finally:
+        server.stop()

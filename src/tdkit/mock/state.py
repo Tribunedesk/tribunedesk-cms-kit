@@ -115,6 +115,8 @@ class MockState:
     reports: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     results: list[ResultCall] = field(default_factory=list)
     pulls: dict[str, int] = field(default_factory=dict)
+    # TLS handshakes refused by a client (it does not trust the test CA, D5).
+    tls_failures: int = 0
     calls: list[tuple[str, str, int]] = field(default_factory=list)
     requests: list[Recorded] = field(default_factory=list)
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False)

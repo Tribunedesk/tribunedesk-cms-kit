@@ -260,10 +260,12 @@ def test_image_host_passes_when_allowed_image_is_downloaded(
     assert result.passed is True, result.detail
 
 
-def test_image_host_fails_when_nothing_is_downloaded(tmp_path: Path, docs: ContractDocs) -> None:
+def test_image_host_passes_without_a_download(tmp_path: Path, docs: ContractDocs) -> None:
+    """Guide 1 only forbids other hosts: a CMS that keeps the URL and downloads nothing passes
+    (the official example and the reference integrations do so)."""
     result = _image_host(tmp_path, docs, "--no-image-download")
-    assert result.passed is False
-    assert "did not download" in result.detail
+    assert result.passed is True, result.detail
+    assert "downloaded no image" in result.detail
 
 
 def test_image_host_fail_names_ca_bundle(tmp_path: Path, docs: ContractDocs) -> None:

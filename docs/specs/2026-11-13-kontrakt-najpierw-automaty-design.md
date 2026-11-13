@@ -298,6 +298,12 @@ atrapy zostaje po `http` (adres podaje integratorowi `TD_API_BASE`, biblioteka g
 `l1-image-host` dostaje drugą połowę: obraz z dozwolonego hosta **jest** pobrany (atrapa widzi
 żądanie), obraz spoza listy nie jest.
 
+**Poprawka przy wykonaniu (13.11):** wymóg „dozwolony obraz jest pobrany” wycofany. Przewodnik 1
+zabrania tylko hostów spoza listy, a oficjalny przykład kontraktu i obie integracje wzorcowe
+trzymają sam adres — CI kitu oblewało je wszystkie. Zostaje: próba pobrania odrzucona na
+certyfikacie testowym oblewa z podpowiedzią `TD_CA_BUNDLE`, a obraz spoza listy nie może być ani
+pobrany, ani próbowany.
+
 - **Why:** bez nowej zależności (TLS z biblioteki standardowej `ssl`, certyfikat wygenerowany raz
   i zapisany w repo), reguła biblioteki zostaje bez wyjątków, a test pobrania obejmuje też CMS-y
   PHP — także wtyczkę w D2e.

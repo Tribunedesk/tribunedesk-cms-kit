@@ -246,18 +246,28 @@ IMAGE_DOWNLOAD_SECONDS = 15
 
 
 def image_host(ctx: Context) -> str:
+    # Guide 1 forbids hosts outside image_hosts; it does not make downloading compulsory (the
+    # official example keeps the URL only). A download that fails on the test certificate is a
+    # broken test environment, said as such.
     allowed = ctx.article()
     name = f"{allowed['article_id']}.jpg"
+    refused = ctx.state.tls_failures
     ctx.delivered(allowed)
     deadline = time.monotonic() + IMAGE_DOWNLOAD_SECONDS
-    while time.monotonic() < deadline and not ctx.state.pulls.get(name):
+    while (
+        time.monotonic() < deadline
+        and not ctx.state.pulls.get(name)
+        and ctx.state.tls_failures == refused
+    ):
         time.sleep(0.1)
+    downloaded = bool(ctx.state.pulls.get(name))
     expect(
-        bool(ctx.state.pulls.get(name)),
-        f"the integration did not download the image on {ctx.image_host} within "
-        f"{IMAGE_DOWNLOAD_SECONDS} s; it is served over https with a test certificate: trust "
-        f"TD_CA_BUNDLE ({tls.CA_BUNDLE}) in the test environment",
+        downloaded or ctx.state.tls_failures == refused,
+        f"the integration tried to download the image on {ctx.image_host} but refused the "
+        f"mock's test certificate; trust TD_CA_BUNDLE ({tls.CA_BUNDLE}) in the test "
+        "environment",
     )
+    refused = ctx.state.tls_failures
     body = ctx.article()
     name = f"{body['article_id']}-not-allowed.jpg"
     url = f"{ctx.files_base(ctx.forbidden_image_host)}/files/{name}"
@@ -267,11 +277,15 @@ def image_host(ctx: Context) -> str:
     deadline = time.monotonic() + 2
     while time.monotonic() < deadline and not ctx.state.pulls.get(name):
         time.sleep(0.1)
+    tried = not ctx.state.pulls.get(name) and ctx.state.tls_failures > refused
     expect(not ctx.state.pulls.get(name), f"the integration downloaded {url}")
-    return (
-        f"the image on {ctx.image_host} was downloaded over https; the one on "
-        f"{ctx.forbidden_image_host}, outside image_hosts, was not"
+    expect(not tried, f"the integration tried to download {url}")
+    first = (
+        f"the image on {ctx.image_host} was downloaded over https"
+        if downloaded
+        else f"the integration downloaded no image (guide 1 allows that) from {ctx.image_host}"
     )
+    return f"{first}; the one on {ctx.forbidden_image_host}, outside image_hosts, was not"
 
 
 # -- level 1, read mode --------------------------------------------------------------------
