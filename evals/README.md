@@ -27,8 +27,9 @@ The runner:
 
 1. builds the project in a new folder under the temp directory (`tribunedesk-evals/<scenario>-<time>/project`) and commits it;
 2. runs `claude -p` with the scenario's prompt, this plugin (`--plugin-dir`) and no user
-   settings, hooks or CLAUDE.md (`--setting-sources local`), with `TDKIT_CMD` pointing at this
-   checkout, and saves the transcript next to the project;
+   settings, hooks or CLAUDE.md (`--setting-sources local`), with `TDKIT_CMD` pointing at a
+   `tdkit` wheel built from this checkout into the run's folder (`uvx --from <wheel> tdkit`),
+   and saves the transcript next to the project;
 3. prints the cost and the automatic checks: the skill fired, `tdkit check` ran, the report it
    wrote is green, the manifest is right, no signing secret is in a file git would commit, `.env`
    is ignored; for the `parity-*` runs also that the agent read no local source (this kit,
