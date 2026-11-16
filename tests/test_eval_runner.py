@@ -6,6 +6,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 from types import ModuleType
 
@@ -328,3 +329,24 @@ def test_no_local_sources_allows_the_ca_bundle(tmp_path: Path) -> None:
     assert runner.no_local_sources(make_run(tmp_path, _calls(*calls)))[0]
     reading_code = [("Bash", {"command": f'sed -n 1,40p "{tls_dir}/__init__.py"'})]
     assert not runner.no_local_sources(make_run(tmp_path, _calls(*reading_code)))[0]
+
+
+def test_tdkit_command_runs_a_wheel_not_the_checkout(tmp_path: Path) -> None:
+    """The agent's `tdkit` is the package a user installs (`uvx --from <wheel>`): TDKIT_CMD names
+    no folder of this checkout."""
+    wheel = tmp_path / "tdkit-1.3.0-py3-none-any.whl"
+    command = runner.tdkit_command(wheel)
+    assert command.endswith(f'--from "{wheel.as_posix()}" tdkit')
+    assert runner.KIT.as_posix() not in command
+    assert str(runner.KIT) not in command
+
+
+def test_built_wheel_is_outside_the_kit_and_carries_the_test_ca(tmp_path: Path) -> None:
+    """The wheel is built into the run's folder, not the kit, and holds the test CA that
+    TD_CA_BUNDLE points at (the package's own file, so it exists where tdkit runs)."""
+    wheel = runner.build_tdkit_wheel(tmp_path)
+    assert wheel.parent == tmp_path
+    assert not wheel.is_relative_to(runner.KIT)
+    with zipfile.ZipFile(wheel) as archive:
+        names = set(archive.namelist())
+    assert {"tdkit/mock/tls/ca.pem", "tdkit/mock/tls/server.pem"} <= names

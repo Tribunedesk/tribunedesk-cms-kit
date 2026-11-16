@@ -602,12 +602,28 @@ def prompt_of(name: str) -> str:
     return text.split("## Prompt\n", 1)[1].split("\n## ", 1)[0].strip()
 
 
+def build_tdkit_wheel(out_dir: Path) -> Path:
+    """This checkout's tdkit as a wheel in `out_dir` (the run's folder, outside the kit): the
+    agent runs the package a user installs, not the sources next to the eval."""
+    uv = shutil.which("uv")
+    assert uv, "uv is required"
+    _run(KIT, uv, "build", "--wheel", "--out-dir", str(out_dir))
+    wheels = sorted(out_dir.glob("tdkit-*.whl"))
+    assert len(wheels) == 1, f"expected one tdkit wheel in {out_dir}, got {wheels}"
+    return wheels[0]
+
+
+def tdkit_command(wheel: Path) -> str:
+    uvx = shutil.which("uvx")
+    assert uvx, "uvx is required"
+    return f'"{Path(uvx).as_posix()}" --from "{wheel.as_posix()}" tdkit'
+
+
 def run_claude(workspace: Path, prompt: str, transcript: Path, budget: float) -> list[dict]:
     claude = shutil.which("claude")
     assert claude, "claude is required"
-    uv = shutil.which("uv")
-    assert uv, "uv is required"
-    tdkit = f'"{Path(uv).as_posix()}" run --project "{KIT.as_posix()}" tdkit'
+    # tdkit comes from a wheel built into the run's folder, so no checkout path reaches the agent.
+    tdkit = tdkit_command(build_tdkit_wheel(transcript.parent))
     env = {**os.environ, "TDKIT_CMD": tdkit}
     command = [
         claude, "-p", prompt,
