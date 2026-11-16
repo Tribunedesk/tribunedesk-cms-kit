@@ -188,8 +188,14 @@ def inspect(data: dict[str, Any], article_id: str) -> dict[str, Any] | None:
         "ai_provenance_jws",
     ]
     shown = {key: post.get(key) for key in keys}
+    # The box is part of the public page: it lists published articles on a published post, as
+    # the WordPress plugin does.
     shown["read_more"] = sorted(
-        other for other, p in posts.items() if article_id in p.get("backlink_sources", [])
+        other
+        for other, p in posts.items()
+        if article_id in p.get("backlink_sources", [])
+        and p.get("status") == "published"
+        and post.get("status") == "published"
     )
     return shown
 

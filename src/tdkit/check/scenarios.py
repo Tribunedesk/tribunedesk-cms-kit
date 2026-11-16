@@ -437,12 +437,16 @@ def placeholder_resolved_later(ctx: Context) -> str:
 
 
 def backlinks_rules(ctx: Context) -> str:
+    # Both published: the box belongs to the public page, and a CMS may build it, and list
+    # only published articles in it, when a post goes public (the WordPress plugin does).
     older = ctx.article(minutes=-30)
     ctx.delivered(older)
+    ctx.publish(older["article_id"])
     newer = ctx.article(
         minutes=-20, backlink_sources=[{"article_id": older["article_id"], "distance": 0.2}]
     )
     ctx.delivered(newer)
+    ctx.publish(newer["article_id"])
     steps: list[tuple[str, dict[str, Any], list[str]]] = [
         ("a list", newer, [newer["article_id"]]),
     ]

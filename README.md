@@ -285,7 +285,7 @@ point for the behaviour, the guide's sentence that requires it.
 | `l2-social-flag` | 2 any, with `--social-flag` | as `l2-reports-url` | every report carries `social_queue_exclude` | Once your CMS has the setting, send the field every time, also as `false`; … |
 | `l3-placeholder-unwrapped` | 3 any | a placeholder link to an article you do not have, published | the link is gone, its text stays | Placeholders are replaced with your addresses, or the link text is left without a link, … |
 | `l3-placeholder-resolved-later` | 3 any | target delivered and published, then a placeholder link to it | the html links to the target's `permalink` | (same) |
-| `l3-backlinks-rules` | 3 any | B with `backlink_sources=[A]`, then without the key, then `[]` | A's `read_more`: `[B]`, `[B]`, `[]` | The "read more" box follows `backlink_sources`, including the missing-key and empty-list rules. |
+| `l3-backlinks-rules` | 3 any | A and B published (`--publish-cmd`), B with `backlink_sources=[A]`, then without the key, then `[]` | A's `read_more`: `[B]`, `[B]`, `[]` | The "read more" box follows `backlink_sources`, including the missing-key and empty-list rules. |
 | `l3-seo-author-language` | 3 any | the sample's SEO, author and language | stored as sent; author not empty | SEO fields, author and language are stored on the post. |
 | `l3-ai-label` | 3 any | a delivery with `ai_provenance`, published | `ai_provenance_jws` equals the delivery's `jws` | The AI label is in the `<head>` of every public page made from a delivery whose `ai_provenance` is not `null`. |
 | `l4-first-poll` | 4 | two syncs | every poll after the first sends a cursor the previous answer gave | Your CMS polls `GET /v3/cms/changes` and stores the cursor only after applying the changes it returned. |
