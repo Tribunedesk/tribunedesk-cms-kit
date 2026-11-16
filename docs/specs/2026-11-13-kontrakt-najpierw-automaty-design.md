@@ -365,6 +365,14 @@ w headlinesforge kasuje z repo publicznego każdy inny plik spoza swojej mapy. S
 (`README.md`, `pl/`, `VERSIONING.md`) nie wymagają wersji i nie stawiają tagu. Tagi od teraz
 adnotowane; wcześniejsze lekkie (`v3.2.0-draft` … `v3.4.2-draft`) zostają.
 
+**Poprawka po etapie 4 (16.11):** przypinka `cms-php` to cztery miejsca, nie dwa: `VERSION`,
+wektory podpisu, `ContractVersion::TESTED` (test wymaga równości z `VERSION`) i linki przewodnika
+w README — drift przepina wszystkie, a w opisie PR-a wypisuje linki, których kotwic nowy tag nie
+ma. Skrypt jest w PHP (`ci/ContractDrift.php`, testy w PHPUnit biblioteki), bo repo nie ma
+Pythona. Lądowanie PR-a driftu nie stawia tagu biblioteki. Mechanizm D2b wymaga w każdym repo
+konsumenta (kit, `cms-php`, wtyczka) ustawienia „Allow GitHub Actions to create and approve pull
+requests” — 16.11 wyłączone w kicie i w `cms-php`, więc `gh pr create` `GITHUB_TOKEN`-em by padł.
+
 ## 8. Dla budowniczego
 
 **Kolejność wdrożenia** (osobny PR na repo; każdy etap kończy się zatrzymaniem i weryfikacją):
