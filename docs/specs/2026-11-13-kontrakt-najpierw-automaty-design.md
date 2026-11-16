@@ -357,6 +357,14 @@ Headlinesforge: istniejący `CMS_API_DOCS_TOKEN` (teraz wymagany).
 `ci.yml` (D2b): `GITHUB_TOKEN` nie może wypchnąć zmiany w `.github/workflows/`, a D2b zabrania
 nowych sekretów. To samo dotyczy przypinek `cms-php` i wtyczki — żyją już poza workflowami.
 
+**Poprawka po etapie 3 (16.11):** logika `pr.yml` i `tag.yml` w `cms-api` to jeden skrypt
+`.github/scripts/contract_gate.py` — wszystko pod `.github/`, bo `scripts/cms_api_public_tree.py`
+w headlinesforge kasuje z repo publicznego każdy inny plik spoza swojej mapy. Strażnik D2c czyta
+`SUPPORTED_MINORS` z najnowszego **tagu** kitu (skill uruchamia `tdkit` z tagu przypiętego w
+`SKILL.md`), nie z `main`. Zmiany poza `openapi.json`, `CHANGELOG.md`, `guide/`, `examples/`
+(`README.md`, `pl/`, `VERSIONING.md`) nie wymagają wersji i nie stawiają tagu. Tagi od teraz
+adnotowane; wcześniejsze lekkie (`v3.2.0-draft` … `v3.4.2-draft`) zostają.
+
 ## 8. Dla budowniczego
 
 **Kolejność wdrożenia** (osobny PR na repo; każdy etap kończy się zatrzymaniem i weryfikacją):
