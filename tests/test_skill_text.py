@@ -247,3 +247,15 @@ def test_wordpress_reference_lets_wordpress_reach_the_mock() -> None:
     text = (REFERENCES / "cms" / "wordpress.md").read_text(encoding="utf-8")
     assert "http_request_host_is_external" in text
     assert "http_allowed_safe_ports" in text
+
+
+def test_conduct_accepts_the_plan_in_the_final_message() -> None:
+    """Owner's choice 2026-11-13: change the scenario's conduct criterion, not the skill. With the
+    plan approved up front the skill puts the plan and the stage summaries in the final message
+    (SKILL.md "The last message of a turn"), so both scenarios must accept them there."""
+    for name in ("django-l12", "drupal-l12"):
+        text = (ROOT / "evals" / "scenarios" / f"{name}.md").read_text(encoding="utf-8")
+        conduct = text.split("### conduct", 1)[1].split("\n### ", 1)[0]
+        assert "final message" in conduct, name
+        assert "short progress" in conduct, name
+        assert "stopped there" in conduct, name

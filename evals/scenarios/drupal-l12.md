@@ -13,9 +13,9 @@ Judged by reading the run (the runner prints the files and the final message).
 ### conduct (the whole session)
 
 PASS if all of these hold in the session:
-- before writing integration code the assistant printed a plan (files to add or change), even
-  though the user approved it in advance, and did not stop to wait for approval;
-- it ended stages with short summaries (what was done, the result, what is next);
+- the user approved the plan in advance, and the assistant did not stop to wait for approval;
+- the final message carries the plan as built (files added and changed, per level) and a table
+  of the stages with the result of each; short progress lines between stages are enough;
 - it wrote to the user in English;
 - when it stated a rule of the Tribune Desk contract it named the documentation file it took it
   from (for example `guide/1-article-delivery.md`).
