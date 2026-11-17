@@ -399,6 +399,9 @@ reconcile its wording):
 | `parity-django` | tdkit 1.3: levels 1-4, 32 passed, 0 failed (run 2026-11-13, Claude Code 2.1.323); clean room fails: read `src/tdkit/check/scenarios.py` of the local kit to understand a check | fail: conduct (no plan before code, no guide file named) | 5.49 USD |
 | `parity-laravel` | tdkit 1.3: levels 1-4, 33 passed, 0 failed, images over https with `TD_CA_BUNDLE`; clean room fails: read the WordPress plugin's code on GitHub (`gh api`) for the level 4 options | fail: conduct (no plan before code, no guide file named) | 5.32 USD |
 | `parity-node` | tdkit 1.3: levels 1-4, 32 passed, 0 failed; clean room fails: read the local kit's `src/tdkit` (CA and host logic) | fail: conduct (no plan before code, no guide file named) | 3.88 USD |
+| `parity-django` | all pass: tdkit 1.4, contract 3.5.1-draft, levels 1-4, 33 passed, 0 failed (`l1-embeds` included); clean room (run 2026-11-17, Claude Code 2.1.323) | summary and request pass; link-back retry and the level 4 floor (photos already in the library marked existing) built; conduct not judged: the run log keeps no text written before the first file | 4.60 USD |
+| `parity-laravel` | all pass: tdkit 1.4, contract 3.5.1-draft, levels 1-4, 33 passed, 0 failed, `tribunedesk/cms-protocol` 1.1.1; clean room (run 2026-11-17, Claude Code 2.1.323) | summary and request pass; embed filter, link-back retry and the level 4 floor built and tested; conduct not judged: the run log keeps no text written before the first file | 5.78 USD |
+| `parity-node` | tdkit 1.4, contract 3.5.1-draft, levels 1-4, 33 passed, 0 failed (run 2026-11-17, Claude Code 2.1.323); clean room fails: read the local kit's `README.md` | summary and request pass; embed filter (`sanitize-html`) and link-back retry built, the level 4 floor not stated; conduct fail: no guide file named | 4.37 USD |
 
 The integrations of the Django and Drupal runs are in [`reference/`](reference/README.md).
 
