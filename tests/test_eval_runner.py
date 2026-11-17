@@ -33,7 +33,7 @@ def write_report(root: Path, results: list[bool | None], levels: list[int], mode
     (root / ".tribunedesk").mkdir()
     report = {
         "tdkit": "1.1.0",
-        "contract": "3.4.2-draft",
+        "contract": runner.CONTRACT,
         "levels": levels,
         "mode": mode,
         "results": [{"id": str(i), "level": 1, "passed": p} for i, p in enumerate(results)],
@@ -317,6 +317,12 @@ def test_manifest_checks_expect_the_eval_contract() -> None:
     made every django-l12, drupal-l12 and update-3.2 run report a false FAIL `manifest`."""
     source = (ROOT / "evals" / "run.py").read_text(encoding="utf-8")
     assert 'contract="3.4.1-draft"' not in source
+
+
+def test_eval_contract_is_the_pinned_tag() -> None:
+    """The evals expect the contract CI tests against; a literal went stale on every drift."""
+    pin = (ROOT / "ci" / "contract-tag").read_text(encoding="utf-8").strip()
+    assert pin.removeprefix("v") == runner.CONTRACT
 
 
 def test_no_local_sources_allows_the_ca_bundle(tmp_path: Path) -> None:

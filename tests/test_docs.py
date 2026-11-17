@@ -64,9 +64,9 @@ def test_latest_tag_sorts_versions() -> None:
 @pytest.mark.parametrize(
     ("version", "ok"),
     [
-        ("3.4.0-draft", True),
-        ("3.4.2-draft", True),
-        ("3.4.17", True),
+        ("3.4.0-draft", False),
+        ("3.4.2-draft", False),
+        ("3.4.17", False),
         ("3.5.0-draft", True),
         ("3.5.3", True),
         ("3.6.0-draft", False),

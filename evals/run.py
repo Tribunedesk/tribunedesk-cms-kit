@@ -122,7 +122,8 @@ def file_matches(path: str, pattern: str, *, expected: bool = True) -> Check:
     return check
 
 
-CONTRACT = "3.4.2-draft"
+# The contract the evals expect is the one CI tests against; the drift moves ci/contract-tag.
+CONTRACT = (KIT / "ci" / "contract-tag").read_text(encoding="utf-8").strip().removeprefix("v")
 
 
 def report_green(levels: list[int], mode: str, contract: str = CONTRACT) -> Check:
