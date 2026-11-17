@@ -33,11 +33,14 @@ def test_integrators_read_mode_includes_read_items() -> None:
 
 
 def test_integrators_ignores_unknown_tags(capsys: pytest.CaptureFixture[str]) -> None:
-    text = CHANGELOG.replace(
+    # The 3.4.2-draft block, wherever later versions put it in the file.
+    head, block = CHANGELOG.split("## 3.4.2-draft", 1)
+    block = block.replace(
         "- Nothing to do.",
         "- `L5`: send your archive.\n- `L1`, `L5`: something for level 1.",
         1,
     )
+    text = head + "## 3.4.2-draft" + block
     items = integrators(text, "3.4.1-draft", "3.4.2-draft", levels=[1, 5], mode="webhook")
     assert [item["action"] for item in items] == ["something for level 1."]
     assert items[0]["tags"] == ["L1"]

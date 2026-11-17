@@ -103,10 +103,11 @@ def test_contract_without_signature_vectors_loads(tmp_path: Path) -> None:
     shutil.copytree(FIXTURE, root)
     (root / "examples" / "vectors" / "webhook-signature.json").unlink()
     openapi = json.loads((root / "openapi.json").read_text(encoding="utf-8"))
-    openapi["info"]["version"] = "3.4.0-draft"
+    # A supported contract whose copy lacks the vectors file (they arrived in 3.4.1-draft).
+    openapi["info"]["version"] = "3.5.0-draft"
     (root / "openapi.json").write_text(json.dumps(openapi), encoding="utf-8")
     docs = load_docs(root)
-    assert docs.version == "3.4.0-draft"
+    assert docs.version == "3.5.0-draft"
     assert docs.vectors == []
 
 
