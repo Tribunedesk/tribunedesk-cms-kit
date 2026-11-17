@@ -63,10 +63,12 @@ Mapa `docs/contract-map.json` wiąże każdą z 33 klas z sekcją przewodnika al
 
 **S4. Tekst przewodnika (EN, dosłownie; PL tłumaczy budowniczy w tym samym PR-ze).** Ten tekst jest kontraktem między repo — punkty „Done when” i pozycje `Integrators` cytuje dosłownie kit (`coverage.toml`, `scenarios.py`); zmiana słowa po fazie A to nowy patch.
 
-- `guide/1-article-delivery.md`, sekcja „The HTML body”, akapit po zdaniu o embedach:
-  > **Embeds.** Keep an `iframe` only when its `src` starts with the address of a video or social player you trust (the WordPress plugin keeps players from YouTube, Vimeo, X, Instagram, TikTok and Facebook), and keep only its `src`, `width`, `height`, `frameborder`, `allowfullscreen`, `allow` and `title`. Remove every other `iframe`, and every `script` together with its content. A delivery arrives with no editor logged in: if your CMS filters content by the rights of the current user, check that this filter keeps the embeds you trust.
+- `guide/1-article-delivery.md`, sekcja „The HTML body”, nowy punkt listy po „No media in the body” (poprawka przy wykonaniu: blok etykiety AI to też `script`, a przewodnik pozwala go zostawić):
+  > - **Embeds:** keep an `iframe` only when its `src` starts with the address of a video or social player you trust (the WordPress plugin keeps players from YouTube, Vimeo, X, Instagram, TikTok and Facebook), and keep only its `src`, `width`, `height`, `frameborder`, `allowfullscreen`, `allow` and `title`. Remove every other `iframe`, and every other `script` together with its content (the AI label block below is the one script you may keep). A delivery arrives with no editor logged in: if your CMS filters content by the rights of the current user, check that this filter keeps the embeds you trust.
 - Punkt „Done when” przewodnika 1 (po punkcie o `image_hosts`):
-  > - A `script` in `html` is removed with its content; an `iframe` from `https://www.youtube.com/embed/` is kept and an `iframe` from a host you do not trust is removed.
+  > - A `script` in `html` other than the AI label block is removed with its content; an `iframe` of a YouTube player is kept and an `iframe` from a host you do not trust is removed.
+
+  (Poprawka przy wykonaniu: adres `www.youtube.com` w punkcie oblewa skan prywatnych danych drzewa publicznego `tests/scripts/test_cms_api_public_tree.py`, więc punkt mówi „a YouTube player”; scenariusz i tak używa `https://www.youtube.com/embed/…`.)
 - `guide/2-link-back.md`, sekcja „Reporting the published address”, akapit na końcu:
   > **When a report fails.** A report that ends with a network error, `429` or a `5xx` is sent again later (after `Retry-After` when there is one); the WordPress plugin tries once more after 5 minutes. Posts that were public before your integration had its token are reported once it has one, up to 100 per request.
 - Punkt „Done when” przewodnika 2 (po punkcie o `not_found`):
@@ -77,7 +79,7 @@ Mapa `docs/contract-map.json` wiąże każdą z 33 klas z sekcją przewodnika al
   > - Files that were in your library before level 4 was turned on are not sent as new files.
 - `CHANGELOG.md`:
   ```
-  ## 3.5.0-draft – <data lądowania>
+  ## 3.5.0-draft – 2026-11-17
 
   - Guide 1: which embeds to keep in `html`, and that a delivery arrives with no editor logged in.
   - Guide 2: a failed report of the published address is sent again; posts public before the token are reported once.
@@ -85,7 +87,7 @@ Mapa `docs/contract-map.json` wiąże każdą z 33 klas z sekcją przewodnika al
 
   **Integrators:**
 
-  - `L1`: keep an `iframe` only from players you trust and remove every `script` with its content; check that your content filter keeps them when no editor is logged in.
+  - `L1`: keep an `iframe` only from players you trust and remove every `script` other than the AI label block, with its content; check that your content filter keeps those embeds when no editor is logged in.
   - `L2`: send a report of the published address again when it fails with a network error, `429` or `5xx`.
   - `L4`: do not send files that were in your library before level 4 as new files.
   ```
@@ -177,7 +179,7 @@ Mapa `docs/contract-map.json` wiąże każdą z 33 klas z sekcją przewodnika al
 
 - [ ] **Step 1:** obejrzyj czerwony CI PR-a driftu — Expected: `test_coverage.py` pada na trzy punkty „Done when” i trzy pozycje `Integrators` 3.5.0-draft (dokładnie te; inna lista = błąd fazy A). Zapisz w raporcie.
 - [ ] **Step 2: test** w `tests/test_check.py`: `test_embeds_scenario_fails_a_cms_that_keeps_the_script` i `…_drops_youtube` na atrapie integracji (wzór istniejących testów scenariuszy); `test_embeds_scenario_passes_a_filtering_cms`. Run — Expected: FAIL (brak scenariusza).
-- [ ] **Step 3:** `embeds`: dostawa z `html` zawierającym `<p>before</p>`, iframe `https://www.youtube.com/embed/tdkit`, iframe `https://evil.example/embed/x`, iframe `https://www.youtube.com.evil.example/embed/x`, `<script>tdkit-script-marker</script>`. Asercje na `inspect`: `www.youtube.com/embed/tdkit` w `html`; `evil.example` nie; `tdkit-script-marker` nie w `html` ani w `text_of(html)`; `before` w `text_of(html)`. Run — Expected: PASS.
+- [ ] **Step 3:** `embeds`: dostawa z `html` zawierającym `<p>before</p>`, iframe `https://www.youtube.com/embed/tdkit`, iframe `https://evil.example/embed/x`, iframe `https://www.youtube.com.evil.example/embed/x`, `<script>tdkit-script-marker</script>`. Asercje na `inspect`: `www.youtube.com/embed/tdkit` w `html`; `evil.example` nie; `tdkit-script-marker` nie w `html` ani w `text_of(html)`; `before` w `text_of(html)`. Dostawa nie ma bloku etykiety AI (`ai_provenance: null`), żeby punkt o wyjątku nie mieszał się z tym scenariuszem. Run — Expected: PASS.
 - [ ] **Step 4:** `coverage.toml`:
   ```toml
   [[done_when]]
