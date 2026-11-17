@@ -21,6 +21,44 @@ use TribuneDesk\Protocol\DraftRules;
  */
 class DeliveryHandler {
 
+  /**
+   * Players whose iframes stay (guide/1-article-delivery.md, The HTML body,
+   * Embeds). Each prefix ends with "/", so a look-alike host does not pass.
+   */
+  public const TRUSTED_PLAYERS = [
+    'https://www.youtube.com/embed/',
+    'https://player.vimeo.com/video/',
+  ];
+
+  /**
+   * Drops every script (with its content) but the AI label block, and every
+   * iframe whose src is not a trusted player.
+   *
+   * The text format filters on output, but a delivery is stored as sent and
+   * arrives with no user logged in; this keeps the stored body clean. The
+   * text format must allow <iframe src width height title allow
+   * allowfullscreen frameborder> for the trusted players to show.
+   */
+  public static function filterEmbeds(string $html): string {
+    $html = preg_replace_callback(
+      '#<script\b([^>]*)>.*?</script>#is',
+      static fn (array $m): string => str_contains($m[1], 'data-hf-provenance') ? $m[0] : '',
+      $html,
+    ) ?? '';
+    return preg_replace_callback(
+      '#<iframe\b[^>]*\bsrc=["\']([^"\']*)["\'][^>]*>.*?</iframe>#is',
+      static function (array $m): string {
+        foreach (self::TRUSTED_PLAYERS as $prefix) {
+          if (str_starts_with($m[1], $prefix)) {
+            return $m[0];
+          }
+        }
+        return '';
+      },
+      $html,
+    ) ?? '';
+  }
+
   public function __construct(
     protected ArticleRegistry $registry,
     protected EntityTypeManagerInterface $entityTypeManager,
@@ -91,7 +129,7 @@ class DeliveryHandler {
 
     $action = DraftRules::action($node === NULL ? NULL : ($node->isPublished() ? 'published' : 'draft'));
     $title = mb_substr(DraftRules::title($article), 0, 255);
-    $html = (string) ($article['html'] ?? '');
+    $html = self::filterEmbeds((string) ($article['html'] ?? ''));
     $excerpt = (string) ($article['excerpt'] ?? '');
     $format = (string) ArticleRegistry::setting('text_format', 'basic_html');
     $log = sprintf('Tribune Desk send of %s', $sent_at ?? 'unknown time');

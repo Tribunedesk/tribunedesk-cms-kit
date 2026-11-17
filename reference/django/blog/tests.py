@@ -87,6 +87,22 @@ class WebhookTests(TestCase):
         self.assertEqual(post.tribunedesk.featured_image_url,
                          "https://storage.tribunedesk.test/a.jpg")
 
+    def test_embeds_trusted_kept_script_removed(self):
+        """Guide 1, The HTML body (3.5): trusted players stay; scripts and other iframes go."""
+        label = '<script type="application/ld+json" data-hf-provenance>{"a": 1}</script>'
+        html = (
+            '<p>Body</p><iframe src="https://www.youtube.com/embed/x"></iframe>'
+            '<iframe src="https://evil.example/embed/x"></iframe>'
+            '<iframe src="https://www.youtube.com.evil.example/embed/x"></iframe>'
+            "<script>alert('marker')</script>" + label
+        )
+        answer = self.deliver(str(uuid.uuid4()), extra={"html": html}).json()
+        body = Post.objects.get(pk=answer["cms_post_id"]).body
+        self.assertIn("https://www.youtube.com/embed/x", body)
+        self.assertNotIn("evil.example", body)
+        self.assertNotIn("marker", body)
+        self.assertIn("data-hf-provenance", body)  # the AI label block may stay
+
     def test_bad_signature_and_old_timestamp_get_401(self):
         other = "whsec_" + base64.b64encode(b"another-secret").decode()
         self.assertEqual(self.deliver(str(uuid.uuid4()), secret=other).status_code, 401)

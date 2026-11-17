@@ -10,6 +10,7 @@ import binascii
 import hashlib
 import hmac
 import logging
+import re
 import time
 from datetime import datetime
 
@@ -27,6 +28,19 @@ SECRET_PREFIX = "whsec_"
 TOLERANCE_SECONDS = 300  # guide 1, "Verifying the signature", step 5
 LINK_BACK_BATCH = 100  # guide 2: 1 to 100 items per request
 RETRYABLE_STATUSES = {429, 500, 502, 503, 504}  # README, "Retries"
+# Guide 1, "The HTML body", Embeds: players we trust. Each prefix ends with "/", so a
+# look-alike host (www.youtube.com.evil.example) does not pass.
+TRUSTED_PLAYERS = ("https://www.youtube.com/embed/", "https://player.vimeo.com/video/")
+_SCRIPT = re.compile(r"<script\b([^>]*)>.*?</script>", re.S | re.I)
+_IFRAME = re.compile(r"<iframe\b[^>]*\bsrc=[\"']([^\"']*)[\"'][^>]*>.*?</iframe>", re.S | re.I)
+
+
+def filter_embeds(html: str) -> str:
+    """Drop every script (with its content) but the AI label block, and every iframe whose
+    `src` is not a trusted player. Deliveries arrive with no user logged in, so this is the
+    only filter they pass; the template renders `body|safe`."""
+    html = _SCRIPT.sub(lambda m: m.group(0) if "data-hf-provenance" in m.group(1) else "", html)
+    return _IFRAME.sub(lambda m: m.group(0) if m.group(1).startswith(TRUSTED_PLAYERS) else "", html)
 
 
 class InvalidSignature(Exception):
@@ -104,6 +118,7 @@ def apply_delivery(article: dict, delivery_id: str) -> dict:
     html = article["html"]
     if not isinstance(title, str) or not isinstance(html, str):
         raise ValueError("title and html must be text")
+    html = filter_embeds(html)
     excerpt = article.get("excerpt") or ""
 
     for attempt in range(2):
