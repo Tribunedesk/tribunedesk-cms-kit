@@ -2,6 +2,26 @@
 
 Changes of the Tribune Desk CMS API contract, newest first. Versions follow [Versioning](VERSIONING.md).
 
+## 3.5.1-draft – 2026-11-17
+
+- `examples/python/level1_receiver.py` keeps embeds only from trusted players and removes other scripts, as guide 1 asks since 3.5.0-draft.
+
+**Integrators:**
+
+- Nothing to do.
+
+## 3.5.0-draft – 2026-11-17
+
+- Guide 1: which embeds to keep in `html`, and that a delivery arrives with no editor logged in.
+- Guide 2: a failed report of the published address is sent again; posts public before the token are reported once.
+- Guide 4: files already in the library are not sent as new files.
+
+**Integrators:**
+
+- `L1`: keep an `iframe` only from players you trust and remove every `script` other than the AI label block, with its content; check that your content filter keeps those embeds when no editor is logged in.
+- `L2`: send a report of the published address again when it fails with a network error, `429` or `5xx`.
+- `L4`: do not send files that were in your library before level 4 as new files.
+
 ## 3.4.2-draft – 2026-11-12
 
 - README: “Build it with Claude”, the Claude Code plugin that builds and tests an integration.

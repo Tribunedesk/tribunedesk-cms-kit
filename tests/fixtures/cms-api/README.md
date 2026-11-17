@@ -64,7 +64,7 @@ curl -sS https://api.tribunedesk.com/v3/cms/status \
 ```
 
 ```
-{"org_code":"example-org","contract_version":"3.4.2-draft","scopes":["media:read"],"state":"active", ...}
+{"org_code":"example-org","contract_version":"3.5.1-draft","scopes":["media:read"],"state":"active", ...}
 ```
 
 ## What to ask Tribune Desk for
