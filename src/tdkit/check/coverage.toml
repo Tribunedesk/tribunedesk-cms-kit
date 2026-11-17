@@ -43,6 +43,33 @@ guide = "guide/2-link-back.md"
 point = "If your CMS has a setting that keeps a post off Facebook, every report carries `social_queue_exclude`, `false` included."
 scenarios = ["l2-social-flag"]
 
+[[done_when]]
+guide = "guide/2-link-back.md"
+point = "A report that fails with a network error, `429` or `5xx` is sent again later, not dropped."
+reason = "tdkit cannot hold an integration for minutes; when to try again is the integration's choice"
+
+[[done_when]]
+guide = "guide/4-media-library.md"
+point = "Files that were in your library before level 4 was turned on are not sent as new files."
+reason = "tdkit cannot add files to a library before the integration starts"
+
+[[integrators]]
+version = "3.5.0-draft"
+action = "keep an `iframe` only from players you trust and remove every `script` other than the AI label block, with its content; check that your content filter keeps those embeds when no editor is logged in."
+handled_by = ["scenario:l1-embeds"]
+
+[[integrators]]
+version = "3.5.0-draft"
+action = "send a report of the published address again when it fails with a network error, `429` or `5xx`."
+handled_by = ["none"]
+reason = "the guide says it and the skill reads the guide live; tdkit cannot test it (see the exempt point of guide 2)"
+
+[[integrators]]
+version = "3.5.0-draft"
+action = "do not send files that were in your library before level 4 as new files."
+handled_by = ["none"]
+reason = "the guide says it and the skill reads the guide live; tdkit cannot test it (see the exempt point of guide 4)"
+
 [[integrators]]
 version = "3.4.0-draft"
 action = "answer `401` to a delivery without a valid signature; every delivery is signed now."

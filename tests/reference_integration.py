@@ -5,6 +5,7 @@ developer commands:
 
     python reference_integration.py serve --port 8080 --store store.json [--no-verify]
         [--overwrite-older] [--empty-answer] [--any-image-host] [--answer-500]
+        [--keep-embeds] [--naive-embed-hosts]
     python reference_integration.py inspect --store store.json <article_id>
     python reference_integration.py publish --store store.json <article_id>
     python reference_integration.py poll --store store.json
@@ -107,6 +108,25 @@ def rerender(posts: dict[str, Any]) -> None:
         post["html"] = render(post, posts)
 
 
+# Guide 1, The HTML body (3.5): players we trust, compared with the trailing slash.
+TRUSTED_PLAYERS = ("https://www.youtube.com/embed/", "https://player.vimeo.com/video/")
+_SCRIPT = re.compile(r"<script\b[^>]*>.*?</script>", re.S | re.I)
+_IFRAME = re.compile(r"<iframe\b[^>]*\bsrc=\"([^\"]*)\"[^>]*>.*?</iframe>", re.S | re.I)
+
+
+def filter_embeds(html: str, *, keep_all: bool = False, naive_hosts: bool = False) -> str:
+    """Drop every script with its content and every iframe outside TRUSTED_PLAYERS."""
+    if keep_all:
+        return html
+    prefixes = (
+        tuple(p.rstrip("/").rsplit("/", 1)[0] for p in TRUSTED_PLAYERS)
+        if naive_hosts
+        else TRUSTED_PLAYERS
+    )
+    html = _SCRIPT.sub("", html)
+    return _IFRAME.sub(lambda m: m.group(0) if m.group(1).startswith(prefixes) else "", html)
+
+
 def _tls() -> ssl.SSLContext | None:
     """Trust the mock's test CA, as an integrator does in a test environment (D5)."""
     bundle = os.environ.get("TD_CA_BUNDLE")
@@ -121,6 +141,8 @@ def apply(
     any_host: bool = False,
     download: bool = True,
     trust_ca: bool = True,
+    keep_embeds: bool = False,
+    naive_embed_hosts: bool = False,
 ) -> dict:
     posts = data["posts"]
     article_id = article["article_id"]
@@ -147,7 +169,9 @@ def apply(
         edit_url=f"https://cms.example.com/posts/{post_id}/edit",
         sent_at=article["sent_at"],
         title=article["title"],
-        html_raw=article["html"],
+        html_raw=filter_embeds(
+            article["html"], keep_all=keep_embeds, naive_hosts=naive_embed_hosts
+        ),
         excerpt=article.get("excerpt"),
         featured_image_url=image,
         internal_links=article.get("internal_links") or [],
@@ -283,6 +307,8 @@ def serve(args: argparse.Namespace) -> None:
                     any_host=args.any_image_host,
                     download=not args.no_image_download,
                     trust_ca=not args.no_ca,
+                    keep_embeds=args.keep_embeds,
+                    naive_embed_hosts=args.naive_embed_hosts,
                 )
                 save(store, data)
             self._reply(200, None if args.empty_answer else answer)
@@ -314,6 +340,8 @@ def main() -> None:
     s.add_argument("--no-image-download", action="store_true")
     s.add_argument("--no-ca", action="store_true")
     s.add_argument("--answer-500", action="store_true")
+    s.add_argument("--keep-embeds", action="store_true")
+    s.add_argument("--naive-embed-hosts", action="store_true")
     for name in ("inspect", "publish"):
         sub.add_parser(name).add_argument("article_id")
     sub.add_parser("poll")

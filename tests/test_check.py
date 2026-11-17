@@ -20,7 +20,7 @@ from tdkit.cli import main
 from tdkit.docs import ContractDocs
 from tdkit.mock.tls import CA_BUNDLE
 
-from .conftest import FIXTURE
+from .conftest import FIXTURE, ci_contract_tag
 
 REFERENCE = Path(__file__).parent / "reference_integration.py"
 
@@ -151,7 +151,7 @@ def test_reference_integration_passes_all_levels(
 def test_json_report_shape(webhook_run: tuple[int, dict[str, Any], str]) -> None:
     _, report, _ = webhook_run
     assert set(report) == {"tdkit", "contract", "levels", "mode", "results"}
-    assert report["contract"] == "3.4.2-draft"
+    assert "v" + report["contract"] == ci_contract_tag()  # the tag CI tests against, not a literal
     assert report["levels"] == [1, 2, 3]
     assert report["mode"] == "webhook"
     assert [r["id"] for r in report["results"]] == [s.id for s in SCENARIOS]
@@ -184,6 +184,22 @@ def test_check_fails_older_send_overwrites(tmp_path: Path, docs: ContractDocs) -
     results = outcome(report)
     assert results["l1-older-send-ignored"] is False
     assert [r.id for r in report.failed] == ["l1-older-send-ignored"]
+
+
+def test_check_fails_a_cms_that_keeps_scripts_and_any_iframe(
+    tmp_path: Path, docs: ContractDocs
+) -> None:
+    """Guide 1 (3.5): a `script` goes with its content, an untrusted `iframe` goes."""
+    report = _webhook_check(tmp_path, docs, ("--keep-embeds",), [1])
+    assert [r.id for r in report.failed] == ["l1-embeds"]
+
+
+def test_check_fails_a_cms_that_trusts_a_lookalike_host(tmp_path: Path, docs: ContractDocs) -> None:
+    """`https://www.youtube.com.evil.example/embed/` is not YouTube: compare with the slash."""
+    report = _webhook_check(tmp_path, docs, ("--naive-embed-hosts",), [1])
+    assert [r.id for r in report.failed] == ["l1-embeds"]
+    failed = next(r for r in report.failed if r.id == "l1-embeds")
+    assert "evil.example" in failed.detail
 
 
 def test_check_accepts_empty_2xx_for_delivery_only_scenarios(

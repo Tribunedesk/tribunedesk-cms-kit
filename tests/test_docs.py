@@ -15,7 +15,9 @@ FIXTURE = Path(__file__).parent / "fixtures" / "cms-api"
 def test_resolve_docs_from_dir() -> None:
     docs = resolve_docs(None, FIXTURE)
     assert docs.root == FIXTURE
-    assert docs.version == "3.4.2-draft"
+    from .conftest import ci_contract_tag
+
+    assert docs.version == ci_contract_tag().removeprefix("v")
     assert "/v3/cms/status" in docs.openapi["paths"]
     assert docs.sample_delivery["article_id"]
     assert len(docs.vectors) >= 5

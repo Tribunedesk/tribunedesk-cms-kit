@@ -212,6 +212,30 @@ def overlapping_attempts(ctx: Context) -> str:
     return f"one post {ids.pop()!r} (answers {statuses})"
 
 
+def embeds(ctx: Context) -> str:
+    """Guide 1, The HTML body (3.5): trusted players stay, scripts and other iframes go."""
+    youtube = "https://www.youtube.com/embed/tdkit"
+    html = (
+        "<p>Before the embeds.</p>"
+        f'<iframe src="{youtube}" width="560" height="315" title="video"></iframe>'
+        '<iframe src="https://evil.example/embed/x"></iframe>'
+        '<iframe src="https://www.youtube.com.evil.example/embed/x"></iframe>'
+        "<script>document.title = 'tdkit-script-marker';</script>"
+        "<p>After the embeds.</p>"
+    )
+    body = ctx.article(html=html)
+    ctx.delivered(body)
+    stored = str(ctx.must_inspect(body["article_id"]).get("html") or "")
+    expect("www.youtube.com/embed/tdkit" in stored, "the YouTube iframe was removed")
+    expect("evil.example" not in stored, "an iframe from an untrusted host (evil.example) stayed")
+    expect(
+        "tdkit-script-marker" not in stored and "tdkit-script-marker" not in text_of(stored),
+        "the script or its content stayed in html",
+    )
+    expect("Before the embeds." in text_of(stored), "the text around the embeds was lost")
+    return "the YouTube player stays; the script and the untrusted iframes are gone"
+
+
 def unknown_fields(ctx: Context) -> str:
     body = ctx.article()
     body["tdkit_future_field"] = {"added_in": "a future minor version"}
@@ -527,6 +551,11 @@ D1_UNKNOWN = (
 )
 D1_OLDER = "An attempt of an older send that arrives after a newer one does not overwrite the post."
 D1_IMAGES = "Download images only from these hosts and refuse any other address."
+D1_EMBEDS = (
+    "A `script` in `html` other than the AI label block is removed with its content; an "
+    "`iframe` of a YouTube player is kept and an `iframe` from a host you do not trust is "
+    "removed."
+)
 D1_OVERLAP = (
     "Keep `article_id` unique in your database and lock the row while you write, or you get "
     "two posts."
@@ -588,6 +617,7 @@ SCENARIOS: tuple[Scenario, ...] = (
     Scenario("l1-unknown-fields", 1, "webhook", D1_UNKNOWN, DW1, unknown_fields),
     Scenario("l1-non-ascii", 1, "webhook", D1_DRAFT, DW1, non_ascii),
     Scenario("l1-image-host", 1, "webhook", D1_IMAGES, f"{G1}#where-images-come-from", image_host),
+    Scenario("l1-embeds", 1, "webhook", D1_EMBEDS, DW1, embeds),
     Scenario("read-delivers-result", 1, "read", R_RESULT, READ, read_delivers_result),
     Scenario("read-superseded-409", 1, "read", R_409, READ, read_superseded),
     Scenario("read-cursor-expired", 1, "read", R_410, READ, read_cursor_expired),
