@@ -9,7 +9,9 @@ name: contract-drift
 # GITHUB_TOKEN only. It may not push changes under .github/workflows/, so the pin lives in
 # ci/contract-tag. A pull request opened with it starts no workflow, so CI is started with
 # `gh workflow run` (workflow_dispatch is the exception GitHub allows). The branch is rebuilt
-# only when a newer tag replaces the one it pins: commits pushed onto it survive.
+# only when a newer tag replaces the one it pins: commits pushed onto it survive. The branch is
+# also rebuilt when its pull request is closed unmerged (no open pull request means no pin is
+# read), so the next run opens a new one.
 
 on:
   schedule:
@@ -35,10 +37,13 @@ jobs:
           version: "0.12.20"
           enable-cache: true
       - run: uv sync
-      - name: The pin on contract/latest, if the branch exists
+      - name: The pin on contract/latest, if its pull request is open
         id: open
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if git fetch --quiet origin contract/latest 2>/dev/null; then
+          open="$(gh pr list --head contract/latest --state open --json number --jq '.[0].number')"
+          if [ -n "$open" ] && git fetch --quiet origin contract/latest 2>/dev/null; then
             echo "pin=$(git show FETCH_HEAD:ci/contract-tag 2>/dev/null)" >> "$GITHUB_OUTPUT"
           else
             echo "pin=" >> "$GITHUB_OUTPUT"

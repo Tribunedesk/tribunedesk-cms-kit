@@ -35,6 +35,17 @@ def test_workflow_commits_no_workflow_file() -> None:
     assert add and all(".github" not in line for line in add)
 
 
+def test_open_step_reads_the_pin_only_with_an_open_pull_request() -> None:
+    """A closed, unmerged pull request must not keep its pin: the branch is rebuilt instead."""
+    text = (PIN_FILE.parent.parent / ".github" / "workflows" / "contract-drift.yml").read_text(
+        encoding="utf-8"
+    )
+    step = text[text.index("id: open") : text.index("- name: Compare the pin")]
+    listing = step.index("gh pr list --head contract/latest --state open")
+    assert listing < step.index("git fetch")
+    assert "GH_TOKEN: ${{ github.token }}" in step
+
+
 def test_compare_orders_versions() -> None:
     assert drift.compare("v3.4.1-draft", "v3.4.2-draft") == "behind"
     assert drift.compare("v3.4.2-draft", "v3.5.0-draft") == "behind"
