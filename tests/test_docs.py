@@ -65,12 +65,14 @@ def test_latest_tag_sorts_versions() -> None:
         ("3.4.0-draft", True),
         ("3.4.2-draft", True),
         ("3.4.17", True),
-        ("3.5.0-draft", False),
+        ("3.5.0-draft", True),
+        ("3.5.3", True),
+        ("3.6.0-draft", False),
         ("4.0.0", False),
         ("3.4.x-draft", False),
     ],
 )
-def test_every_patch_of_the_supported_minor_is_accepted(version, ok):
+def test_every_patch_of_the_supported_minors_is_accepted(version, ok):
     """A patch changes no shape (VERSIONING), so a docs patch must not stop the skill."""
     assert is_supported(version) is ok
 

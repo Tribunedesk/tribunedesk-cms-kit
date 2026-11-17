@@ -24,7 +24,7 @@ from tdkit.errors import UsageError
 # release keeps the previous minor until the release after the new tag: until the tag exists,
 # `tdkit docs` still finds the old one (spec 2026-11-13 kontrakt najpierw, D2c). The tag guard
 # of tribunedesk-cms-api reads this line with a regex: keep it on one line, in this form.
-SUPPORTED_MINORS = frozenset({(3, 4)})
+SUPPORTED_MINORS = frozenset({(3, 4), (3, 5)})
 _VERSION = re.compile(r"^(\d+)\.(\d+)\.\d+(-draft)?$")
 
 
