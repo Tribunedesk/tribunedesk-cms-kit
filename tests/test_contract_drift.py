@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import importlib.util
+import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -31,7 +34,7 @@ def test_workflow_commits_no_workflow_file() -> None:
     text = (PIN_FILE.parent.parent / ".github" / "workflows" / "contract-drift.yml").read_text(
         encoding="utf-8"
     )
-    add = [line for line in text.splitlines() if "git add" in line]
+    add = [line for line in text.splitlines() if "ci/drift-branch.sh" in line]
     assert add and all(".github" not in line for line in add)
 
 
@@ -176,3 +179,109 @@ def test_pr_body_lists_integrators_between() -> None:
     assert "- 3.3.0-draft `L2`: move from" in body
     assert "3.2.0-draft `" not in body
     assert "blob/v3.4.2-draft/CHANGELOG.md" in body
+
+
+# -- ci/drift-branch.sh: rebuilding contract/latest on a newer tag ---------------------------
+
+DRIFT_BRANCH = Path(__file__).parent.parent / "ci" / "drift-branch.sh"
+BOT = "tribunedesk-contract-drift@users.noreply.github.com"
+
+
+def _bash() -> str:
+    if os.name == "nt":  # system32\bash.exe is WSL; Git for Windows ships its own
+        path = Path(os.environ.get("PROGRAMFILES", "C:/Program Files")) / "Git" / "bin" / "bash.exe"
+        return str(path) if path.exists() else ""
+    return shutil.which("bash") or ""
+
+
+def _git(cwd: Path, *args: str, email: str = "dev@example.com") -> str:
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "dev",
+        "GIT_AUTHOR_EMAIL": email,
+        "GIT_COMMITTER_NAME": "dev",
+        "GIT_COMMITTER_EMAIL": email,
+    }
+    done = subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    return done.stdout.strip()
+
+
+def _commit(cwd: Path, path: str, text: str, message: str, email: str = "dev@example.com") -> None:
+    (cwd / path).parent.mkdir(parents=True, exist_ok=True)
+    (cwd / path).write_text(text, encoding="utf-8")
+    _git(cwd, "add", path, email=email)
+    _git(cwd, "commit", "-q", "-m", message, email=email)
+
+
+@pytest.fixture
+def drift_repo(tmp_path: Path) -> tuple[Path, Path]:
+    """An origin with main (pin v1) and an open drift branch: the drift's commit (pin v2) and a
+    scenario someone pushed onto it. Returns (origin, a fresh clone of main)."""
+    if not _bash():
+        pytest.skip("bash is not available")
+    origin, work = tmp_path / "origin.git", tmp_path / "work"
+    _git(tmp_path, "init", "-q", "--bare", "-b", "main", str(origin))
+    _git(tmp_path, "clone", "-q", str(origin), str(work))
+    _commit(work, "ci/contract-tag", "v1\n", "init")
+    _git(work, "push", "-q", "origin", "main")
+    _git(work, "checkout", "-q", "-b", "contract/latest")
+    _commit(work, "ci/contract-tag", "v2\n", "contract: v1 → v2", email=BOT)
+    _commit(work, "src/scenario.py", "SCENARIO = 2\n", "feat: scenario for v2")
+    _git(work, "push", "-q", "origin", "contract/latest")
+    clone = tmp_path / "runner"
+    _git(tmp_path, "clone", "-q", str(origin), str(clone))
+    (clone / "ci" / "contract-tag").write_text("v3\n", encoding="utf-8")
+    return origin, clone
+
+
+def _drift_branch(clone: Path, open_pr: str) -> subprocess.CompletedProcess[str]:
+    env = {**os.environ, "OPEN_PR": open_pr}
+    return subprocess.run(
+        [_bash(), DRIFT_BRANCH.as_posix(), "contract: v1 → v3", "ci/contract-tag"],
+        cwd=clone,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+
+
+def test_newer_tag_keeps_commits_pushed_onto_the_branch(drift_repo: tuple[Path, Path]) -> None:
+    origin, clone = drift_repo
+    done = _drift_branch(clone, "7")
+    assert done.returncode == 0, done.stdout + done.stderr
+    log = _git(origin, "log", "--format=%s", "contract/latest")
+    assert log.splitlines() == ["feat: scenario for v2", "contract: v1 → v3", "init"]
+    assert _git(origin, "show", "contract/latest:ci/contract-tag") == "v3"
+
+
+def test_without_an_open_pull_request_the_branch_is_rebuilt(
+    drift_repo: tuple[Path, Path],
+) -> None:
+    origin, clone = drift_repo
+    assert _drift_branch(clone, "").returncode == 0
+    log = _git(origin, "log", "--format=%s", "contract/latest")
+    assert log.splitlines() == ["contract: v1 → v3", "init"]
+
+
+def test_a_commit_that_no_longer_applies_stops_the_run(
+    drift_repo: tuple[Path, Path], tmp_path: Path
+) -> None:
+    origin, clone = drift_repo
+    work = tmp_path / "work"
+    _commit(work, "ci/contract-tag", "v2-patched\n", "fix: pin by hand")
+    _git(work, "push", "-q", "origin", "contract/latest")
+    before = _git(origin, "rev-parse", "contract/latest")
+    done = _drift_branch(clone, "7")
+    assert done.returncode == 1
+    assert "fix: pin by hand" in done.stdout and "carry it by hand" in done.stdout
+    assert _git(origin, "rev-parse", "contract/latest") == before

@@ -7,11 +7,13 @@ name: contract-drift
 # through /ship, and a push to main publishes the Claude Code plugin.
 #
 # GITHUB_TOKEN only. It may not push changes under .github/workflows/, so the pin lives in
-# ci/contract-tag. A pull request opened with it starts no workflow, so CI is started with
-# `gh workflow run` (workflow_dispatch is the exception GitHub allows). The branch is rebuilt
-# only when a newer tag replaces the one it pins: commits pushed onto it survive. The branch is
-# also rebuilt when its pull request is closed unmerged (no open pull request means no pin is
-# read), so the next run opens a new one.
+# ci/contract-tag. CI is started with `gh workflow run` (workflow_dispatch is the exception
+# GitHub allows). The `pull_request` run of a push made with it waits in `action_required`
+# until someone approves it, so the last step approves the runs of the commit it pushed.
+# The branch is rebuilt only when a newer tag replaces the one it pins, and then
+# ci/drift-branch.sh carries the commits pushed onto it (a scenario for the new minor) onto the
+# rebuilt branch. The branch is also rebuilt when its pull request is closed unmerged (no open
+# pull request means no pin is read), so the next run opens a new one.
 
 on:
   schedule:
@@ -32,6 +34,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # ci/drift-branch.sh finds where the open branch left main
       - uses: astral-sh/setup-uv@v7
         with:
           version: "0.12.20"
@@ -62,19 +66,33 @@ jobs:
         run: |
           branch="contract/latest"
           title="contract: $PINNED → $TAG"
-          git config user.name "tribunedesk-contract-drift"
-          git config user.email "tribunedesk-contract-drift@users.noreply.github.com"
-          git checkout -B "$branch"
-          git add -A ci/contract-tag tests/fixtures/cms-api
-          git commit -q -m "$title"
-          git push --force origin "$branch"
           open="$(gh pr list --head "$branch" --state open --json number --jq '.[0].number')"
+          # Commits pushed onto an open pull request's branch are carried, not dropped.
+          OPEN_PR="$open" bash ci/drift-branch.sh "$title" ci/contract-tag tests/fixtures/cms-api
           if [ -z "$open" ]; then
             gh pr create --base main --head "$branch" --title "$title" --body-file "$RUNNER_TEMP/body.md"
           else
             gh pr edit "$open" --title "$title" --body-file "$RUNNER_TEMP/body.md"
           fi
           gh workflow run ci.yml --ref "$branch"
+      - name: Approve the pull request's runs of the pushed commit
+        if: steps.drift.outputs.rebuild == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha="$(git rev-parse HEAD)"
+          ids=""
+          for _ in $(seq 1 12); do
+            ids="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$sha&event=pull_request" \
+              --jq '.workflow_runs[] | select(.conclusion == "action_required") | .id')"
+            [ -n "$ids" ] && break
+            sleep 5
+          done
+          [ -z "$ids" ] && echo "no pull_request run of $sha waits for approval"
+          for id in $ids; do
+            gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$id/approve" \
+              || echo "::warning::could not approve run $id: approve it in the Actions tab"
+          done
       - name: Stay red while the pin is behind
         if: steps.drift.outputs.behind == 'true'
         env:
