@@ -89,17 +89,51 @@ def final_message_complete(run: Run) -> tuple[bool, str]:
     stages = set(re.findall(r"(?i)(?:etap\w*|stage)\s*([0-7])", text))
     stages |= set(re.findall(r"(?m)^\|\s*([0-7])\.", text))
     files = set(re.findall(r"[\w/.-]+\.(?:py|php|md|json|example)(?!\w)", text))
-    promise = re.search(r"(?i)deploy|wdra[żz]|produkc|production", text) is not None
+    promise = NOT_DEPLOYED.search(text) is not None
     ok = len(stages) >= 5 and len(files) >= 3 and promise
-    return ok, f"stages {sorted(stages)}, {len(files)} file(s), deploy/production named: {promise}"
+    return ok, f"stages {sorted(stages)}, {len(files)} file(s), nothing deployed said: {promise}"
+
+
+# A sentence that says nothing was deployed: a negation a few words before deploy/production
+# ("Nic nie wdrażałem na produkcję", "I did not deploy anything", "nothing is in production")
+# or "deployed nothing". A launch step that only names production does not count.
+NOT_DEPLOYED = re.compile(
+    r"(?i)\b(?:nie|nic|niczego|not|no|nothing|never|didn['’]t|haven['’]t|won['’]t|isn['’]t)\b"
+    r"[^.\n]{0,40}?\b(?:deploy|wdr[aoó]|produkc|production)"
+    r"|\b(?:deployed|wdrożyłem|wdrażałem)\s+(?:nothing|nic|niczego)\b"
+)
 
 
 def welcome_in_final(run: Run) -> tuple[bool, str]:
     """Section 1: no tokens ordered for the user, nothing deployed."""
     text = run.result.get("result", "") or ""
     tokens = re.search(r"(?i)token", text) is not None
-    deploy = re.search(r"(?i)deploy|wdra[żz]|produkc|production", text) is not None
-    return tokens and deploy, f"tokens named: {tokens}, deploy/production named: {deploy}"
+    deploy = NOT_DEPLOYED.search(text) is not None
+    return tokens and deploy, f"tokens named: {tokens}, nothing deployed said: {deploy}"
+
+
+def no_code_written(run: Run) -> tuple[bool, str]:
+    """No file written: no Write or Edit, no Bash that writes a file (heredoc, `cat >`, `tee`,
+    PowerShell `Set-Content`/`Out-File`)."""
+    writes = [f"{name} call" for name in ("Write", "Edit") for _ in run.tool_calls(name)]
+    writes += run.bash(r"<<|\bcat\s*>|\btee\b|(?i:Set-Content|Out-File|Add-Content)")
+    return not writes, f"writes: {[w[:60] for w in writes]}" if writes else "none"
+
+
+def no_file_matches(glob: str, pattern: str) -> Check:
+    """No file under the project matching `glob` contains `pattern`."""
+
+    def check(run: Run) -> tuple[bool, str]:
+        found = [
+            p.relative_to(run.workspace).as_posix()
+            for p in sorted(run.workspace.rglob(glob))
+            if p.is_file()
+            and ".venv" not in p.parts
+            and re.search(pattern, p.read_text(encoding="utf-8", errors="replace"))
+        ]
+        return not found, f"{glob} matching {pattern!r}: {found or 'none'}"
+
+    return check
 
 
 def ran(subcommand: str, *, expected: bool = True) -> Check:
@@ -528,7 +562,7 @@ SCENARIO: dict[str, Scenario] = {
             "tdkit check ran": ran(r"\bcheck\s+--"),
             "report green (4, none)": report_green([4], "none"),
             "manifest (4, none, passed 4)": manifest(levels=[4], delivery="none", passed=[4]),
-            "no webhook route": file_matches("blogsite/urls.py", r"(?i)webhook", expected=False),
+            "no webhook route": no_file_matches("urls.py", r"(?i)webhook"),
             "no secret in git": no_secret_in_git,
             ".env ignored": env_ignored,
         },
@@ -538,7 +572,7 @@ SCENARIO: dict[str, Scenario] = {
         {
             "skill fired": skill_fired,
             "final message stands alone": final_message_complete,
-            "tdkit check in read mode": ran(r"\bcheck\s+--[^\n]*--mode read"),
+            "tdkit check in read mode": ran(r"\bcheck\s[^\n]*--mode[=\s]+read\b"),
             "manifest written by tdkit from the report": ran(
                 r"\bmanifest write\b[^\n]*--conformance"
             ),
@@ -583,6 +617,9 @@ SCENARIO: dict[str, Scenario] = {
             "link back on the v3 route": file_matches(
                 "blog/tribunedesk.py", r"/v3/cms/articles/published"
             ),
+            "old route and header gone": file_matches(
+                "blog/tribunedesk.py", r"/v2/cms/published-urls|X-Webhook-Secret", expected=False
+            ),
             "no secret in git": no_secret_in_git,
             ".env ignored": env_ignored,
         },
@@ -592,7 +629,7 @@ SCENARIO: dict[str, Scenario] = {
         ghost,
         {
             "skill fired": skill_fired,
-            "no code written": lambda run: (not run.tool_calls("Write"), "Write calls"),
+            "no code written": no_code_written,
             "welcome in the final message": welcome_in_final,
         },
         review_files=(),

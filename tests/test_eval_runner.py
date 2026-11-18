@@ -408,3 +408,63 @@ def test_stream_reports_the_exit_code(tmp_path: Path) -> None:
     )
     assert not finished.timed_out
     assert finished.returncode == 3
+
+
+def _final(tmp_path: Path, text: str):
+    return make_run(tmp_path, [{"type": "result", "result": text}])
+
+
+def test_welcome_needs_a_sentence_saying_nothing_was_deployed(tmp_path: Path) -> None:
+    for text in (
+        "Tokens: none ordered. Nothing was deployed.",
+        "Token: nie zamawiałem. Nic nie wdrażałem na produkcję.",
+        "I did not deploy anything; no token was ordered.",
+    ):
+        assert runner.welcome_in_final(_final(tmp_path, text))[0], text
+    for text in (
+        "Put the token into the production environment.",
+        "Token ready. Deploy it to production when you like.",
+    ):
+        assert not runner.welcome_in_final(_final(tmp_path, text))[0], text
+
+
+def test_ghost_flags_edit_and_bash_writes(tmp_path: Path) -> None:
+    assert runner.no_code_written(make_run(tmp_path, _calls(("Read", {"file_path": "a"}))))[0]
+    for call in (
+        ("Edit", {"file_path": "a.py"}),
+        ("Write", {"file_path": "a.py"}),
+        ("Bash", {"command": "cat > a.py <<'EOF'\nx\nEOF"}),
+        ("Bash", {"command": "echo x | tee a.py"}),
+    ):
+        assert not runner.no_code_written(make_run(tmp_path, _calls(call)))[0], call
+
+
+def test_photos_only_looks_for_a_webhook_in_every_urls_py(tmp_path: Path) -> None:
+    check = runner.SCENARIO["photos-only"].checks["no webhook route"]
+    (tmp_path / "blogsite").mkdir()
+    (tmp_path / "blogsite" / "urls.py").write_text("urlpatterns = []\n", encoding="utf-8")
+    assert check(make_run(tmp_path))[0]
+    (tmp_path / "tribunedesk").mkdir()
+    (tmp_path / "tribunedesk" / "urls.py").write_text(
+        'path("td/webhook/", views.webhook)\n', encoding="utf-8"
+    )
+    assert not check(make_run(tmp_path))[0]
+
+
+def test_read_mode_accepts_an_equals_sign(tmp_path: Path) -> None:
+    check = runner.SCENARIO["no-public-endpoint"].checks["tdkit check in read mode"]
+    for command in ("$TDKIT_CMD check --levels 1 --mode=read", "$TDKIT_CMD check --mode read"):
+        assert check(make_run(tmp_path, _calls(("Bash", {"command": command}))))[0], command
+    command = "$TDKIT_CMD check --levels 1 --mode=webhook"
+    assert not check(make_run(tmp_path, _calls(("Bash", {"command": command}))))[0]
+
+
+def test_update_flags_the_old_route_and_header(tmp_path: Path) -> None:
+    check = runner.SCENARIO["update-3.2"].checks["old route and header gone"]
+    (tmp_path / "blog").mkdir()
+    path = tmp_path / "blog" / "tribunedesk.py"
+    path.write_text('URL = "/v3/cms/articles/published"\n', encoding="utf-8")
+    assert check(make_run(tmp_path))[0]
+    for old in ('H = "X-Webhook-Secret"\n', 'U = "/v2/cms/published-urls"\n'):
+        path.write_text(old, encoding="utf-8")
+        assert not check(make_run(tmp_path))[0], old
