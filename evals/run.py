@@ -277,7 +277,10 @@ def _local_hits(text: str, *, kit_root_ok: bool = True) -> list[str]:
         ca_file = re.match(re.escape(ca_dir) + r'(?:[\w.-]+\.pem)?(?=["\'\s;]|$)', rest)
         if rest.startswith(plugin) or rest.startswith(kit_root + "/readme.md") or ca_file:
             continue
-        at_kit_root = rest.startswith(kit_root) and not rest[len(kit_root) :].startswith("/")
+        # The root itself, with or without a trailing slash (`cd "<kit>/"`), not a path in it.
+        at_kit_root = rest.startswith(kit_root) and bool(
+            re.match(r"/?(?=[\"'\s;&|)]|$)", rest[len(kit_root) :])
+        )
         if at_kit_root and kit_root_ok and not kit_code:
             continue
         hits.append(rest[:100])

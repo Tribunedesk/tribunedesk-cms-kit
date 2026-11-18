@@ -297,6 +297,9 @@ def test_no_local_sources_allows_the_kit_readme(tmp_path: Path) -> None:
         ("Read", {"file_path": str(runner.KIT / "README.md")}),
         ("Bash", {"command": f'cd "{kit}" && ls && grep -n "^#" README.md'}),
         ("Bash", {"command": f'K="{kit}"; ls "$K"; grep -n "^#" "$K/README.md"'}),
+        # parity-node 2026-11-17: the kit root with a trailing slash.
+        ("Bash", {"command": f'cd "{kit}/" && grep -n "^#" README.md | head -80'}),
+        ("Bash", {"command": f"cd {kit}/ && ls"}),
     ]
     assert runner.no_local_sources(make_run(tmp_path, _calls(*calls)))[0]
 
@@ -307,6 +310,7 @@ def test_no_local_sources_flags_kit_code_next_to_the_readme(tmp_path: Path) -> N
         f'cd "{kit}" && cat reference/django/td/webhook.py',
         f'K="{kit}"; grep -rn signature "$K/src"',
         f'cd "{kit}" && ls evals/scenarios',
+        f'cd "{kit}/" && cat src/tdkit/docs.py',
     ):
         run = make_run(tmp_path, _calls(("Bash", {"command": command})))
         assert not runner.no_local_sources(run)[0], command
