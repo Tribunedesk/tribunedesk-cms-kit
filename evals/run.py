@@ -15,6 +15,7 @@ The agent runs Bash with the user's rights, outside any sandbox: run only these 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import io
 import json
 import os
@@ -24,7 +25,8 @@ import stat
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable
+import threading
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -623,12 +625,89 @@ def tdkit_command(wheel: Path) -> str:
     return f'"{Path(uvx).as_posix()}" --from "{wheel.as_posix()}" tdkit'
 
 
-def run_claude(workspace: Path, prompt: str, transcript: Path, budget: float) -> list[dict]:
+# What the agent's process may see of this machine's environment: the system and tool paths,
+# the temp folders and Claude Code's own login. Everything else (tokens of MCP servers in user
+# variables, cloud keys) stays out, because the agent runs Bash outside any sandbox and a plain
+# `env` would write it into the transcript.
+ENV_NAMES = {
+    "PATH", "PATHEXT", "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "OS",
+    "NUMBER_OF_PROCESSORS", "PROCESSOR_ARCHITECTURE",
+    "TEMP", "TMP", "TMPDIR",
+    "HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "USERNAME", "USER", "LOGNAME",
+    "APPDATA", "LOCALAPPDATA", "PROGRAMDATA", "PROGRAMFILES", "PROGRAMFILES(X86)",
+    "PROGRAMW6432", "COMMONPROGRAMFILES", "COMMONPROGRAMFILES(X86)",
+    "LANG", "LC_ALL", "LC_CTYPE", "TERM", "SHELL",
+    "COMPOSER_HOME", "CLAUDE_CONFIG_DIR",
+}  # fmt: skip
+ENV_PREFIXES = ("ANTHROPIC_", "CLAUDE_CODE_")
+
+
+def agent_env(base: Mapping[str, str], tdkit: str) -> dict[str, str]:
+    """The allowed part of `base` plus `TDKIT_CMD`."""
+    env = {
+        name: value
+        for name, value in base.items()
+        if name.upper() in ENV_NAMES or name.upper().startswith(ENV_PREFIXES)
+    }
+    env["TDKIT_CMD"] = tdkit
+    return env
+
+
+def _kill_tree(process: subprocess.Popen[str]) -> None:
+    """End the process and its children (the agent's Bash, servers it started)."""
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(process.pid)], capture_output=True, check=False
+        )
+    else:
+        with contextlib.suppress(ProcessLookupError):  # it ended on its own meanwhile
+            os.killpg(process.pid, 9)
+
+
+@dataclass
+class Finished:
+    events: list[dict[str, Any]]
+    returncode: int
+    timed_out: bool
+
+
+def stream(
+    command: list[str], cwd: Path, env: dict[str, str], transcript: Path, timeout_s: float
+) -> Finished:
+    """Run `command`, copy its stream-json lines to `transcript`, end it after `timeout_s`."""
+    events: list[dict[str, Any]] = []
+    timed_out = threading.Event()
+    with transcript.open("w", encoding="utf-8") as out:
+        process = subprocess.Popen(
+            command, cwd=cwd, env=env, stdout=subprocess.PIPE, text=True, encoding="utf-8",
+            start_new_session=os.name != "nt",
+        )  # fmt: skip
+        timer = threading.Timer(timeout_s, lambda: (timed_out.set(), _kill_tree(process)))
+        timer.start()
+        try:
+            assert process.stdout is not None
+            for line in process.stdout:
+                out.write(line)
+                try:
+                    event = json.loads(line)
+                except ValueError:
+                    continue
+                events.append(event)
+                _progress(event)
+            process.wait()
+        finally:
+            timer.cancel()
+    return Finished(events, process.returncode, timed_out.is_set())
+
+
+def run_claude(
+    workspace: Path, prompt: str, transcript: Path, budget: float, timeout_min: float
+) -> Finished:
     claude = shutil.which("claude")
     assert claude, "claude is required"
     # tdkit comes from a wheel built into the run's folder, so no checkout path reaches the agent.
     tdkit = tdkit_command(build_tdkit_wheel(transcript.parent))
-    env = {**os.environ, "TDKIT_CMD": tdkit}
+    env = agent_env(os.environ, tdkit)
     command = [
         claude, "-p", prompt,
         "--setting-sources", "local",
@@ -639,22 +718,7 @@ def run_claude(workspace: Path, prompt: str, transcript: Path, budget: float) ->
         "--no-session-persistence",
         "--output-format", "stream-json", "--verbose",
     ]  # fmt: skip
-    events = []
-    with transcript.open("w", encoding="utf-8") as out:
-        process = subprocess.Popen(
-            command, cwd=workspace, env=env, stdout=subprocess.PIPE, text=True, encoding="utf-8"
-        )
-        assert process.stdout is not None
-        for line in process.stdout:
-            out.write(line)
-            try:
-                event = json.loads(line)
-            except ValueError:
-                continue
-            events.append(event)
-            _progress(event)
-        process.wait()
-    return events
+    return stream(command, workspace, env, transcript, timeout_min * 60)
 
 
 def _progress(event: dict[str, Any]) -> None:
@@ -670,6 +734,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("scenario", choices=sorted(SCENARIO))
     parser.add_argument("--max-budget-usd", type=float, default=15.0)
+    parser.add_argument("--timeout-min", type=float, default=60.0)
     args = parser.parse_args(argv)
     if isinstance(sys.stdout, io.TextIOWrapper):
         sys.stdout.reconfigure(encoding="utf-8")  # Polish text in a redirected log
@@ -683,14 +748,21 @@ def main(argv: list[str] | None = None) -> int:
     scenario.build(workspace)
     commit(workspace, "Project before the integration")
 
-    events = run_claude(
-        workspace, prompt_of(args.scenario), base / "transcript.jsonl", args.max_budget_usd
+    finished = run_claude(
+        workspace,
+        prompt_of(args.scenario),
+        base / "transcript.jsonl",
+        args.max_budget_usd,
+        args.timeout_min,
     )
-    run = Run(workspace, events)
+    run = Run(workspace, finished.events)
     result = run.result
-    print(f"\nCost: {result.get('total_cost_usd')} USD, turns: {result.get('num_turns')}, "
+    print(f"\nclaude exit code: {finished.returncode}")
+    if finished.timed_out:
+        print(f"claude stopped: the run passed --timeout-min {args.timeout_min:g}")
+    print(f"Cost: {result.get('total_cost_usd')} USD, turns: {result.get('num_turns')}, "
           f"stop: {result.get('subtype')}")  # fmt: skip
-    failed = 0
+    failed = int(finished.timed_out)
     for label, check in scenario.checks.items():
         ok, detail = check(run)
         failed += not ok

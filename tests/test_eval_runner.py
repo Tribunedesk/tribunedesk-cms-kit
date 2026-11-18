@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import zipfile
@@ -360,3 +361,50 @@ def test_built_wheel_is_outside_the_kit_and_carries_the_test_ca(tmp_path: Path) 
     with zipfile.ZipFile(wheel) as archive:
         names = set(archive.namelist())
     assert {"tdkit/mock/tls/ca.pem", "tdkit/mock/tls/server.pem"} <= names
+
+
+def test_agent_env_keeps_only_the_allowed_names() -> None:
+    base = {
+        "PATH": "/bin",
+        "Path": "C:/bin",
+        "CLAUDE_CONFIG_DIR": "/c",
+        "TEMP": "/t",
+        "TMP": "/t",
+        "ANTHROPIC_API_KEY": "k",
+        "CLAUDE_CODE_GIT_BASH_PATH": "/g",
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_x",
+        "AWS_SECRET_ACCESS_KEY": "a",
+    }
+    env = runner.agent_env(base, "tdkit-cmd")
+    assert "GITHUB_PERSONAL_ACCESS_TOKEN" not in env
+    assert "AWS_SECRET_ACCESS_KEY" not in env
+    for name in ("PATH", "Path", "CLAUDE_CONFIG_DIR", "TEMP", "TMP", "ANTHROPIC_API_KEY"):
+        assert env[name] == base[name]
+    assert env["CLAUDE_CODE_GIT_BASH_PATH"] == "/g"
+    assert env["TDKIT_CMD"] == "tdkit-cmd"
+
+
+def test_stream_ends_a_hanging_command(tmp_path: Path) -> None:
+    script = "import json, time; print(json.dumps({'type': 'system'}), flush=True); time.sleep(60)"
+    finished = runner.stream(
+        [sys.executable, "-c", script],
+        tmp_path,
+        dict(os.environ),
+        tmp_path / "transcript.jsonl",
+        timeout_s=2,
+    )
+    assert finished.timed_out
+    assert finished.returncode != 0
+    assert finished.events == [{"type": "system"}]
+
+
+def test_stream_reports_the_exit_code(tmp_path: Path) -> None:
+    finished = runner.stream(
+        [sys.executable, "-c", "raise SystemExit(3)"],
+        tmp_path,
+        dict(os.environ),
+        tmp_path / "transcript.jsonl",
+        timeout_s=30,
+    )
+    assert not finished.timed_out
+    assert finished.returncode == 3
