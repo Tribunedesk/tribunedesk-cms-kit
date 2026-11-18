@@ -67,5 +67,4 @@ test library).
 ## 10. Level 4 (media library)
 
 The Tribune Desk plugin (https://github.com/Tribunedesk/tribunedesk-wordpress) already does level
-4 (`src/WordPress/CmsSync.php` and its neighbours). Install it rather than building level 4
-again; build only what the newsroom needs beyond it.
+4. Install it rather than building level 4 again; build only what the newsroom needs beyond it.
