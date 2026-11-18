@@ -91,11 +91,9 @@ with a small script the user can run.
 ## 10. Level 4 (media library)
 
 Build it from `guide/4-media-library.md`; this section only says where things live in a CMS.
-The working example is the WordPress plugin: `src/WordPress/CmsSync.php` at
-https://github.com/Tribunedesk/tribunedesk-wordpress/blob/v2.2.3/src/WordPress/CmsSync.php (the
-cycle), with `MediaMetaSync.php` (the queue of edits), `CmsResync.php` (resync),
-`CmsDeletions.php`, `CmsBackfill.php` and `CmsSettingsScreen.php` (the operator's screen) next
-to it. Read it for the logic; do not copy WordPress code into another CMS.
+The guide is the whole rule set, including what the WordPress plugin does (the files it does not
+send as new, the options it offers): do not read the plugin's code or another integration's code
+to learn the rules, and name the guide file when you state one.
 
 **Core and options.** Core: the sync cycle, taking files (`/link`), sending your new files,
 field edits and deletions, conflicts, `410` → resync, and the screen for held batches. Optional,

@@ -55,8 +55,17 @@ def test_cms_references_have_level_4_section() -> None:
         text = (REFERENCES / "cms" / name).read_text(encoding="utf-8")
         assert "## 10. Level 4 (media library)" in text, name
     generic = (REFERENCES / "cms" / "generic.md").read_text(encoding="utf-8")
-    for needle in ("CmsSync.php", "Staging", "held batches", "resync", "changed_at", "lock"):
+    for needle in ("Staging", "held batches", "resync", "changed_at", "lock"):
         assert needle in generic, needle
+
+
+def test_skill_does_not_send_the_agent_to_the_plugin_code() -> None:
+    """Parity (spec D4): the rules come from the guide; the plugin is recommended to WordPress
+    sites, never offered as code to learn from."""
+    for path in REFERENCES.rglob("*.md"):
+        text = path.read_text(encoding="utf-8")
+        assert "tribunedesk-wordpress/blob/" not in text, path.name
+        assert "CmsSync.php" not in text, path.name
 
 
 def test_scope_splits_level_4() -> None:

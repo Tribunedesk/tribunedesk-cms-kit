@@ -342,6 +342,23 @@ def no_local_sources(run: Run) -> tuple[bool, str]:
     return not found, f"local sources: {found}" if found else "none"
 
 
+# Fetching the WordPress plugin's code from GitHub: a clone, an archive, a file view or the API's
+# contents of the repository. Its README and releases page are fine.
+PLUGIN_CODE = re.compile(
+    r"(?i)(?:git\s+clone|git\s+archive|svn\s+export)[^\n]*tribunedesk/tribunedesk-wordpress"
+    r"|tribunedesk/tribunedesk-wordpress/(?:blob|raw|tree|archive)/"
+    r"|raw\.githubusercontent\.com/tribunedesk/tribunedesk-wordpress/"
+    r"|repos/tribunedesk/tribunedesk-wordpress/(?:contents|git|tarball|zipball)"
+)
+
+
+def no_plugin_code(run: Run) -> tuple[bool, str]:
+    """Parity (spec D4): the rules come from the guide, not from the WordPress plugin's code,
+    which is public on GitHub and so passes `no local sources`."""
+    found = [c[:100] for c in run.bash(PLUGIN_CODE.pattern)]
+    return not found, f"plugin code fetched: {found}" if found else "none"
+
+
 def _git(cwd: Path, *args: str) -> str:
     done = subprocess.run(
         ["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8", check=False
@@ -545,6 +562,7 @@ PARITY: dict[str, Check] = {
     "no secret in git": no_secret_in_git,
     ".env ignored": env_ignored,
     "no local sources": no_local_sources,
+    "no plugin code": no_plugin_code,
 }
 
 SCENARIO: dict[str, Scenario] = {

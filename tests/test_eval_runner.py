@@ -468,3 +468,21 @@ def test_update_flags_the_old_route_and_header(tmp_path: Path) -> None:
     for old in ('H = "X-Webhook-Secret"\n', 'U = "/v2/cms/published-urls"\n'):
         path.write_text(old, encoding="utf-8")
         assert not check(make_run(tmp_path))[0], old
+
+
+def test_parity_flags_fetching_the_plugin_code(tmp_path: Path) -> None:
+    for command in (
+        "git clone -q --depth 1 --branch v2.2.3 https://github.com/Tribunedesk/tribunedesk-wordpress wp",
+        'gh api "repos/Tribunedesk/tribunedesk-wordpress/contents/src/WordPress?ref=v2.2.3"',
+        "curl -s https://raw.githubusercontent.com/Tribunedesk/tribunedesk-wordpress/main/x.php",
+        "curl -s https://github.com/Tribunedesk/tribunedesk-wordpress/blob/v2.2.3/src/a.php",
+    ):
+        run = make_run(tmp_path, _calls(("Bash", {"command": command})))
+        assert not runner.no_plugin_code(run)[0], command
+    for command in (
+        "git clone -q https://github.com/Tribunedesk/tribunedesk-cms-php php-lib",
+        "curl -s https://github.com/Tribunedesk/tribunedesk-wordpress#readme",
+    ):
+        run = make_run(tmp_path, _calls(("Bash", {"command": command})))
+        assert runner.no_plugin_code(run)[0], command
+    assert runner.PARITY["no plugin code"] is runner.no_plugin_code
