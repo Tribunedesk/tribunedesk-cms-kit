@@ -72,12 +72,12 @@ i gita.
 You need [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer. No installation:
 
 ```bash
-uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.4.1 tdkit --help
+uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.5.0 tdkit --help
 ```
 
 ### Which contract
 
-`tdkit` supports every patch of contracts 3.5 and 3.6 (`3.5.0-draft`, `3.5.1-draft`, `3.6.0-draft` and later patches). A release for a new minor also takes the previous one, until the release after the new tag. It takes the documentation from,
+`tdkit` supports every patch of contract 3.6 (`3.6.0-draft` and later patches). A release for a new minor also takes the previous one, until the release after the new tag. It takes the documentation from,
 first found:
 
 1. `--docs DIR`, a checkout of `tribunedesk-cms-api`;
@@ -251,7 +251,7 @@ stdout; for a failed scenario it quotes the guide's point and names the guide fi
 also writes:
 
 ```json
-{"tdkit": "1.4.1", "contract": "3.5.1-draft", "levels": [1, 2], "mode": "webhook",
+{"tdkit": "1.5.0", "contract": "3.6.0-draft", "levels": [1, 2], "mode": "webhook",
  "results": [{"id": "l1-creates-draft", "level": 1, "done_when": "An editor's …",
               "guide": "guide/1-article-delivery.md#done-when", "passed": true, "detail": "…"}]}
 ```
