@@ -54,6 +54,11 @@ point = "Files that were in your library before level 4 was turned on are not se
 reason = "tdkit cannot add files to a library before the integration starts"
 
 [[integrators]]
+version = "3.6.0-draft"
+action = "do not send a file to `POST /media` again after `rejected` with `collage`, `screenshot`, `graphic` or `import_failed`."
+handled_by = ["scenario:l4-import-refused"]
+
+[[integrators]]
 version = "3.5.0-draft"
 action = "keep an `iframe` only from players you trust and remove every `script` other than the AI label block, with its content; check that your content filter keeps those embeds when no editor is logged in."
 handled_by = ["scenario:l1-embeds"]

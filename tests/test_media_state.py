@@ -279,6 +279,32 @@ def test_unknown_before_import_then_ok(st: MockState) -> None:
     assert outcome(st, write("c1", "alt", "x", at(0), 1))["status"] == "ok"
 
 
+def _new(cms_id: str) -> dict[str, Any]:
+    return {
+        "cms_media_id": cms_id,
+        "file_url": f"http://127.0.0.1:8000/{cms_id}.png",
+        "width": 1200,
+        "height": 800,
+        "mime_type": "image/png",
+    }
+
+
+def test_refused_import_answers_rejected_with_reason(st: MockState) -> None:
+    media.cms_new_files(st, [_new("c1")])
+    assert media.import_pending(st, refuse={"c1": "collage"}) == []
+    assert st.media.paired("c1") is None and "c1" not in st.media.pending_imports
+    again = media.cms_new_files(st, [_new("c1")])[0]
+    assert again == {"id": "c1", "asset_id": None, "status": "rejected", "reason": "collage"}
+
+
+def test_refused_import_still_checks_settings_first(st: MockState) -> None:
+    media.cms_new_files(st, [_new("c1")])
+    media.import_pending(st, refuse={"c1": "import_failed"})
+    media.td_settings(st, new_files_cms_to_td=False)
+    again = media.cms_new_files(st, [_new("c1")])[0]
+    assert (again["status"], again["reason"]) == ("rejected", "new_files_disabled")
+
+
 def test_import_does_not_write_initial_fields(st: MockState) -> None:
     item = {
         "cms_media_id": "c1",

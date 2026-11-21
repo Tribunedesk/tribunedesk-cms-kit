@@ -72,12 +72,12 @@ i gita.
 You need [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer. No installation:
 
 ```bash
-uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.4.1 tdkit --help
+uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.5.0 tdkit --help
 ```
 
 ### Which contract
 
-`tdkit` supports every patch of contracts 3.5 and 3.6 (`3.5.0-draft`, `3.5.1-draft`, `3.6.0-draft` and later patches). A release for a new minor also takes the previous one, until the release after the new tag. It takes the documentation from,
+`tdkit` supports every patch of contract 3.6 (`3.6.0-draft` and later patches). A release for a new minor also takes the previous one, until the release after the new tag. It takes the documentation from,
 first found:
 
 1. `--docs DIR`, a checkout of `tribunedesk-cms-api`;
@@ -152,7 +152,7 @@ cursors from before the break (`410`), as in production.
 Tribune Desk; body `{fields?, width?, height?}`, answers `asset_id`),
 `POST /_tdkit/media/<asset_id>/fields` (`{field, value}`: an editor's edit),
 `POST /_tdkit/media/<asset_id>/trash` (`{trashed}`), `POST /_tdkit/settings` (`{option: value}`),
-`POST /_tdkit/import` (pairs the files accepted by `POST /media`), `POST /_tdkit/backfill`
+`POST /_tdkit/import` (pairs the files accepted by `POST /media`; body `{refuse?}`, a map of `cms_media_id` to `collage`, `screenshot`, `graphic` or `import_failed`, refuses those instead), `POST /_tdkit/backfill`
 (`{filters?}`: an export request) and `POST /_tdkit/expire-cursors`. File URLs your CMS sends
 (`POST /media`, `/link`) may be on `127.0.0.1` or `localhost`, any port, `http` or `https`, plus
 the hosts of `--media-hosts`; the mock does not download them.
@@ -251,7 +251,7 @@ stdout; for a failed scenario it quotes the guide's point and names the guide fi
 also writes:
 
 ```json
-{"tdkit": "1.4.1", "contract": "3.5.1-draft", "levels": [1, 2], "mode": "webhook",
+{"tdkit": "1.5.0", "contract": "3.6.0-draft", "levels": [1, 2], "mode": "webhook",
  "results": [{"id": "l1-creates-draft", "level": 1, "done_when": "An editor's …",
               "guide": "guide/1-article-delivery.md#done-when", "passed": true, "detail": "…"}]}
 ```
@@ -294,6 +294,7 @@ point for the behaviour, the guide's sentence that requires it.
 | `l4-cursor-after-apply` | 4 | a new file whose download fails; sync; then it works; sync | not linked while it failed; the next poll's cursor is before it | (as `l4-first-poll`) |
 | `l4-field-versions` | 4 | versions 2, 3, then an older 2, then 3 repeated with a new value | the older version skipped, the same version applied | Apply by version: skip a change only when its `version` is lower than yours, … |
 | `l4-cms-new-file` | 4 | `--media-add-cmd`, an edit, the import pairs it | `POST /media` with `width`, `height`, `mime_type`; the edit made before the import arrives; `asset_id` learned; no other id for the file | New files, field changes and deletions on your side reach Tribune Desk, and a repeated request creates no duplicates. |
+| `l4-import-refused` | 4 | `--media-add-cmd`; the import refuses the file as `collage` | after `rejected` with `collage`, three more syncs send the file to `POST /media` no more | A file answered `rejected` with `collage`, `screenshot`, `graphic` or `import_failed` is not sent to `POST /media` again. |
 | `l4-cms-field-edit` | 4 | an edit in Tribune Desk, then in your CMS; two syncs | one write, with the `base_version` you held | (same) |
 | `l4-cms-deletion` | 4 | `--media-delete-cmd` | `POST /media/deletions` with `deleted_at` | (same) |
 | `l4-conflict-winning-value` | 4 | rule `td`, edits on both sides | `winning_value` adopted, the losing value not sent again | A field result `conflict` (in a `200` answer) is resolved by adopting `winning_value`, … |
@@ -331,7 +332,7 @@ answers `401` to real deliveries and loses articles: keep it in sync.
 - **Level 4 file hosts** are relaxed: the mock accepts `http` and any port on `127.0.0.1` and
   `localhost` in `file_url` of `POST /media` and `/link` (production wants `https` on port 443
   on your organization's hosts), never downloads those URLs, and pairs files accepted by
-  `POST /media` only when told (`/_tdkit/import`; `check` does it in `l4-cms-new-file`).
+  `POST /media` only when told (`/_tdkit/import`; `check` does it in `l4-cms-new-file` and refuses one in `l4-import-refused`).
 - This repository's CI runs `tdkit check --levels 1,2` on the official Python examples of the
   tag (`examples/python`); both must agree with the guide.
 
@@ -402,6 +403,9 @@ reconcile its wording):
 | `parity-django` | all pass: tdkit 1.4, contract 3.5.1-draft, levels 1-4, 33 passed, 0 failed (`l1-embeds` included); clean room (run 2026-11-17, Claude Code 2.1.323) | summary and request pass; link-back retry and the level 4 floor (photos already in the library marked existing) built; fail: conduct (no plan before code) | 4.60 USD |
 | `parity-laravel` | tdkit 1.4, contract 3.5.1-draft, levels 1-4, 33 passed, 0 failed, `tribunedesk/cms-protocol` 1.1.1; clean room (run 2026-11-17, Claude Code 2.1.323); `no plugin code` (added 2026-11-18, replayed) fails: cloned the WordPress plugin, which the skill then still pointed to as the level 4 example | summary and request pass; embed filter, link-back retry and the level 4 floor built and tested; fail: conduct (no plan before code; cloned the WordPress plugin from GitHub and read its code for the level 4 options) | 5.78 USD |
 | `parity-node` | all pass: tdkit 1.4, contract 3.5.1-draft, levels 1-4, 33 passed, 0 failed; clean room (run 2026-11-17, Claude Code 2.1.323; the run's clean-room failure was the check misreading `cd "<kit>/"` before the README, fixed and replayed) | summary and request pass; embed filter (`sanitize-html`) and link-back retry built, the level 4 floor not stated; fail: conduct (no plan before code, no guide file named) | 4.37 USD |
+| `parity-django` | all pass: tdkit 1.5, contract 3.6.0-draft, levels 1-4, 34 passed, 0 failed (`l4-import-refused` included); clean room (run 2026-11-21) | final message stands alone | 4.16 USD |
+| `parity-laravel` | tdkit 1.5, contract 3.6.0-draft, levels 1-4, 33 passed, 0 failed (`l4-import-refused` included); clean room (run 2026-11-21) | fail: final message stands alone — the notice of the mock it had stopped itself started one more turn, and its final message answered only that notice | 7.12 USD |
+| `parity-node` | all pass: tdkit 1.5, contract 3.6.0-draft, levels 1-4, 33 passed, 0 failed (`l4-import-refused` included); clean room (run 2026-11-21) | final message stands alone; historical import not built | 4.51 USD |
 
 The integrations of the Django and Drupal runs are in [`reference/`](reference/README.md).
 

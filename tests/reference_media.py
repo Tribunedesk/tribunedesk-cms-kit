@@ -51,8 +51,10 @@ BREAKS = (
     "keep-trash-mark",
     "keep-first-cursor",
     "drop-unknown-edits",
+    "resend-refused",
     "no-backfill-last",
 )
+IMPORT_REFUSALS = ("collage", "screenshot", "graphic", "import_failed")
 KINDS = ("new_asset", "fields", "deleted", "restored", "settings")
 ATTEMPTS = 5  # a change that cannot be applied is retried this many syncs, then skipped
 
@@ -300,6 +302,8 @@ def push_new_files(data: dict[str, Any], flags: set[str]) -> None:
         if result["status"] in ("ok", "known"):
             item["pushed"] = "ok"
             item["asset_id"] = result.get("asset_id")
+        elif result.get("reason") in IMPORT_REFUSALS and "resend-refused" not in flags:
+            item["pushed"] = "refused"  # final: the import refused the file (guide 4)
 
 
 def push_fields(data: dict[str, Any], flags: set[str]) -> None:

@@ -162,3 +162,29 @@ def test_resync_preview_and_confirm_over_http(base: str, docs: ContractDocs) -> 
     assert (status, done["status"]) == (200, "applied")
     validator(docs, "ResyncConfirmResponse").validate(done)
     assert call(base, "GET", f"/v3/cms/changes?cursor={done['cursor']}")[0] == 200
+
+
+def test_import_control_refuses_a_file(base: str, docs: ContractDocs) -> None:
+    item = {
+        "cms_media_id": "m9",
+        "file_url": "http://127.0.0.1:8000/m9.png",
+        "width": 1200,
+        "height": 800,
+        "mime_type": "image/png",
+    }
+    assert (
+        call(base, "POST", "/v3/cms/media", body={"items": [item]})[1]["results"][0]["status"]
+        == "ok"
+    )
+    status, body, _ = call(
+        base, "POST", "/_tdkit/import", token=None, body={"refuse": {"m9": "collage"}}
+    )
+    assert (status, body) == (200, {"paired": [], "refused": ["m9"]})
+    status, answer, _ = call(base, "POST", "/v3/cms/media", body={"items": [item]})
+    validator(docs, "BatchResult").validate(answer)
+    assert answer["results"][0] == {
+        "id": "m9",
+        "asset_id": None,
+        "status": "rejected",
+        "reason": "collage",
+    }

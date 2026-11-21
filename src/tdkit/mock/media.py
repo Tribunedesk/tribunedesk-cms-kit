@@ -171,6 +171,7 @@ class MediaLibrary:
     assets: dict[str, Asset] = field(default_factory=dict)
     by_cms: dict[str, str] = field(default_factory=dict)  # cms_media_id -> asset_id
     pending_imports: dict[str, dict[str, Any]] = field(default_factory=dict)
+    refused_imports: dict[str, str] = field(default_factory=dict)  # cms_media_id -> reason
     window_start: datetime | None = None
     window_count: int = 0
     window_batch: str | None = None
@@ -351,14 +352,19 @@ def td_unknown_kind(state: MockState, kind: str) -> None:
         state.add_change(kind)
 
 
-def import_pending(state: MockState) -> list[str]:
+def import_pending(state: MockState, refuse: dict[str, str] | None = None) -> list[str]:
     """Tribune Desk's import saves every accepted file and pairs it with its `cms_media_id`.
 
-    Initial `fields` are context, not values: the texts stay empty (Sending new files).
+    Initial `fields` are context, not values: the texts stay empty (Sending new files). An id in
+    `refuse` is refused by the import with that reason (`collage`, `screenshot`, `graphic`,
+    `import_failed`): no file, and `POST /media` answers `rejected` with it from now on.
     """
     with state.lock:
         lib = state.media
         done = []
+        for cms_media_id, reason in (refuse or {}).items():
+            if lib.pending_imports.pop(cms_media_id, None) is not None:
+                lib.refused_imports[cms_media_id] = reason
         for cms_media_id, item in list(lib.pending_imports.items()):
             created = item.get("created_at")
             _new_asset(
@@ -486,6 +492,8 @@ def cms_new_files(state: MockState, items: list[dict[str, Any]]) -> list[dict[st
             reason = None
             if not opts["new_files_cms_to_td"]:
                 reason = "new_files_disabled"
+            elif cms_media_id in lib.refused_imports:
+                reason = lib.refused_imports[cms_media_id]
             elif asset is not None or cms_media_id in lib.pending_imports:
                 results.append({**result, "status": "known"})
                 continue
