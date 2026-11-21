@@ -152,7 +152,7 @@ cursors from before the break (`410`), as in production.
 Tribune Desk; body `{fields?, width?, height?}`, answers `asset_id`),
 `POST /_tdkit/media/<asset_id>/fields` (`{field, value}`: an editor's edit),
 `POST /_tdkit/media/<asset_id>/trash` (`{trashed}`), `POST /_tdkit/settings` (`{option: value}`),
-`POST /_tdkit/import` (pairs the files accepted by `POST /media`), `POST /_tdkit/backfill`
+`POST /_tdkit/import` (pairs the files accepted by `POST /media`; body `{refuse?}`, a map of `cms_media_id` to `collage`, `screenshot`, `graphic` or `import_failed`, refuses those instead), `POST /_tdkit/backfill`
 (`{filters?}`: an export request) and `POST /_tdkit/expire-cursors`. File URLs your CMS sends
 (`POST /media`, `/link`) may be on `127.0.0.1` or `localhost`, any port, `http` or `https`, plus
 the hosts of `--media-hosts`; the mock does not download them.

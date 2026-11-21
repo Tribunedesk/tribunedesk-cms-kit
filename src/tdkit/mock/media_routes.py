@@ -186,7 +186,11 @@ def routes(server: MockServer) -> list[Route]:
         return Answer(200, media.settings_view(state))
 
     def c_import(request: Request) -> Answer:
-        return Answer(200, {"paired": media.import_pending(state)})
+        refuse = _json(request).get("refuse") or {}
+        if not isinstance(refuse, dict):
+            raise ApiError(422, "validation_error", "refuse must map cms_media_id to a reason")
+        paired = media.import_pending(state, refuse={str(k): str(v) for k, v in refuse.items()})
+        return Answer(200, {"paired": paired, "refused": sorted(refuse)})
 
     def c_backfill(request: Request) -> Answer:
         return Answer(
