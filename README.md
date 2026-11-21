@@ -294,6 +294,7 @@ point for the behaviour, the guide's sentence that requires it.
 | `l4-cursor-after-apply` | 4 | a new file whose download fails; sync; then it works; sync | not linked while it failed; the next poll's cursor is before it | (as `l4-first-poll`) |
 | `l4-field-versions` | 4 | versions 2, 3, then an older 2, then 3 repeated with a new value | the older version skipped, the same version applied | Apply by version: skip a change only when its `version` is lower than yours, … |
 | `l4-cms-new-file` | 4 | `--media-add-cmd`, an edit, the import pairs it | `POST /media` with `width`, `height`, `mime_type`; the edit made before the import arrives; `asset_id` learned; no other id for the file | New files, field changes and deletions on your side reach Tribune Desk, and a repeated request creates no duplicates. |
+| `l4-import-refused` | 4 | `--media-add-cmd`; the import refuses the file as `collage` | after `rejected` with `collage`, three more syncs send the file to `POST /media` no more | A file answered `rejected` with `collage`, `screenshot`, `graphic` or `import_failed` is not sent to `POST /media` again. |
 | `l4-cms-field-edit` | 4 | an edit in Tribune Desk, then in your CMS; two syncs | one write, with the `base_version` you held | (same) |
 | `l4-cms-deletion` | 4 | `--media-delete-cmd` | `POST /media/deletions` with `deleted_at` | (same) |
 | `l4-conflict-winning-value` | 4 | rule `td`, edits on both sides | `winning_value` adopted, the losing value not sent again | A field result `conflict` (in a `200` answer) is resolved by adopting `winning_value`, … |
@@ -331,7 +332,7 @@ answers `401` to real deliveries and loses articles: keep it in sync.
 - **Level 4 file hosts** are relaxed: the mock accepts `http` and any port on `127.0.0.1` and
   `localhost` in `file_url` of `POST /media` and `/link` (production wants `https` on port 443
   on your organization's hosts), never downloads those URLs, and pairs files accepted by
-  `POST /media` only when told (`/_tdkit/import`; `check` does it in `l4-cms-new-file`).
+  `POST /media` only when told (`/_tdkit/import`; `check` does it in `l4-cms-new-file` and refuses one in `l4-import-refused`).
 - This repository's CI runs `tdkit check --levels 1,2` on the official Python examples of the
   tag (`examples/python`); both must agree with the guide.
 

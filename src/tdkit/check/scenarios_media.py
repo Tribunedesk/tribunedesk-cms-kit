@@ -35,6 +35,10 @@ DW_CONFLICT = (
     "A field result `conflict` (in a `200` answer) is resolved by adopting `winning_value`, "
     "not by sending yours again."
 )
+DW_IMPORT_REFUSED = (
+    "A file answered `rejected` with `collage`, `screenshot`, `graphic` or `import_failed` is "
+    "not sent to `POST /media` again."
+)
 DW_410 = "An expired cursor (`410`) leads to a resync, not to a fresh start from now."
 DW_HELD = "Held batches are shown to a person who decides them."
 S_LINK = (
@@ -295,6 +299,28 @@ def cms_new_file(ctx: Context) -> str:
     return f"{cms_media_id!r} sent, paired, its edit delivered, no duplicate"
 
 
+def import_refused(ctx: Context) -> str:
+    cms_media_id = ctx.media_add()
+    ctx.sync()
+    media.import_pending(ctx.state, refuse={cms_media_id: "collage"})
+    ctx.sync()  # the integration asks for the pair and gets `rejected` with `collage`
+    mark = ctx.mark()
+    for _ in range(3):
+        ctx.sync()
+    again = [
+        item
+        for r in ctx.requests_since(mark, "POST", r"/v3/cms/media")
+        for item in (r.body or {}).get("items", [])
+        if item.get("cms_media_id") == cms_media_id
+    ]
+    expect(
+        not again,
+        f"a file refused by the import (collage) was sent again {len(again)} time(s): "
+        "the refusal is final",
+    )
+    return f"{cms_media_id!r} refused as collage and not sent again"
+
+
 def cms_field_edit(ctx: Context) -> str:
     asset, cms_media_id = _paired(ctx)
     media.td_edit(ctx.state, asset.asset_id, ctx.field, "edited in Tribune Desk")
@@ -509,6 +535,7 @@ MEDIA_SCENARIOS: tuple[Scenario, ...] = (
     Scenario("l4-cursor-after-apply", 4, "any", DW_POLL, DW4, cursor_after_apply),
     Scenario("l4-field-versions", 4, "any", S_VERSION, CYCLE, field_versions),
     Scenario("l4-cms-new-file", 4, "any", DW_PUSH, DW4, cms_new_file),
+    Scenario("l4-import-refused", 4, "any", DW_IMPORT_REFUSED, DW4, import_refused),
     Scenario("l4-cms-field-edit", 4, "any", DW_PUSH, DW4, cms_field_edit),
     Scenario("l4-cms-deletion", 4, "any", DW_PUSH, DW4, cms_deletion),
     Scenario("l4-conflict-winning-value", 4, "any", DW_CONFLICT, DW4, conflict_winning_value),

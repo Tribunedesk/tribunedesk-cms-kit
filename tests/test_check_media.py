@@ -81,6 +81,7 @@ BREAKS = {
     "--ignore-versions": "l4-field-versions",
     "--duplicate-new-files": "l4-cms-new-file",
     "--drop-unknown-edits": "l4-cms-new-file",
+    "--resend-refused": "l4-import-refused",
     "--no-base-version": "l4-cms-field-edit",
     "--skip-deletions": "l4-cms-deletion",
     "--resend-conflict": "l4-conflict-winning-value",
