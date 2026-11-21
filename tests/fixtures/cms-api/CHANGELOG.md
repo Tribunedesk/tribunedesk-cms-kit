@@ -2,6 +2,14 @@
 
 Changes of the Tribune Desk CMS API contract, newest first. Versions follow [Versioning](VERSIONING.md).
 
+## 3.6.0-draft – 2026-11-21
+
+- **Breaking:** `POST /v3/cms/media` answers `rejected` with `collage`, `screenshot`, `graphic` or `import_failed` for a file Tribune Desk already received and its import refused; it used to answer `known` with `asset_id` `null`.
+
+**Integrators:**
+
+- `L4`: do not send a file to `POST /media` again after `rejected` with `collage`, `screenshot`, `graphic` or `import_failed`.
+
 ## 3.5.1-draft – 2026-11-17
 
 - `examples/python/level1_receiver.py` keeps embeds only from trusted players and removes other scripts, as guide 1 asks since 3.5.0-draft.

@@ -64,7 +64,7 @@ curl -sS https://api.tribunedesk.com/v3/cms/status \
 ```
 
 ```
-{"org_code":"example-org","contract_version":"3.5.1-draft","scopes":["media:read"],"state":"active", ...}
+{"org_code":"example-org","contract_version":"3.6.0-draft","scopes":["media:read"],"state":"active", ...}
 ```
 
 ## What to ask Tribune Desk for
@@ -109,14 +109,14 @@ One token may carry every scope you need; ask for one token per organization. Ev
 
 - Retry on `429`, `500`, `503`, network errors and the `502` and `504` a gateway may answer without our JSON body: wait at least `retry_after` seconds, then back off exponentially with jitter. Our `Retry-After` header holds the same whole number of seconds as `retry_after`; a gateway may send it as a date.
 - Do not retry other `4xx` errors unchanged: fix the request or the state first.
-- Keep your retries idempotent: store a cursor only after applying its changes, and key your own records by the ids in the request (`cms_media_id`), so that repeating a batch does not create duplicates. A repeated file answers `known` and a repeated field change `unchanged`.
+- Keep your retries idempotent: store a cursor only after applying its changes, and key your own records by the ids in the request (`cms_media_id`), so that repeating a batch does not create duplicates. A repeated file answers `known` (or `rejected` when its import refused it) and a repeated field change `unchanged`.
 - If your process died before storing the cursor, poll again with the old cursor and apply the changes again.
 
 Every route is safe to repeat after a lost answer. What a repeat gives:
 
 | Route | Repeat answers |
 |---|---|
-| `POST /media` | `known`. |
+| `POST /media` | `known`, or `rejected` with the reason of the import for a file it refused. |
 | `POST /media/fields` | `unchanged` for values applied; waiting values stay in their batch. |
 | `POST /media/{asset_id}/link` | `known`. |
 | `POST /media/deletions` | `known`. |
