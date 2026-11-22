@@ -71,16 +71,16 @@
 - Consumes: `self._repo.import_items_by_keys(org_code, keys) -> list[ImportItem]` (`media_library/db/repository.py:1506`; `ImportItem.status`, `.reason`, `.external_key`), `is_junk` (`media_library/rules.py:263`).
 - Produces: wynik `push_wp_items` `rejected:<reason>` dla odmowy importu; `backend/services/cms_media.py:_item_result` już mapuje `rejected:x` na `ItemResult(status="rejected", reason="x")` — bez zmian.
 
-- [ ] **Step 1: testy** w `tests/media_library/test_service_wp_push.py` (wzór istniejących testów tego pliku: wiersz `media_import_items` z kluczem `wp:<id>` w danym stanie, potem `push_wp_items` z tym samym załącznikiem):
+- [x] **Step 1: testy** w `tests/media_library/test_service_wp_push.py` (wzór istniejących testów tego pliku: wiersz `media_import_items` z kluczem `wp:<id>` w danym stanie, potem `push_wp_items` z tym samym załącznikiem):
   - `test_skipped_collage_answers_rejected_collage` — wiersz `skipped`/`collage` → wynik `"rejected:collage"`; to samo parametryzacją dla `screenshot`, `graphic`.
   - `test_failed_import_answers_rejected_import_failed` — `failed` z `reason` `host`, `model`, `http_404` → `"rejected:import_failed"`.
   - `test_pending_and_imported_stay_known` — `pending`, `imported` → `"known"` (Review Focus 1).
   - `test_duplicate_and_known_asset_stay_known` — `skipped`/`duplicate`, `skipped`/`known_asset` → `"known"` (Review Focus 2).
   - `test_repeated_key_in_one_request_stays_known` — ten sam załącznik dwa razy w jednym wywołaniu przy wierszu `skipped`/`collage`: pierwszy `"rejected:collage"`, drugi `"known"` (Review Focus 3).
   Run: `uv run pytest tests/media_library/test_service_wp_push.py -q` — Expected: nowe testy FAIL (`known` zamiast `rejected:…`).
-- [ ] **Step 2: implementacja.** W `push_wp_items` zamień `existing_import_keys` na `import_items_by_keys` dla kluczy z `seen` (wiersze trzymaj w słowniku po `external_key`); funkcja modułowa `_import_refusal(row: ImportItem) -> str | None`: `skipped` + `is_junk(reason)` → `reason`; `failed` → `"import_failed"`; inaczej `None`. Przy `key in known`: odmowa → `results[index] = f"rejected:{refusal}"`, inaczej `"known"`. Wiersze importu wstecznego (`job_rows`, `BACKFILL_KEY_BLOCKING` = `described`/`imported`) bez zmian. Docstring `push_wp_items` dopisuje nowy wynik.
-- [ ] **Step 3:** Run jak w Step 1 + `uv run pytest tests/backend/test_cms_v3_media.py -q` (jeśli istnieje; inaczej plik testów trasy `/v3/cms/media` znaleziony `grep -rl "cms/media" tests/backend`) — Expected: PASS.
-- [ ] **Step 4:** `uv run ruff check media_library tests/media_library` i `uv run pyright media_library` — Expected: bez błędów. Commit `feat(media): odmowa importu wraca do CMS jako rejected z powodem`.
+- [x] **Step 2: implementacja.** W `push_wp_items` zamień `existing_import_keys` na `import_items_by_keys` dla kluczy z `seen` (wiersze trzymaj w słowniku po `external_key`); funkcja modułowa `_import_refusal(row: ImportItem) -> str | None`: `skipped` + `is_junk(reason)` → `reason`; `failed` → `"import_failed"`; inaczej `None`. Przy `key in known`: odmowa → `results[index] = f"rejected:{refusal}"`, inaczej `"known"`. Wiersze importu wstecznego (`job_rows`, `BACKFILL_KEY_BLOCKING` = `described`/`imported`) bez zmian. Docstring `push_wp_items` dopisuje nowy wynik.
+- [x] **Step 3:** Run jak w Step 1 + `uv run pytest tests/backend/test_cms_v3_media.py -q` (jeśli istnieje; inaczej plik testów trasy `/v3/cms/media` znaleziony `grep -rl "cms/media" tests/backend`) — Expected: PASS.
+- [x] **Step 4:** `uv run ruff check media_library tests/media_library` i `uv run pyright media_library` — Expected: bez błędów. Commit `feat(media): odmowa importu wraca do CMS jako rejected z powodem`.
 
 ### Task 2: Przewodnik, OpenAPI, CHANGELOG i wersja 3.6.0-draft
 
@@ -89,11 +89,11 @@
 - Regenerate: `frontend/public/developers/cms/guide.html`, `openapi.json` (`uv run python -m scripts.export_cms_guide`)
 - Test: `tests/backend/test_cms_v3_contract.py` (asercje wersji)
 
-- [ ] **Step 1:** asercje wersji w `tests/backend/test_cms_v3_contract.py` → `3.6.0-draft`; Run `uv run pytest tests/backend/test_cms_v3_contract.py -q` — Expected: FAIL na wersji.
-- [ ] **Step 2:** teksty z sekcji „Teksty kontraktu”, tłumaczenie PL, wersja we wszystkich miejscach z tabeli stanu (`grep -rn "3.5.1-draft" docs/api backend tests/backend frontend/public/developers` po zmianie — Expected: tylko CHANGELOG), regeneracja OpenAPI (`docs/api/cms-v3.openapi.json` = `build_openapi()`) i strony.
-- [ ] **Step 3:** `uv run pytest tests/backend/test_cms_v3_contract.py tests/scripts/test_cms_api_public_tree.py -q` i `uv run python -m scripts.cms_contract_guard --base origin/master --head HEAD` — Expected: PASS; strażnik widzi wpis w CHANGELOG.
-- [ ] **Step 4:** podgląd tego, co dostanie `cms-api`: `uv run python -m scripts.cms_api_public_tree <klon cms-api>`, w klonie `python .github/scripts/contract_gate.py --repo .` — Expected: jedyny problem to brak wydania `tdkit` znającego 3.6 (minor za nowy punkt „Done when”, CHANGELOG z **Breaking** i `Integrators` przechodzą).
-- [ ] **Step 5:** commit `docs(cms): kontrakt 3.6.0-draft — odmowa importu jako rejected`, push gałęzi, PR do `master`, CI zielone.
+- [x] **Step 1:** asercje wersji w `tests/backend/test_cms_v3_contract.py` → `3.6.0-draft`; Run `uv run pytest tests/backend/test_cms_v3_contract.py -q` — Expected: FAIL na wersji.
+- [x] **Step 2:** teksty z sekcji „Teksty kontraktu”, tłumaczenie PL, wersja we wszystkich miejscach z tabeli stanu (`grep -rn "3.5.1-draft" docs/api backend tests/backend frontend/public/developers` po zmianie — Expected: tylko CHANGELOG), regeneracja OpenAPI (`docs/api/cms-v3.openapi.json` = `build_openapi()`) i strony.
+- [x] **Step 3:** `uv run pytest tests/backend/test_cms_v3_contract.py tests/scripts/test_cms_api_public_tree.py -q` i `uv run python -m scripts.cms_contract_guard --base origin/master --head HEAD` — Expected: PASS; strażnik widzi wpis w CHANGELOG.
+- [x] **Step 4:** podgląd tego, co dostanie `cms-api`: `uv run python -m scripts.cms_api_public_tree <klon cms-api>`, w klonie `python .github/scripts/contract_gate.py --repo .` — Expected: jedyny problem to brak wydania `tdkit` znającego 3.6 (minor za nowy punkt „Done when”, CHANGELOG z **Breaking** i `Integrators` przechodzą).
+- [x] **Step 5:** commit `docs(cms): kontrakt 3.6.0-draft — odmowa importu jako rejected`, push gałęzi, PR do `master`, CI zielone.
 
 **STOP A:** raport (diff, wynik kroku 4, CI). Owner: `/ship` headlinesforge. Po lądowaniu: `gh run list --workflow cms-api-docs.yml -L1` zielony, w `cms-api` otwarty PR `sync/latest`, a jego `pr.yml` **czerwony** z komunikatem o `SUPPORTED_MINORS` (sygnał, nie błąd; każdy inny powód = STOP). `/deploy` headlinesforge — osobno, na słowo ownera; łańcuch go nie potrzebuje (atrapa czyta wersję z dokumentacji).
 
@@ -106,10 +106,10 @@
 **Interfaces:**
 - Produces: tag `v1.4.1`, którego `src/tdkit/docs.py` ma dokładnie `SUPPORTED_MINORS = frozenset({(3, 5), (3, 6)})` (kształt czytany przez `_MINORS_LINE` w `cms-api`).
 
-- [ ] **Step 1: test** `test_accepts_3_6_and_still_3_5`: `is_supported("v3.6.0-draft")` i `is_supported("v3.5.1-draft")` prawdziwe, `is_supported("v3.7.0-draft")` fałszywe. Run `uv run pytest tests/test_docs.py -q` — Expected: FAIL.
-- [ ] **Step 2:** zmiana linii 27; Run — Expected: PASS.
-- [ ] **Step 3:** `uv run tdkit mock --docs <klon cms-api na sync/latest>` i `GET /v3/cms/status` — Expected: `contract_version` `3.6.0-draft`.
-- [ ] **Step 4:** pliki wydania, commit `release: tdkit 1.4.1 (kit zna kontrakt 3.6)`, PR, CI zielone.
+- [x] **Step 1: test** `test_accepts_3_6_and_still_3_5`: `is_supported("v3.6.0-draft")` i `is_supported("v3.5.1-draft")` prawdziwe, `is_supported("v3.7.0-draft")` fałszywe. Run `uv run pytest tests/test_docs.py -q` — Expected: FAIL.
+- [x] **Step 2:** zmiana linii 27; Run — Expected: PASS.
+- [x] **Step 3:** `uv run tdkit mock --docs <klon cms-api na sync/latest>` i `GET /v3/cms/status` — Expected: `contract_version` `3.6.0-draft`.
+- [x] **Step 4:** pliki wydania, commit `release: tdkit 1.4.1 (kit zna kontrakt 3.6)`, PR, CI zielone.
 
 **STOP B:** owner `/ship` kitu + tag `v1.4.1`; `gh run rerun` `pr.yml` na PR-ze `sync/latest` — Expected: PASS. Owner scala PR. Expected: `tag.yml` zielony, `v3.6.0-draft` adnotowany (`git cat-file -t` = `tag`).
 
@@ -124,9 +124,9 @@
 **Interfaces:**
 - Produces: `import_pending(state: MockState, refuse: dict[str, str] | None = None) -> list[str]` — id z `refuse` nie tworzą pliku, trafiają do `lib.refused_imports[id] = reason` i wypadają z `pending_imports`; wynik dalej to lista sparowanych. Kontrola `POST /_tdkit/media/import` przyjmuje opcjonalne `{"refuse": {"<cms_media_id>": "<reason>"}}` i odpowiada `{"paired": [...], "refused": [...]}`.
 
-- [ ] **Step 1:** obejrzyj czerwony CI PR-a driftu — Expected: `test_coverage.py` pada na nowy punkt „Done when” i pozycję `Integrators` 3.6.0-draft (inna lista = błąd fazy A). Zapisz w raporcie.
-- [ ] **Step 2: testy** w `tests/test_media_state.py`: `test_refused_import_answers_rejected_with_reason` (`import_pending(st, refuse={"c1": "collage"})` → `[]`; `cms_new_files` z `c1` → `status` `rejected`, `reason` `collage`, `asset_id` `None`); `test_refused_import_still_checks_settings_first` (przy `new_files_cms_to_td` wyłączonym → `new_files_disabled`; Review Focus 4). Run `uv run pytest tests/test_media_state.py -q` — Expected: FAIL.
-- [ ] **Step 3:** implementacja: w `cms_new_files` warunek `cms_media_id in lib.refused_imports` → `rejected` z zapisanym powodem, zaraz po sprawdzeniu `new_files_disabled`, przed `known`. Run — Expected: PASS.
+- [x] **Step 1:** obejrzyj czerwony CI PR-a driftu — Expected: `test_coverage.py` pada na nowy punkt „Done when” i pozycję `Integrators` 3.6.0-draft (inna lista = błąd fazy A). Zapisz w raporcie.
+- [x] **Step 2: testy** w `tests/test_media_state.py`: `test_refused_import_answers_rejected_with_reason` (`import_pending(st, refuse={"c1": "collage"})` → `[]`; `cms_new_files` z `c1` → `status` `rejected`, `reason` `collage`, `asset_id` `None`); `test_refused_import_still_checks_settings_first` (przy `new_files_cms_to_td` wyłączonym → `new_files_disabled`; Review Focus 4). Run `uv run pytest tests/test_media_state.py -q` — Expected: FAIL.
+- [x] **Step 3:** implementacja: w `cms_new_files` warunek `cms_media_id in lib.refused_imports` → `rejected` z zapisanym powodem, zaraz po sprawdzeniu `new_files_disabled`, przed `known`. Run — Expected: PASS.
 
 ### Task 5: Scenariusz `l4-import-refused` i pokrycie
 
@@ -136,10 +136,10 @@
 - Consumes: `import_pending(..., refuse=...)` z Task 4; `ctx.media_add`, `ctx.sync`, `ctx.mark`, `ctx.requests_since` (jak w `cms_new_file`).
 - Produces: id scenariusza `l4-import-refused` (cytuje go `coverage.toml` i log `tdkit` wtyczki w Task 7).
 
-- [ ] **Step 1: testy** w `tests/test_check_media.py` (wzór istniejących testów scenariuszy poziomu 4): `test_import_refused_fails_a_cms_that_sends_again` i `test_import_refused_passes_a_cms_that_stops`. Run — Expected: FAIL (brak scenariusza).
-- [ ] **Step 2:** `import_refused(ctx: Context) -> str`: `ctx.media_add()`, `ctx.sync()`, `media.import_pending(ctx.state, refuse={id: "collage"})`, `ctx.sync()` (integracja pyta o parę i dostaje `rejected`); `mark = ctx.mark()`; trzy razy `ctx.sync()`; `expect` brak pozycji z tym id w `POST /v3/cms/media` od `mark` — komunikat „a file refused by the import (collage) was sent again”. Stała `D4_IMPORT_REFUSED` = punkt „Done when” dosłownie; `Scenario("l4-import-refused", 4, …, D4_IMPORT_REFUSED, f"{G4}#sending-new-files", import_refused)` (kotwica jak w scenariuszu `cms_new_file`). Run — Expected: PASS.
-- [ ] **Step 3:** `coverage.toml`: `[[integrators]]` `version = "3.6.0-draft"`, `action` = tekst pozycji bez „`L4`: ”, `handled_by = ["scenario:l4-import-refused"]`. Run `uv run pytest tests/test_coverage.py tests/test_check_media.py tests/test_check.py -q` — Expected: PASS.
-- [ ] **Step 4:** commit, push `contract/latest`, CI zielone (integracje wzorcowe bez poziomu 4 — joby `reference-*` bez zmian).
+- [x] **Step 1: testy** w `tests/test_check_media.py` (wzór istniejących testów scenariuszy poziomu 4): `test_import_refused_fails_a_cms_that_sends_again` i `test_import_refused_passes_a_cms_that_stops`. Run — Expected: FAIL (brak scenariusza).
+- [x] **Step 2:** `import_refused(ctx: Context) -> str`: `ctx.media_add()`, `ctx.sync()`, `media.import_pending(ctx.state, refuse={id: "collage"})`, `ctx.sync()` (integracja pyta o parę i dostaje `rejected`); `mark = ctx.mark()`; trzy razy `ctx.sync()`; `expect` brak pozycji z tym id w `POST /v3/cms/media` od `mark` — komunikat „a file refused by the import (collage) was sent again”. Stała `D4_IMPORT_REFUSED` = punkt „Done when” dosłownie; `Scenario("l4-import-refused", 4, …, D4_IMPORT_REFUSED, f"{G4}#sending-new-files", import_refused)` (kotwica jak w scenariuszu `cms_new_file`). Run — Expected: PASS.
+- [x] **Step 3:** `coverage.toml`: `[[integrators]]` `version = "3.6.0-draft"`, `action` = tekst pozycji bez „`L4`: ”, `handled_by = ["scenario:l4-import-refused"]`. Run `uv run pytest tests/test_coverage.py tests/test_check_media.py tests/test_check.py -q` — Expected: PASS.
+- [x] **Step 4:** commit, push `contract/latest`, CI zielone (integracje wzorcowe bez poziomu 4 — joby `reference-*` bez zmian).
 
 ### Task 6: `1.5.0` — stary minor wypada, parytet, wydanie
 
@@ -151,10 +151,10 @@ Jak etap 6 Task 6: `SUPPORTED_MINORS = frozenset({(3, 6)})` + `test_3_5_is_no_lo
 
 ### Task 7: Drift `cms-php`, drift wtyczki i test wtyczki
 
-- [ ] **Step 1:** PR `contract/latest` w `cms-php` (`VERSION`, `ContractVersion::TESTED` = `3.6.0-draft`), CI zielone. **STOP:** owner `/ship` + tag `cms-php` (następny patch po `v1.1.2`).
-- [ ] **Step 2:** PR `contract/latest` wtyczki (`gh workflow run contract-drift.yml -R Tribunedesk/tribunedesk-wordpress`) — Expected: `tribunedesk.json` contract `3.6.0-draft`, protocol = nowy tag `cms-php`, kit `1.5.0`; inny `kit` = STOP. Run w `action_required` → zatwierdzić i zapisać jako znalezisko.
-- [ ] **Step 3: test wtyczki** na tej gałęzi, `tests/test-media-push.php`: `test_odmowa_importu_nie_jest_kandydatem` — załącznik z `_hf_media_pushed = rejected:collage@<teraz>` i `rejected:import_failed@<teraz - 8 dni>` nie jest w `MediaPush::candidates(50)`; `test_odmowa_hosta_wraca_po_tygodniu` — `rejected:host@<teraz - 8 dni>` jest (Review Focus 5). Expected: PASS bez zmian w `src/` (jeśli FAIL — STOP, spec zakłada brak zmian kodu). Commit na gałęzi driftu.
-- [ ] **Step 4:** CI — Expected: PHPUnit zielony, job `tdkit` z `l4-import-refused … pass`.
+- [x] **Step 1:** PR `contract/latest` w `cms-php` (`VERSION`, `ContractVersion::TESTED` = `3.6.0-draft`), CI zielone. **STOP:** owner `/ship` + tag `cms-php` (następny patch po `v1.1.2`).
+- [x] **Step 2:** PR `contract/latest` wtyczki (`gh workflow run contract-drift.yml -R Tribunedesk/tribunedesk-wordpress`) — Expected: `tribunedesk.json` contract `3.6.0-draft`, protocol = nowy tag `cms-php`, kit `1.5.0`; inny `kit` = STOP. Run w `action_required` → zatwierdzić i zapisać jako znalezisko.
+- [x] **Step 3: test wtyczki** na tej gałęzi, `tests/test-media-push.php`: `test_odmowa_importu_nie_jest_kandydatem` — załącznik z `_hf_media_pushed = rejected:collage@<teraz>` i `rejected:import_failed@<teraz - 8 dni>` nie jest w `MediaPush::candidates(50)`; `test_odmowa_hosta_wraca_po_tygodniu` — `rejected:host@<teraz - 8 dni>` jest (Review Focus 5). Expected: PASS bez zmian w `src/` (jeśli FAIL — STOP, spec zakłada brak zmian kodu). Commit na gałęzi driftu.
+- [x] **Step 4:** CI — Expected: PHPUnit zielony, job `tdkit` z `l4-import-refused … pass`.
 
 **STOP D:** owner `/ship` wtyczki. Wydanie wtyczki (wersja, ZIP, `Publish manifest`) — osobno, poza planem.
 
@@ -162,9 +162,9 @@ Jak etap 6 Task 6: `SUPPORTED_MINORS = frozenset({(3, 6)})` + `test_3_5_is_no_lo
 
 ### Task 8: `/deploy` headlinesforge i 72 zdjęcia Styl.fm
 
-- [ ] **Step 1:** po `/deploy` headlinesforge (słowo ownera): `GET https://api.tribunedesk.com/v3/cms/openapi.json` ma `info.version` `3.6.0-draft`.
-- [ ] **Step 2: odczyt** (Git Bash, `MSYS_NO_PATHCONV=1`, kontekst `da`): lista ID załączników Styl.fm z `_hf_media_pushed` `known@%`/`accepted@%`, bez `_hf_asset_id`, starszych niż 3 dni (`MediaPush::PAIR_CHECK`) — zapytanie jak w `## Pomiar` czeku `ledger/done/2026-11-16-tribunedesk-wordpress-po-wdrozeniu-2-4-0.md`, z `GROUP_CONCAT(p.ID)`. Pokaż ownerowi liczbę i ID.
-- [ ] **Step 3: zapis — tylko na słowo ownera:** `delete_post_meta($id, '_hf_media_pushed')` dla tych ID (`kubectl -n stylfm exec deploy/stylfm -c app -- php -r '…wp-load.php…'`). Najbliższe wysłanie wtyczki (godzinny cron) traktuje je jak nowe.
-- [ ] **Step 4:** po ok. 2 h ten sam odczyt — Expected: 0 zdjęć `known@`/`accepted@` bez pary sprzed 3 dni; nowy rozkład `_hf_media_pushed` (`rejected:collage@`, `rejected:screenshot@` …) w raporcie.
+- [x] **Step 1:** po `/deploy` headlinesforge (słowo ownera): `GET https://api.tribunedesk.com/v3/cms/openapi.json` ma `info.version` `3.6.0-draft`.
+- [x] **Step 2: odczyt** (Git Bash, `MSYS_NO_PATHCONV=1`, kontekst `da`): lista ID załączników Styl.fm z `_hf_media_pushed` `known@%`/`accepted@%`, bez `_hf_asset_id`, starszych niż 3 dni (`MediaPush::PAIR_CHECK`) — zapytanie jak w `## Pomiar` czeku `ledger/done/2026-11-16-tribunedesk-wordpress-po-wdrozeniu-2-4-0.md`, z `GROUP_CONCAT(p.ID)`. Pokaż ownerowi liczbę i ID.
+- [x] **Step 3: zapis — tylko na słowo ownera:** `delete_post_meta($id, '_hf_media_pushed')` dla tych ID (`kubectl -n stylfm exec deploy/stylfm -c app -- php -r '…wp-load.php…'`). Najbliższe wysłanie wtyczki (godzinny cron) traktuje je jak nowe.
+- [x] **Step 4:** po ok. 2 h ten sam odczyt — Expected: 0 zdjęć `known@`/`accepted@` bez pary sprzed 3 dni; nowy rozkład `_hf_media_pushed` (`rejected:collage@`, `rejected:screenshot@` …) w raporcie.
 
 **STOP E:** raport ownerowi; `/ledger close 2026-11-21-tribunedesk-wordpress-zdjecia-known-bez-asset-id done "<wynik>"`.
