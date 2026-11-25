@@ -121,5 +121,9 @@
       "article_id": "c4d5e6f7-a8b9-4c0d-9e1f-2a3b4c5d6e7f",
       "distance": 0.21
     }
-  ]
+  ],
+  "publication": {
+    "mode": "schedule",
+    "at": "2026-11-05T07:00:00Z"
+  }
 }

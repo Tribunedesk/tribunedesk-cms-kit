@@ -2,5 +2,9 @@
   "cms_post_id": "1042",
   "status": "created",
   "permalink": null,
-  "edit_url": "https://news.example.com/cms/posts/1042/edit"
+  "edit_url": "https://news.example.com/cms/posts/1042/edit",
+  "publication": {
+    "status": "scheduled",
+    "at": "2026-11-05T07:00:00Z"
+  }
 }

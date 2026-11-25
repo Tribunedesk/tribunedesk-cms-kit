@@ -2,6 +2,25 @@
 
 Changes of the Tribune Desk CMS API contract, newest first. Versions follow [Versioning](VERSIONING.md).
 
+## 3.7.0-draft – 2026-11-24
+
+- `ArticleDelivery` has an optional `publication` (`mode` `draft`, `schedule` with `at`, or `publish`): how the editor wants the post published. Without it, nothing changes.
+- `ArticleDeliveryResult` (and the read-mode result) has an optional `publication` (`status` `draft`, `scheduled` or `published`, and `at`): the state of the post after the delivery.
+- Guide 1: a scheduled post takes a new send like a draft; a published post is never unpublished.
+
+**Integrators:**
+
+- `L1`: publish, schedule or keep a draft as `publication` asks, answer with `publication`, and update a scheduled post on a new send as you update a draft.
+
+## 3.6.1-draft – 2026-11-24
+
+- Guide 1: `html` may carry images from the media library as `figure` with `data-td-asset-id` and `data-td-cms-media-id` on the `img`; the guide used to say there are no media in the body.
+
+**Integrators:**
+
+- `L1`: keep `figure`/`img` from `html` through your content filter, including the `data-td-*` attributes on `img` (a sanitizer that drops unknown `data-*` breaks `L4`).
+- `L4`: recommended, not a "Done when" point: turn a figure with your `data-td-cms-media-id` into your native image instead of downloading the file.
+
 ## 3.6.0-draft – 2026-11-21
 
 - **Breaking:** `POST /v3/cms/media` answers `rejected` with `collage`, `screenshot`, `graphic` or `import_failed` for a file Tribune Desk already received and its import refused; it used to answer `known` with `asset_id` `null`.
