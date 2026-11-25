@@ -4,14 +4,16 @@ from django.urls import reverse
 
 class Post(models.Model):
     DRAFT = "draft"
+    SCHEDULED = "scheduled"
     PUBLISHED = "published"
-    STATUS_CHOICES = [(DRAFT, "Draft"), (PUBLISHED, "Published")]
+    STATUS_CHOICES = [(DRAFT, "Draft"), (SCHEDULED, "Scheduled"), (PUBLISHED, "Published")]
 
     title = models.CharField(max_length=300)
     slug = models.SlugField(max_length=300, unique=True)
     excerpt = models.TextField(blank=True)
     body = models.TextField(help_text="HTML")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=DRAFT)
+    # When the post was published, or when it will be (status scheduled).
     published_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:

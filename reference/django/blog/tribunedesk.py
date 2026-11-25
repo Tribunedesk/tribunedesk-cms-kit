@@ -12,12 +12,13 @@ import hmac
 import logging
 import re
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 
 import requests
 from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.text import slugify
 
 from .models import Post, TribuneDeskArticle
@@ -131,10 +132,12 @@ def apply_delivery(article: dict, delivery_id: str) -> dict:
                     .first()
                 )
                 if link is None:
-                    post = Post.objects.create(
+                    post = Post(
                         title=title, slug=_new_slug(title, article_id), excerpt=excerpt,
                         body=html, status=Post.DRAFT,
                     )
+                    apply_publication(post, article.get("publication"))
+                    post.save()
                     TribuneDeskArticle.objects.create(
                         article_id=article_id, post=post, last_sent_at=sent_at,
                         last_delivery_id=delivery_id,
@@ -148,7 +151,8 @@ def apply_delivery(article: dict, delivery_id: str) -> dict:
                     # "Order of sends"): keep the newer post.
                     return {"cms_post_id": str(post.pk), "edit_url": edit_url(post)}
                 post.title, post.body, post.excerpt = title, html, excerpt
-                post.save(update_fields=["title", "body", "excerpt"])
+                apply_publication(post, article.get("publication"))
+                post.save(update_fields=["title", "body", "excerpt", "status", "published_at"])
                 link.last_sent_at = sent_at
                 link.last_delivery_id = delivery_id
                 link.featured_image_url = _featured_image_url(article)
@@ -161,8 +165,42 @@ def apply_delivery(article: dict, delivery_id: str) -> dict:
     raise AssertionError("unreachable")
 
 
+def apply_publication(post: Post, publication) -> None:
+    """Guide 1, "Publication mode" (3.7): draft, schedule for `at` or publish now. Without the
+    field the post keeps its status; a published post is never unpublished."""
+    if not isinstance(publication, dict) or post.status == Post.PUBLISHED:
+        return
+    mode = publication.get("mode")
+    now = timezone.now()
+    if mode == "schedule":
+        at = datetime.fromisoformat(str(publication.get("at")).replace("Z", "+00:00"))
+        if at.tzinfo is None:
+            raise ValueError("publication.at has no time zone")
+        if at > now:
+            post.status, post.published_at = Post.SCHEDULED, at
+            return
+        mode = "publish"  # a time already past is published at once
+    if mode == "draft":
+        post.status, post.published_at = Post.DRAFT, None
+    elif mode == "publish":
+        post.status, post.published_at = Post.PUBLISHED, now
+
+
+def publication_state(post: Post) -> dict:
+    """The `publication` of the answer: the post's state after the delivery."""
+    if post.status in (Post.SCHEDULED, Post.PUBLISHED) and post.published_at:
+        at = post.published_at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return {"status": post.status, "at": at}
+    return {"status": "draft", "at": None}
+
+
 def _answer(post: Post, status: str) -> dict:
-    answer = {"cms_post_id": str(post.pk), "status": status, "edit_url": edit_url(post)}
+    answer = {
+        "cms_post_id": str(post.pk),
+        "status": status,
+        "edit_url": edit_url(post),
+        "publication": publication_state(post),
+    }
     url = permalink(post)
     if url:
         answer["permalink"] = url
