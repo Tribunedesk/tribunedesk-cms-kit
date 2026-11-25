@@ -64,7 +64,8 @@ For local development neither mode needs a public address: `tdkit check` runs th
 
 ## Where each level is documented
 
-- Level 1: `guide/1-article-delivery.md` (webhook and read mode, signature, fields, images).
+- Level 1: `guide/1-article-delivery.md` (webhook and read mode, signature, fields, images,
+  the publication mode: `publication` asks for a draft, a scheduled post or one published now).
 - Level 2: `guide/2-link-back.md`.
 - Level 3: `guide/3-full-content.md`.
 - Level 4: `guide/4-media-library.md`.

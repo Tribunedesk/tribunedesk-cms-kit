@@ -96,8 +96,9 @@ class Context:
     def article(self, *, minutes: int = 0, **fields: Any) -> dict[str, Any]:
         """A level 1 delivery body made from the tag's sample, with a new `article_id`.
 
-        The body has no internal links, no AI label and no `backlink_sources`, so a level 3
-        integration stores `html` as sent; its image is on an allowed host (the mock).
+        The body has no internal links, no AI label, no `backlink_sources` and no `publication`,
+        so a level 3 integration stores `html` as sent and leaves the post a draft; its image is
+        on an allowed host (the mock).
         """
         body = copy.deepcopy(self.opts.docs.sample_delivery)
         article_id = str(uuid.uuid4())
@@ -106,6 +107,7 @@ class Context:
             if isinstance(image, dict):
                 image["url"] = image_url
         body.pop("backlink_sources", None)
+        body.pop("publication", None)  # the sample's time is in the past: publish now
         body.update(
             article_id=article_id,
             sent_at=self.sent_at(minutes),

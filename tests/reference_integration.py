@@ -5,7 +5,7 @@ developer commands:
 
     python reference_integration.py serve --port 8080 --store store.json [--no-verify]
         [--overwrite-older] [--empty-answer] [--any-image-host] [--answer-500]
-        [--keep-embeds] [--naive-embed-hosts]
+        [--keep-embeds] [--naive-embed-hosts] [--ignore-publication] [--unpublish]
     python reference_integration.py inspect --store store.json <article_id>
     python reference_integration.py publish --store store.json <article_id>
     python reference_integration.py poll --store store.json
@@ -28,7 +28,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime
+from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -144,6 +144,8 @@ def apply(
     keep_embeds: bool = False,
     naive_embed_hosts: bool = False,
     download_body_images: bool = False,
+    ignore_publication: bool = False,
+    unpublish: bool = False,
 ) -> dict:
     posts = data["posts"]
     article_id = article["article_id"]
@@ -191,13 +193,46 @@ def apply(
     )
     if article.get("backlink_sources") is not None:
         post["backlink_sources"] = [str(s["article_id"]) for s in article["backlink_sources"]]
+    if not ignore_publication:
+        apply_publication(post, article.get("publication"), unpublish=unpublish)
     posts[article_id] = post
     rerender(posts)
-    return {
+    answer = {
         "cms_post_id": post_id,
         "status": "updated" if existing else "created",
         "edit_url": post["edit_url"],
     }
+    if not ignore_publication:
+        answer["publication"] = publication_state(post)
+    return answer
+
+
+def apply_publication(post: dict[str, Any], publication: Any, *, unpublish: bool) -> None:
+    """Contract 3.7: draft, schedule for `at` or publish now; a published post stays published."""
+    if not isinstance(publication, dict):
+        return  # no field: the post keeps the status it has
+    if post["status"] == "published" and not unpublish:
+        return
+    mode = publication.get("mode")
+    now = datetime.now(UTC)
+    if mode == "schedule":
+        at = datetime.fromisoformat(str(publication.get("at")).replace("Z", "+00:00"))
+        if at > now:
+            post.update(status="scheduled", publish_at=at.strftime("%Y-%m-%dT%H:%M:%SZ"))
+            post["permalink"] = None
+            return
+        mode = "publish"  # a time already past is published at once
+    if mode == "draft":
+        post.update(status="draft", publish_at=None, permalink=None)
+    elif mode == "publish":
+        post.update(status="published", publish_at=now.strftime("%Y-%m-%dT%H:%M:%SZ"))
+        post["permalink"] = f"https://cms.example.com/{post['cms_post_id']}/"
+
+
+def publication_state(post: dict[str, Any]) -> dict[str, Any]:
+    if post["status"] in ("scheduled", "published"):
+        return {"status": post["status"], "at": post.get("publish_at")}
+    return {"status": "draft", "at": None}
 
 
 def inspect(data: dict[str, Any], article_id: str) -> dict[str, Any] | None:
@@ -235,6 +270,7 @@ def inspect(data: dict[str, Any], article_id: str) -> dict[str, Any] | None:
 def publish(data: dict[str, Any], article_id: str) -> None:
     post = data["posts"][article_id]
     post["status"] = "published"
+    post["publish_at"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     post["permalink"] = f"https://cms.example.com/{post['cms_post_id']}/"
     rerender(data["posts"])
     item = {"article_id": article_id, "url": post["permalink"], "social_queue_exclude": False}
@@ -318,6 +354,8 @@ def serve(args: argparse.Namespace) -> None:
                     keep_embeds=args.keep_embeds,
                     naive_embed_hosts=args.naive_embed_hosts,
                     download_body_images=args.download_body_images,
+                    ignore_publication=args.ignore_publication,
+                    unpublish=args.unpublish,
                 )
                 save(store, data)
             self._reply(200, None if args.empty_answer else answer)
@@ -352,6 +390,8 @@ def main() -> None:
     s.add_argument("--keep-embeds", action="store_true")
     s.add_argument("--naive-embed-hosts", action="store_true")
     s.add_argument("--download-body-images", action="store_true")
+    s.add_argument("--ignore-publication", action="store_true")
+    s.add_argument("--unpublish", action="store_true")
     for name in ("inspect", "publish"):
         sub.add_parser(name).add_argument("article_id")
     sub.add_parser("poll")

@@ -202,11 +202,27 @@ def test_check_fails_a_cms_that_trusts_a_lookalike_host(tmp_path: Path, docs: Co
     assert "evil.example" in failed.detail
 
 
+def test_check_fails_a_cms_that_ignores_publication(tmp_path: Path, docs: ContractDocs) -> None:
+    """Contract 3.7: `publication` is applied and answered."""
+    report = _webhook_check(tmp_path, docs, ("--ignore-publication",), [1])
+    assert [r.id for r in report.failed] == ["l1-publication"]
+
+
+def test_check_fails_a_cms_that_unpublishes_on_a_new_send(
+    tmp_path: Path, docs: ContractDocs
+) -> None:
+    """A published post is never unpublished by a later `schedule` or `draft`."""
+    report = _webhook_check(tmp_path, docs, ("--unpublish",), [1])
+    assert [r.id for r in report.failed] == ["l1-publication"]
+    failed = next(r for r in report.failed if r.id == "l1-publication")
+    assert "published" in failed.detail
+
+
 def test_check_accepts_empty_2xx_for_delivery_only_scenarios(
     tmp_path: Path, docs: ContractDocs
 ) -> None:
     report = _webhook_check(tmp_path, docs, ("--empty-answer",), [1, 2])
-    assert [r.id for r in report.failed] == ["l1-answer-fields"]
+    assert [r.id for r in report.failed] == ["l1-answer-fields", "l1-publication"]
 
 
 def test_cli_exit_code_1_when_a_scenario_fails(tmp_path: Path) -> None:
