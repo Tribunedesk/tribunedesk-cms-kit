@@ -54,6 +54,16 @@ point = "Files that were in your library before level 4 was turned on are not se
 reason = "tdkit cannot add files to a library before the integration starts"
 
 [[integrators]]
+version = "3.6.1-draft"
+action = "keep `figure`/`img` from `html` through your content filter, including the `data-td-*` attributes on `img` (a sanitizer that drops unknown `data-*` breaks `L4`)."
+handled_by = ["skill:references/scope.md"]
+
+[[integrators]]
+version = "3.6.1-draft"
+action = "recommended, not a \"Done when\" point: turn a figure with your `data-td-cms-media-id` into your native image instead of downloading the file."
+handled_by = ["scenario:l4-body-image", "skill:references/php-library.md"]
+
+[[integrators]]
 version = "3.6.0-draft"
 action = "do not send a file to `POST /media` again after `rejected` with `collage`, `screenshot`, `graphic` or `import_failed`."
 handled_by = ["scenario:l4-import-refused"]

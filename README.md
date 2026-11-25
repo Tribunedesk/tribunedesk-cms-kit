@@ -173,6 +173,7 @@ tdkit check --levels 1,2,3 [--mode webhook|read] --webhook URL
 tdkit check --levels 4 --mode none --sync-cmd "…" --media-inspect-cmd "…{cms_media_id}…"
             --media-add-cmd "…{file}…" --media-edit-cmd "…{cms_media_id} {field} {value}…"
             --media-delete-cmd "…{cms_media_id}…" [--reset-cmd "…"] [--backfill]
+            [--body-images]
             [--media-fields alt,caption] [--media-hosts cms.example]
 ```
 
@@ -257,7 +258,8 @@ also writes:
 ```
 
 `passed` is `null` for a skipped scenario (another mode, `l2-social-flag` without
-`--social-flag`, `l4-backfill-answered` without `--backfill`), with the reason in `detail`.
+`--social-flag`, `l4-backfill-answered` without `--backfill`, `l4-body-image` without
+`--body-images` or in mode none), with the reason in `detail`.
 
 ### Scenarios
 
@@ -295,6 +297,7 @@ point for the behaviour, the guide's sentence that requires it.
 | `l4-field-versions` | 4 | versions 2, 3, then an older 2, then 3 repeated with a new value | the older version skipped, the same version applied | Apply by version: skip a change only when its `version` is lower than yours, … |
 | `l4-cms-new-file` | 4 | `--media-add-cmd`, an edit, the import pairs it | `POST /media` with `width`, `height`, `mime_type`; the edit made before the import arrives; `asset_id` learned; no other id for the file | New files, field changes and deletions on your side reach Tribune Desk, and a repeated request creates no duplicates. |
 | `l4-import-refused` | 4 | `--media-add-cmd`; the import refuses the file as `collage` | after `rejected` with `collage`, three more syncs send the file to `POST /media` no more | A file answered `rejected` with `collage`, `screenshot`, `graphic` or `import_failed` is not sent to `POST /media` again. |
+| `l4-body-image` | 1 + 4, with `--body-images` | a file of yours, paired, placed in `html` as a `figure` with `data-td-cms-media-id`; two sends | `src` is not downloaded on either send | Use them to insert your CMS's native image instead of downloading the file, … (guide 1, The HTML body) |
 | `l4-cms-field-edit` | 4 | an edit in Tribune Desk, then in your CMS; two syncs | one write, with the `base_version` you held | (same) |
 | `l4-cms-deletion` | 4 | `--media-delete-cmd` | `POST /media/deletions` with `deleted_at` | (same) |
 | `l4-conflict-winning-value` | 4 | rule `td`, edits on both sides | `winning_value` adopted, the losing value not sent again | A field result `conflict` (in a `200` answer) is resolved by adopting `winning_value`, … |

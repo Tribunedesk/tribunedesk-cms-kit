@@ -59,6 +59,7 @@ class CheckOptions:
     media_delete_cmd: str | None = None
     reset_cmd: str | None = None
     backfill: bool = False
+    body_images: bool = False
     media_fields: tuple[str, ...] = ("alt",)
     media_hosts: tuple[str, ...] = ()
 

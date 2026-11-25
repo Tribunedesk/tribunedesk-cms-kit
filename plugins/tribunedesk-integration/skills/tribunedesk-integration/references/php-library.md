@@ -39,6 +39,7 @@ All classes are in `TribuneDesk\Protocol` and have static methods only.
 | `BacklinkSources` | the "read more" box rules | 3 |
 | `AuthorOrder` | the order in which people of a delivery are matched to CMS users | 3 |
 | `ApiErrors` | reading any error answer of the API (code, retry wait) | all |
+| `BodyFigures` | finding library photos in `html` (`find`) and replacing each with your native image markup (`replace`) | 1 + 4 |
 
 `ChangesFeed` and `Resync` are for level 4; `ContractVersion::TESTED` says which contract a
 release is tested against. If it is older than the documentation you downloaded, read the

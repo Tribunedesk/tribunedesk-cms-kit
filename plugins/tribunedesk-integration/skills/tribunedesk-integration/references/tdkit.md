@@ -50,7 +50,8 @@ TDKIT check --levels 1,2 --mode webhook \
 - `--social-flag` when the CMS has a "keep this post off Facebook" setting.
 - Level 4: `--levels 4 --mode none` (level 4 alone) with `--sync-cmd`, `--media-inspect-cmd`,
   `--media-add-cmd`, `--media-edit-cmd`, `--media-delete-cmd` and `--reset-cmd`; add
-  `--backfill` when the integration answers import requests. With levels 1-3 as well, run one
+  `--backfill` when the integration answers import requests, and `--body-images` (levels 1 and 4
+  together) when library photos in `html` become native images. With levels 1-3 as well, run one
   check with all levels in their mode. The scenario `l4-held-not-resent` proves the sync does not
   decide held batches; the operator's screen itself you check by hand.
 
