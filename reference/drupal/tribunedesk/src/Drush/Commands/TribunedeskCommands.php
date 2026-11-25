@@ -46,7 +46,7 @@ final class TribunedeskCommands extends DrushCommands {
         'title' => $node->getTitle(),
         'html' => (string) $body->value,
         'excerpt' => (string) $body->summary,
-        'status' => $node->isPublished() ? 'published' : 'draft',
+        'status' => $node->isPublished() ? 'published' : (!empty($row->publish_at) ? 'scheduled' : 'draft'),
         'featured_image_url' => $row->image_url ?? NULL,
         'permalink' => $this->registry->permalink($node),
         'edit_url' => $this->registry->editUrl($node),

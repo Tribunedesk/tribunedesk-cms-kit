@@ -27,3 +27,13 @@ function tribunedesk_node_update(NodeInterface $node): void {
 function tribunedesk_node_delete(NodeInterface $node): void {
   \Drupal::service('tribunedesk.registry')->deleteByNid((int) $node->id());
 }
+
+/**
+ * Implements hook_cron().
+ *
+ * Publishes the nodes a delivery scheduled whose time has come
+ * (guide/1-article-delivery.md, Publication mode).
+ */
+function tribunedesk_cron(): void {
+  \Drupal::service('tribunedesk.delivery_handler')->publishDue();
+}
