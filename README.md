@@ -410,6 +410,9 @@ reconcile its wording):
 | `parity-django` | all pass: tdkit 1.5, contract 3.6.0-draft, levels 1-4, 34 passed, 0 failed (`l4-import-refused` included); clean room (run 2026-11-21) | final message stands alone | 4.16 USD |
 | `parity-laravel` | tdkit 1.5, contract 3.6.0-draft, levels 1-4, 33 passed, 0 failed (`l4-import-refused` included); clean room (run 2026-11-21) | fail: final message stands alone — the notice of the mock it had stopped itself started one more turn, and its final message answered only that notice | 7.12 USD |
 | `parity-node` | all pass: tdkit 1.5, contract 3.6.0-draft, levels 1-4, 33 passed, 0 failed (`l4-import-refused` included); clean room (run 2026-11-21) | final message stands alone; historical import not built | 4.51 USD |
+| `parity-django` | all pass: tdkit 1.6, contract 3.7.1-draft, levels 1-4, 36 passed, 0 failed (`l1-publication` and `l4-body-image` included); clean room (run 2026-11-25, Claude Code 2.1.323) | fail: final message stands alone (the plan only in stages, no single standalone summary) | 4.61 USD |
+| `parity-laravel` | all pass: tdkit 1.6, contract 3.7.1-draft, levels 1-4, 35 passed, 0 failed (`l1-publication` and `l4-body-image` included); clean room (run 2026-11-25, Claude Code 2.1.323) | final message stands alone; scheduled posts published by `posts:publish-scheduled` | 6.42 USD |
+| `parity-node` | all pass: tdkit 1.6, contract 3.7.1-draft, levels 1-4, 35 passed, 0 failed (`l1-publication` included); clean room (run 2026-11-25, Claude Code 2.1.323) | final message stands alone; historical import not built | 4.40 USD |
 
 The integrations of the Django and Drupal runs are in [`reference/`](reference/README.md).
 
