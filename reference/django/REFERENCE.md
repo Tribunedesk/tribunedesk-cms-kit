@@ -11,7 +11,7 @@ one the skill extended.
 | `blog/tribunedesk.py` | signature check (Standard Webhooks), the upsert keyed by `article_id` with a row lock, order of sends, link back with retries |
 | `blog/views.py` | the webhook route: raw body, 401 on a bad signature, the answer |
 | `blog/signals.py` | link back when a post made from an article is published |
-| `blog/management/commands/` | `td_inspect`, `td_publish` (for `tdkit check`), `td_send_links` (cron) |
+| `blog/management/commands/` | `td_inspect`, `td_publish` (for `tdkit check`), `td_send_links` and `td_publish_due` (cron: scheduled posts whose time has come) |
 | `blog/tests.py` | the project's own tests, including the contract's signature vectors |
 | `blogsite/settings.py` (end) | values from the environment only; SQLite `IMMEDIATE` transactions |
 | `tribunedesk.json` | the manifest written from the `tdkit check` report |

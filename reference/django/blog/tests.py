@@ -125,6 +125,51 @@ class WebhookTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Post.objects.get().title, "Newer")
 
+    def test_publication_modes(self):
+        """Contract 3.7: draft, schedule (a new send updates it like a draft), publish; a
+        published post is never unpublished."""
+        article_id = str(uuid.uuid4())
+        later = (timezone.now() + timezone.timedelta(days=2)).replace(microsecond=0)
+        at = later.strftime("%Y-%m-%dT%H:%M:%SZ")
+        answer = self.deliver(article_id, sent_at="2026-11-04T09:00:00+00:00",
+                              extra={"publication": {"mode": "schedule", "at": at}}).json()
+        self.assertEqual(answer["publication"], {"status": "scheduled", "at": at})
+        post = Post.objects.get()
+        self.assertEqual((post.status, post.published_at), (Post.SCHEDULED, later))
+        self.assertEqual(self.client.get(f"/{post.slug}/").status_code, 404)
+        answer = self.deliver(article_id, title="Moved", sent_at="2026-11-04T09:01:00+00:00",
+                              extra={"publication": {"mode": "draft"}}).json()
+        self.assertEqual(answer["publication"], {"status": "draft", "at": None})
+        self.assertEqual((Post.objects.get().title, Post.objects.get().status),
+                         ("Moved", Post.DRAFT))
+        reply = mock.Mock(status_code=200)
+        reply.json.return_value = {"results": [{"article_id": article_id, "status": "ok"}]}
+        with mock.patch("blog.tribunedesk.requests.post", return_value=reply):
+            with self.captureOnCommitCallbacks(execute=True):
+                answer = self.deliver(article_id, sent_at="2026-11-04T09:02:00+00:00",
+                                      extra={"publication": {"mode": "publish"}}).json()
+            self.assertEqual(answer["publication"]["status"], "published")
+            answer = self.deliver(article_id, sent_at="2026-11-04T09:03:00+00:00",
+                                  extra={"publication": {"mode": "schedule", "at": at}}).json()
+        self.assertEqual(answer["publication"]["status"], "published")
+        self.assertEqual(Post.objects.get().status, Post.PUBLISHED)
+
+    def test_without_publication_the_status_stays(self):
+        article_id = str(uuid.uuid4())
+        self.deliver(article_id)
+        answer = self.deliver(article_id, sent_at="2026-11-04T10:00:00+00:00").json()
+        self.assertEqual(Post.objects.get().status, Post.DRAFT)
+        self.assertEqual(answer["publication"], {"status": "draft", "at": None})
+
+    def test_due_scheduled_post_is_published_by_the_cron_command(self):
+        from django.core.management import call_command
+
+        post = Post.objects.create(title="Due", slug="due", body="x", status=Post.SCHEDULED,
+                                   published_at=timezone.now() - timezone.timedelta(minutes=1))
+        call_command("td_publish_due")
+        post.refresh_from_db()
+        self.assertEqual(post.status, Post.PUBLISHED)
+
     def test_unconfigured_secret_answers_503(self):
         with override_settings(TD_WEBHOOK_SECRET=""):
             self.assertEqual(self.deliver(str(uuid.uuid4())).status_code, 503)
