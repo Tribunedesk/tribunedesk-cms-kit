@@ -13,6 +13,7 @@ import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from html.parser import HTMLParser
 from typing import Any, Literal
 
@@ -315,6 +316,76 @@ def image_host(ctx: Context) -> str:
 # -- level 1, read mode --------------------------------------------------------------------
 
 
+def _at(days: int) -> str:
+    return (datetime.now(UTC) + timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _instant(value: Any) -> datetime | None:
+    try:
+        moment = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return moment if moment.tzinfo is not None else None
+
+
+def _answered(result: DeliveryResult, status: str, at: str | None = None) -> None:
+    publication = (result.json or {}).get("publication")
+    expect(
+        isinstance(publication, dict), f"the answer has no `publication` object: {publication!r}"
+    )
+    assert isinstance(publication, dict)
+    expect(
+        publication.get("status") == status,
+        f"publication.status is {publication.get('status')!r}, not {status!r}",
+    )
+    if at is not None:
+        expect(
+            _instant(publication.get("at")) == _instant(at),
+            f"publication.at is {publication.get('at')!r}, not {at!r}",
+        )
+
+
+def publication_mode(ctx: Context) -> str:
+    first, second = _at(2), _at(3)
+    body = ctx.article(minutes=-10, publication={"mode": "schedule", "at": first})
+    _answered(ctx.delivered(body), "scheduled", first)
+    post = ctx.must_inspect(body["article_id"])
+    expect(post.get("status") != "published", "a scheduled post is already published")
+    moved = {
+        **body,
+        "sent_at": ctx.sent_at(-8),
+        "title": body["title"] + " (moved)",
+        "publication": {"mode": "schedule", "at": second},
+    }
+    _answered(ctx.delivered(moved), "scheduled", second)
+    after = ctx.must_inspect(body["article_id"])
+    expect(
+        after.get("title") == moved["title"],
+        f"a new send did not update the scheduled post: title {after.get('title')!r}",
+    )
+    expect(
+        after.get("cms_post_id") == post.get("cms_post_id"),
+        f"the new send made another post ({post.get('cms_post_id')!r} → "
+        f"{after.get('cms_post_id')!r})",
+    )
+    draft = {**moved, "sent_at": ctx.sent_at(-6), "publication": {"mode": "draft"}}
+    _answered(ctx.delivered(draft), "draft")
+    post = ctx.must_inspect(body["article_id"])
+    expect(post.get("status") != "published", "mode `draft` published the post")
+    publish = {**moved, "sent_at": ctx.sent_at(-4), "publication": {"mode": "publish"}}
+    _answered(ctx.delivered(publish), "published")
+    post = ctx.must_inspect(body["article_id"])
+    expect(post.get("status") == "published", f"mode `publish` left status {post.get('status')!r}")
+    again = {**moved, "sent_at": ctx.sent_at(-2), "publication": {"mode": "schedule", "at": first}}
+    _answered(ctx.delivered(again), "published")
+    post = ctx.must_inspect(body["article_id"])
+    expect(
+        post.get("status") == "published",
+        f"a published post was unpublished by a new send: status {post.get('status')!r}",
+    )
+    return "scheduled, moved, back to draft, published, never unpublished"
+
+
 def read_delivers_result(ctx: Context) -> str:
     body = ctx.article()
     send = ctx.state.add_send(body)
@@ -560,6 +631,11 @@ D1_OVERLAP = (
     "Keep `article_id` unique in your database and lock the row while you write, or you get "
     "two posts."
 )
+D1_PUBLICATION = (
+    "A delivery with `publication` makes a draft, a post scheduled for `at`, or a published "
+    "post; a scheduled post takes a new send like a draft, and a published one is never "
+    "unpublished. Your answer carries `publication` with the resulting state."
+)
 R_RESULT = (
     "The body (`ArticleResultReport`) is what your webhook would answer with, plus "
     "`delivery_id`: the `X-Delivery-Id` from step 2."
@@ -618,6 +694,7 @@ SCENARIOS: tuple[Scenario, ...] = (
     Scenario("l1-non-ascii", 1, "webhook", D1_DRAFT, DW1, non_ascii),
     Scenario("l1-image-host", 1, "webhook", D1_IMAGES, f"{G1}#where-images-come-from", image_host),
     Scenario("l1-embeds", 1, "webhook", D1_EMBEDS, DW1, embeds),
+    Scenario("l1-publication", 1, "any", D1_PUBLICATION, DW1, publication_mode),
     Scenario("read-delivers-result", 1, "read", R_RESULT, READ, read_delivers_result),
     Scenario("read-superseded-409", 1, "read", R_409, READ, read_superseded),
     Scenario("read-cursor-expired", 1, "read", R_410, READ, read_cursor_expired),

@@ -171,3 +171,8 @@ handled_by = ["scenario:l1-answer-fields", "scenario:l1-creates-draft"]
 version = "3.0.0-draft"
 action = "first version of the media sync; build it from the guide."
 handled_by = ["scenario:l4-first-poll", "skill:references/scope.md"]
+
+[[integrators]]
+version = "3.7.0-draft"
+action = "publish, schedule or keep a draft as `publication` asks, answer with `publication`, and update a scheduled post on a new send as you update a draft."
+handled_by = ["scenario:l1-publication"]
