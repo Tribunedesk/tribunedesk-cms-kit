@@ -124,7 +124,7 @@ class DeliveryHandler {
     // node alone (guide/1-article-delivery.md, Order of sends).
     if ($node !== NULL && $sent_at_us !== NULL && $sent_at_us < (int) $row->sent_at_us) {
       $status = $node->isPublished() ? DraftRules::SKIP : DraftRules::UPDATE;
-      return $this->answer($node, $status);
+      return $this->answer($node, $status, self::publishAt($row));
     }
 
     $action = DraftRules::action($node === NULL ? NULL : ($node->isPublished() ? 'published' : 'draft'));
@@ -162,6 +162,16 @@ class DeliveryHandler {
     }
     // DraftRules::SKIP: a published node keeps the newsroom's edits.
 
+    // Publication mode (contract 3.7): a draft, a node scheduled for `at`, or
+    // one published now. A scheduled node is unpublished with publish_at set,
+    // so a new send updates it like a draft; hook_cron() publishes it.
+    $publish_at = $row !== NULL ? self::publishAt($row) : NULL;
+    $state = $node->isPublished() ? 'publish' : ($publish_at !== NULL ? 'future' : 'draft');
+    $target = self::publicationTarget($action === DraftRules::CREATE ? NULL : $state, $article['publication'] ?? NULL, $this->time->getCurrentTime());
+    if ($target['status'] !== 'keep') {
+      $publish_at = $target['at'];
+    }
+
     // The main image is kept as its delivered URL only: this site does not
     // download photos (no media library integration).
     $image = $article['featured_image'] ?? NULL;
@@ -173,20 +183,106 @@ class DeliveryHandler {
       'sent_at_us' => max($sent_at_us ?? 0, (int) ($row->sent_at_us ?? 0)),
       'delivery_id' => $delivery_id ?? ($row->delivery_id ?? NULL),
       'image_url' => $image_url,
+      'publish_at' => $publish_at,
     ]);
 
-    return $this->answer($node, $action);
+    if ($target['status'] === 'publish' && !$node->isPublished()) {
+      // After the row is saved, so hook_node_update() finds the article and
+      // reports the address (level 2).
+      $node->setPublished();
+      $node->setNewRevision(TRUE);
+      $node->setRevisionLogMessage('Published by the Tribune Desk publication mode');
+      $node->save();
+    }
+
+    return $this->answer($node, $action, $publish_at);
   }
 
-  protected function answer(NodeInterface $node, string $status): array {
+  protected function answer(NodeInterface $node, string $status, ?int $publish_at): array {
     // permalink only for a public node (level 2): a draft has no address.
-    return DeliveryAnswer::build(
+    $answer = DeliveryAnswer::build(
       (string) $node->id(),
       $status,
       $this->registry->editUrl($node),
       $this->registry->permalink($node),
       NULL,
     );
+    // The state of the node after this delivery (contract 3.7).
+    if ($node->isPublished()) {
+      // Drupal core keeps no publication moment of its own.
+      $answer['publication'] = ['status' => 'published', 'at' => NULL];
+    }
+    elseif ($publish_at !== NULL) {
+      $answer['publication'] = ['status' => 'scheduled', 'at' => gmdate('Y-m-d\TH:i:s\Z', $publish_at)];
+    }
+    else {
+      $answer['publication'] = ['status' => 'draft', 'at' => NULL];
+    }
+    return $answer;
+  }
+
+  /**
+   * The status a delivery's `publication` gives a node (contract 3.7).
+   *
+   * States are WordPress's words, as in TribuneDesk\Protocol: NULL (a new
+   * node), `draft`, `future` (scheduled) and `publish`. A published node is
+   * never changed; a field that cannot be read is ignored, like any field this
+   * module does not know; a time already past is published at once.
+   *
+   * @return array{status: string, at: int|null}
+   *   `status` is `draft`, `future`, `publish` or `keep`.
+   */
+  public static function publicationTarget(?string $state, mixed $publication, int $now): array {
+    $keep = ['status' => 'keep', 'at' => NULL];
+    if ($state === 'publish' || !is_array($publication)) {
+      return $keep;
+    }
+    $mode = $publication['mode'] ?? NULL;
+    if ($mode === 'draft' || $mode === 'publish') {
+      return ['status' => $mode, 'at' => NULL];
+    }
+    $at = $mode === 'schedule' ? self::instant($publication['at'] ?? NULL) : NULL;
+    if ($at === NULL) {
+      return $keep;
+    }
+    return $at > $now ? ['status' => 'future', 'at' => $at] : ['status' => 'publish', 'at' => NULL];
+  }
+
+  /**
+   * Publishes the scheduled nodes whose time has come (hook_cron()).
+   */
+  public function publishDue(): int {
+    $due = $this->database->select(ArticleRegistry::TABLE, 't')
+      ->fields('t', ['article_id'])
+      ->condition('publish_at', $this->time->getCurrentTime(), '<=')
+      ->execute()
+      ->fetchCol();
+    foreach ($due as $article_id) {
+      $node = $this->registry->node((string) $article_id);
+      $this->registry->save((string) $article_id, ['publish_at' => NULL]);
+      if ($node !== NULL && !$node->isPublished()) {
+        $node->setPublished();
+        $node->setNewRevision(TRUE);
+        $node->setRevisionLogMessage('Published at the time Tribune Desk scheduled');
+        $node->save();
+      }
+    }
+    return count($due);
+  }
+
+  protected static function publishAt(object $row): ?int {
+    return isset($row->publish_at) && $row->publish_at !== '' ? (int) $row->publish_at : NULL;
+  }
+
+  /**
+   * An ISO 8601 moment with an offset (`Z` or `+01:00`) as Unix time, or NULL.
+   */
+  protected static function instant(mixed $value): ?int {
+    if (!is_string($value) || !preg_match('/(Z|[+-]\d{2}:?\d{2})$/', $value)) {
+      return NULL;
+    }
+    $us = self::microseconds($value);
+    return $us === NULL ? NULL : intdiv($us, 1_000_000);
   }
 
   /**

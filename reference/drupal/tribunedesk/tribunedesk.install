@@ -46,6 +46,12 @@ function tribunedesk_schema(): array {
         'not null' => FALSE,
         'description' => 'URL of the delivered main image (not downloaded).',
       ],
+      'publish_at' => [
+        'type' => 'int',
+        'size' => 'big',
+        'not null' => FALSE,
+        'description' => 'When an unpublished node is to be published (Unix time), set by a delivery with publication mode schedule.',
+      ],
       'reported_url' => [
         'type' => 'text',
         'not null' => FALSE,
@@ -56,4 +62,14 @@ function tribunedesk_schema(): array {
     'unique keys' => ['nid' => ['nid']],
   ];
   return $schema;
+}
+
+/**
+ * Adds publish_at: the time a scheduled node is published (contract 3.7).
+ */
+function tribunedesk_update_10001(): void {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->fieldExists('tribunedesk_article', 'publish_at')) {
+    $schema->addField('tribunedesk_article', 'publish_at', tribunedesk_schema()['tribunedesk_article']['fields']['publish_at']);
+  }
 }

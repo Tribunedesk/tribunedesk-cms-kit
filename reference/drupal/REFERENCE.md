@@ -9,7 +9,7 @@ link back, API errors).
 
 | Path | Goes to |
 |---|---|
-| `tribunedesk/` | `web/modules/custom/tribunedesk/`: the module (webhook controller, delivery handler with a lock per article, link back on publish with a queue for retries, Drush commands `td:inspect` and `td:publish`, kernel and unit tests) |
+| `tribunedesk/` | `web/modules/custom/tribunedesk/`: the module (webhook controller, delivery handler with a lock per article, link back on publish with a queue for retries, the publication mode with `hook_cron()` publishing scheduled nodes, Drush commands `td:inspect` and `td:publish`, kernel and unit tests) |
 | `settings.tribunedesk.php` | the lines appended to `web/sites/default/settings.php`: secrets and addresses from the environment, never exported configuration |
 | `.env.example` | the variable names |
 | `tribunedesk.json` | the manifest written from the `tdkit check` report |
