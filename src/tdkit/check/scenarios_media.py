@@ -10,6 +10,7 @@ because afterwards the integration waits for a person to confirm a resync.
 from __future__ import annotations
 
 import itertools
+import time
 from typing import Any
 
 from tdkit.check.context import Context, Fail
@@ -17,6 +18,7 @@ from tdkit.check.scenarios import Scenario, expect
 from tdkit.mock import media
 from tdkit.mock.state import Recorded
 
+G1 = "guide/1-article-delivery.md"
 G4 = "guide/4-media-library.md"
 DW4 = f"{G4}#done-when"
 CYCLE = f"{G4}#the-sync-cycle"
@@ -61,6 +63,11 @@ S_SETTINGS = (
 S_TRASH = (
     "Do what suits your CMS, such as a hidden mark; do not delete a file used in published content."
 )
+S_BODY = (
+    "Use them to insert your CMS's native image instead of downloading the file, so that a new "
+    "send of the same article makes no second copy of it"
+)
+BODY_IMAGE_SECONDS = 3
 S_BACKFILL = (
     "If you have no candidates, send one page with an empty `items` and `is_last` true: "
     "silence leaves the request open, and an organization can have only one open."
@@ -321,6 +328,41 @@ def import_refused(ctx: Context) -> str:
     return f"{cms_media_id!r} refused as collage and not sent again"
 
 
+def body_image(ctx: Context) -> str:
+    # A file of the integration, paired, then placed in the body of an article as a library
+    # photo: `src` is on an allowed host, so only the hints can keep the integration from
+    # downloading it (guide 1, "The HTML body").
+    cms_media_id = ctx.media_add()
+    ctx.sync()
+    media.import_pending(ctx.state)
+    ctx.sync()
+    ctx.sync()
+    asset = ctx.state.media.paired(cms_media_id)
+    expect(asset is not None, f"the file {cms_media_id!r} was never paired")
+    assert asset is not None
+    body = ctx.article()
+    name = f"{body['article_id']}-body.jpg"
+    src = f"{ctx.files_base(ctx.image_host)}/files/{name}"
+    body["html"] += (
+        f'\n<figure><img src="{src}" alt="tdkit body photo" data-td-asset-id="{asset.asset_id}"'
+        f' data-td-cms-media-id="{cms_media_id}"><figcaption>tdkit body photo</figcaption></figure>'
+    )
+    for send in ("first", "second"):
+        if send == "second":
+            body = {**body, "sent_at": ctx.sent_at(1)}
+        refused = ctx.state.tls_failures
+        ctx.delivered(body)
+        deadline = time.monotonic() + BODY_IMAGE_SECONDS
+        while time.monotonic() < deadline and not ctx.state.pulls.get(name):
+            time.sleep(0.1)
+        expect(
+            not ctx.state.pulls.get(name) and ctx.state.tls_failures == refused,
+            f"on the {send} send the integration downloaded the body photo {src}, though "
+            f"data-td-cms-media-id names its own file {cms_media_id!r}",
+        )
+    return f"the photo of {cms_media_id!r} in the body was not downloaded on two sends"
+
+
 def cms_field_edit(ctx: Context) -> str:
     asset, cms_media_id = _paired(ctx)
     media.td_edit(ctx.state, asset.asset_id, ctx.field, "edited in Tribune Desk")
@@ -536,6 +578,15 @@ MEDIA_SCENARIOS: tuple[Scenario, ...] = (
     Scenario("l4-field-versions", 4, "any", S_VERSION, CYCLE, field_versions),
     Scenario("l4-cms-new-file", 4, "any", DW_PUSH, DW4, cms_new_file),
     Scenario("l4-import-refused", 4, "any", DW_IMPORT_REFUSED, DW4, import_refused),
+    Scenario(
+        "l4-body-image",
+        4,
+        "any",
+        S_BODY,
+        f"{G1}#the-html-body",
+        body_image,
+        needs_body_images=True,
+    ),
     Scenario("l4-cms-field-edit", 4, "any", DW_PUSH, DW4, cms_field_edit),
     Scenario("l4-cms-deletion", 4, "any", DW_PUSH, DW4, cms_deletion),
     Scenario("l4-conflict-winning-value", 4, "any", DW_CONFLICT, DW4, conflict_winning_value),

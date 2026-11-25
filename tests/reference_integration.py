@@ -143,6 +143,7 @@ def apply(
     trust_ca: bool = True,
     keep_embeds: bool = False,
     naive_embed_hosts: bool = False,
+    download_body_images: bool = False,
 ) -> dict:
     posts = data["posts"]
     article_id = article["article_id"]
@@ -163,6 +164,13 @@ def apply(
                 response.read()
         except (urllib.error.URLError, OSError):
             pass  # an image that cannot be downloaded does not stop the draft
+    if download_body_images:  # breaks l4-body-image: ignores data-td-cms-media-id
+        for src in re.findall(r'<img [^>]*src="([^"]+)"', article["html"]):
+            try:
+                with urllib.request.urlopen(src, timeout=10, context=_tls()) as response:
+                    response.read()
+            except (urllib.error.URLError, OSError):
+                pass
     provenance = article.get("ai_provenance") or {}
     post.update(
         cms_post_id=post_id,
@@ -309,6 +317,7 @@ def serve(args: argparse.Namespace) -> None:
                     trust_ca=not args.no_ca,
                     keep_embeds=args.keep_embeds,
                     naive_embed_hosts=args.naive_embed_hosts,
+                    download_body_images=args.download_body_images,
                 )
                 save(store, data)
             self._reply(200, None if args.empty_answer else answer)
@@ -342,6 +351,7 @@ def main() -> None:
     s.add_argument("--answer-500", action="store_true")
     s.add_argument("--keep-embeds", action="store_true")
     s.add_argument("--naive-embed-hosts", action="store_true")
+    s.add_argument("--download-body-images", action="store_true")
     for name in ("inspect", "publish"):
         sub.add_parser(name).add_argument("article_id")
     sub.add_parser("poll")

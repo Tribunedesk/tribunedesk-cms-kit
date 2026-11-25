@@ -38,6 +38,7 @@ class Scenario:
     run: Callable[[Context], str]
     needs_social_flag: bool = False
     needs_backfill: bool = False
+    needs_body_images: bool = False
 
 
 # -- helpers -------------------------------------------------------------------------------

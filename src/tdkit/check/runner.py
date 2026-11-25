@@ -188,6 +188,10 @@ def _run_one(scenario: Scenario, ctx: Context, opts: CheckOptions) -> Result:
         return result(None, "skipped: the CMS has no 'keep off Facebook' setting (--social-flag)")
     if scenario.needs_backfill and not opts.backfill:
         return result(None, "skipped: the integration does not answer import requests (--backfill)")
+    if scenario.needs_body_images and not opts.body_images:
+        return result(None, "skipped: library photos in the body are not native (--body-images)")
+    if scenario.needs_body_images and ctx.mode == "none":
+        return result(None, "skipped: needs deliveries, run levels 1 and 4 together")
     try:
         return result(True, scenario.run(ctx))
     except Fail as exc:

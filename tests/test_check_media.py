@@ -67,7 +67,7 @@ from tdkit.check.scenarios_media import G4, MEDIA_SCENARIOS  # noqa: E402
 from tdkit.docs import ContractDocs  # noqa: E402
 
 from .conftest import FIXTURE  # noqa: E402
-from .test_check import free_port  # noqa: E402
+from .test_check import free_port, options, reference  # noqa: E402
 
 REFERENCE = Path(__file__).parent / "reference_media.py"
 CORE = [s.id for s in MEDIA_SCENARIOS if not s.needs_backfill]
@@ -124,9 +124,38 @@ def failed(report: Report) -> set[str]:
 
 def test_reference_media_passes_level4(tmp_path: Path, docs: ContractDocs) -> None:
     report = run_check([4], "none", media_options(docs, tmp_path / "store.json"))
-    details = {r.id: r.detail for r in report.results if not r.passed}
+    details = {r.id: r.detail for r in report.results if r.passed is not True}
+    body = details.pop("l4-body-image")
     assert not details, details
+    assert "--body-images" in body
     assert [r.id for r in report.results] == [s.id for s in MEDIA_SCENARIOS]
+
+
+def _body_image_check(tmp_path: Path, docs: ContractDocs, *flags: str) -> Report:
+    """Levels 1 and 4 in webhook mode: the reference webhook plus the reference media store."""
+    port = free_port()
+    with reference(tmp_path, port, *flags) as (webhook, store):
+        media = media_options(docs, tmp_path / "media.json")
+        opts = options(docs, webhook, store, port, body_images=True)
+        merged = CheckOptions(
+            **{**media.__dict__, **{k: v for k, v in opts.__dict__.items() if v is not None}}
+        )
+        return run_check([1, 4], "webhook", merged, stop_after="l4-body-image")
+
+
+def test_body_image_passes_without_a_download(tmp_path: Path, docs: ContractDocs) -> None:
+    report = _body_image_check(tmp_path, docs)
+    result = next(r for r in report.results if r.id == "l4-body-image")
+    assert result.passed is True, result.detail
+
+
+def test_body_image_fails_a_cms_that_downloads_its_own_file(
+    tmp_path: Path, docs: ContractDocs
+) -> None:
+    report = _body_image_check(tmp_path, docs, "--download-body-images")
+    result = next(r for r in report.results if r.id == "l4-body-image")
+    assert result.passed is False
+    assert "first send" in result.detail
 
 
 def test_rerun_without_reset_fails_first_poll_with_hint(tmp_path: Path, docs: ContractDocs) -> None:
@@ -146,7 +175,7 @@ def test_rerun_without_reset_fails_first_poll_with_hint(tmp_path: Path, docs: Co
 def test_backfill_skipped_without_flag(tmp_path: Path, docs: ContractDocs) -> None:
     report = run_check([4], "none", media_options(docs, tmp_path / "s.json", backfill=False))
     skipped = {r.id: r.detail for r in report.results if r.passed is None}
-    assert list(skipped) == ["l4-backfill-answered"]
+    assert list(skipped) == ["l4-body-image", "l4-backfill-answered"]
     assert "--backfill" in skipped["l4-backfill-answered"]
 
 
@@ -164,10 +193,12 @@ def test_each_break_flag_fails_its_scenario(
 
 
 def test_media_done_when_quotes_are_literal() -> None:
-    text = (FIXTURE / G4).read_text(encoding="utf-8")
     for scenario in MEDIA_SCENARIOS:
+        guide = scenario.guide.split("#")[0]
+        text = (FIXTURE / guide).read_text(encoding="utf-8")
         assert scenario.done_when in text, scenario.id
-        assert scenario.guide.startswith(G4)
+        # Library photos in the body are a level 4 behaviour described in guide 1.
+        assert guide == G4 or scenario.needs_body_images, scenario.id
 
 
 def test_failing_reset_fails_level4_with_a_report(tmp_path: Path, docs: ContractDocs) -> None:

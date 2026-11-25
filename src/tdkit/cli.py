@@ -90,6 +90,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--backfill", action="store_true", help="the integration answers import requests"
     )
     check.add_argument(
+        "--body-images",
+        action="store_true",
+        help="library photos in html become native images of your CMS (levels 1 and 4)",
+    )
+    check.add_argument(
         "--media-fields",
         default="alt",
         help="fields your CMS maps, comma-separated; scenarios edit the first (default alt)",
@@ -311,6 +316,7 @@ def run_checks(args: argparse.Namespace) -> int:
         **level4,
         reset_cmd=args.reset_cmd,
         backfill=args.backfill,
+        body_images=args.body_images,
         media_fields=fields,
         media_hosts=tuple(split_list(args.media_hosts)),
     )

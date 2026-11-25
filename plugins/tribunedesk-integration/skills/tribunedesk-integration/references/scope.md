@@ -42,6 +42,12 @@ Level 4  Media library      (stands alone; 1 + 4 reuses library images in delive
     in `TDKIT check`);
   - push-existing: an operator's button that offers older Tribune Desk files to the CMS;
   - writing the settings from the CMS (`PUT /settings`): most newsrooms set them in Tribune Desk.
+- **Library photos in the body (1 + 4, recommended):** an `img` in `html` may carry
+  `data-td-asset-id` and `data-td-cms-media-id` (guide 1, "The HTML body"). Every level 1
+  integration keeps `figure`, `img` and those `data-td-*` attributes through its content filter;
+  a level 4 integration turns a `figure` whose `data-td-cms-media-id` is its own file into the
+  CMS's native image instead of downloading `src`, so a new send makes no second copy.
+  `TDKIT check --levels 1,4 --body-images` tests it (scenario `l4-body-image`).
 - A staging or local copy needs its own Tribune Desk organization: one organization has one feed
   position, so two clients on it muddle each other (`guide/4-media-library.md`, The sync cycle).
 
