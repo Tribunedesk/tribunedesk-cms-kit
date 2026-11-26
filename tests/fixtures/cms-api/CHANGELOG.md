@@ -2,6 +2,16 @@
 
 Changes of the Tribune Desk CMS API contract, newest first. Versions follow [Versioning](VERSIONING.md).
 
+## 3.8.0-draft – 2026-11-25
+
+- `POST /v3/cms/taxonomy/terms` (`articles:write`): your CMS sends its categories and tags, up to 1000 per request; a full run (`run_id`, `is_last`) also removes the terms your CMS no longer has; run one full run at a time, since a page with a new `run_id` abandons the previous run. `GET /v3/cms/status` shows `taxonomy`.
+- `ArticleDelivery` has an optional `taxonomy` (`categories` and `tags`, each term with `name` and, when known, `cms_term_id`): the terms the editor chose. Without it, nothing changes.
+- `ArticleDeliveryResult` (and the read-mode result) has an optional `taxonomy`: the categories and tags of the post after the delivery, and the `ignored` terms with a `reason` (`unknown_term` or `wrong_taxonomy`; more values may be added).
+
+**Integrators:**
+
+- `L3`: send your categories and tags to `POST /v3/cms/taxonomy/terms` (a full run daily, single changes as they happen); set the terms a delivery names in `taxonomy` (by `cms_term_id`, else by name; never create terms) and answer with `taxonomy`.
+
 ## 3.7.1-draft – 2026-11-25
 
 - `examples/python/level1_receiver.py` applies `publication` and answers with it, as guide 1 asks since 3.7.0-draft.
