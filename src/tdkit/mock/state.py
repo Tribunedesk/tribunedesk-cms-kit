@@ -1,4 +1,5 @@
-"""In-memory state of the mock: sends, the change feed, link backs, results and file pulls.
+"""In-memory state of the mock: sends, the change feed, link backs, results, file pulls and the
+categories and tags the CMS sent (`POST /v3/cms/taxonomy/terms`).
 
 Behaviour (cursor, `awaiting`, 409/410) is written by hand from guide 1 and the README of
 the contract; shapes come from the OpenAPI document (see `server.py`).
@@ -11,7 +12,7 @@ import secrets
 import threading
 import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from tdkit.mock.media import MediaLibrary
@@ -29,6 +30,7 @@ DEFAULT_TOKEN = "tdcms_mock"
 ORG_CODE = "tdkit-mock"
 
 SendState = Literal["awaiting", "delivered", "failed", "superseded"]
+TAXONOMY_RUN_TTL = timedelta(hours=24)
 
 
 def now_iso() -> str:
@@ -94,6 +96,71 @@ class ResultCall:
     delivery_id: str | None
 
 
+class TaxonomyConflict(Exception):
+    """A full run left open for more than 24 hours: `409 state_conflict`, nothing applied."""
+
+
+@dataclass
+class Taxonomy:
+    """The CMS's categories and tags as Tribune Desk holds them (guide 3, Categories and tags).
+
+    `terms` maps `(taxonomy, cms_term_id)` to the item as sent plus `last_run_id`, the full
+    run that last sent it. The page with `is_last` removes every term another run sent last.
+    """
+
+    terms: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
+    run_id: str | None = None
+    run_started_at: datetime | None = None
+    last_full_sync_at: str | None = None
+
+    def view(self) -> dict[str, Any] | None:
+        """`taxonomy` of `GET /status`: `null` until the CMS sends anything."""
+        if not self.terms and self.last_full_sync_at is None:
+            return None
+        return {"terms": len(self.terms), "last_full_sync_at": self.last_full_sync_at}
+
+    def apply_page(self, body: dict[str, Any], now: datetime | None = None) -> list[dict]:
+        """One page, already valid against `TaxonomyPageRequest`; its `results`.
+
+        `ValueError` for the rules the schema cannot say (422), `TaxonomyConflict` (409).
+        """
+        items: list[dict[str, Any]] = body["items"]
+        run_id, is_last = body.get("run_id"), bool(body.get("is_last"))
+        if not items and not (run_id is not None and is_last):
+            raise ValueError("items may be empty only on the last page of a full run")
+        if is_last and run_id is None:
+            raise ValueError("is_last needs run_id")
+        keys = [(i["taxonomy"], i["cms_term_id"]) for i in items]
+        if len(keys) != len(set(keys)):
+            raise ValueError("each term may appear at most once per page")
+        moment = now or datetime.now(UTC)
+        started = self.run_started_at
+        if run_id is not None and run_id != self.run_id:
+            started = moment  # a new run_id abandons the previous run
+        if is_last and (started is None or moment - started > TAXONOMY_RUN_TTL):
+            raise TaxonomyConflict("the full run was left open for more than 24 hours")
+        if run_id is not None and run_id != self.run_id:
+            self.run_id, self.run_started_at = run_id, moment
+        seen_by = run_id or self.run_id
+        results = []
+        for item, key in zip(items, keys, strict=True):
+            known = key in self.terms
+            if item.get("deleted"):
+                self.terms.pop(key, None)
+                results.append({"id": key[1], "status": "ok" if known else "unknown"})
+                continue
+            stored = {k: v for k, v in item.items() if k != "deleted"}
+            # A single change keeps the run that last sent a known term; a new term counts
+            # as seen by the open run, so its last page does not remove it.
+            last = self.terms[key]["last_run_id"] if known and run_id is None else seen_by
+            self.terms[key] = {**stored, "last_run_id": last}
+            results.append({"id": key[1], "status": "ok"})
+        if is_last:
+            self.terms = {k: t for k, t in self.terms.items() if t["last_run_id"] == run_id}
+            self.last_full_sync_at = moment.isoformat(timespec="seconds")
+        return results
+
+
 @dataclass
 class MockState:
     read_mode: bool = False
@@ -128,6 +195,7 @@ class MockState:
     switched: bool = False  # the first GET /changes since the integration was enabled came
     acked: int = 0  # the highest feed position any client passed as cursor
     media: MediaLibrary = field(default_factory=MediaLibrary)
+    taxonomy: Taxonomy = field(default_factory=Taxonomy)
 
     def cursor_for(self, seq: int) -> str:
         return f"c{self.run}-{self.epoch}-{seq}"

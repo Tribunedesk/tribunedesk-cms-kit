@@ -1,5 +1,7 @@
 """HTTP server of the mock: the `/v3/cms` routes of levels 1-3 and read mode, on 127.0.0.1 only.
 
+Level 4 routes are in `media_routes.py`, `POST /v3/cms/taxonomy/terms` in `taxonomy_routes.py`.
+
 Request bodies are validated with the schemas of the tag's OpenAPI document, literally,
 including `additionalProperties`. Order of checks as in the contract README: a malformed
 JSON body 422, then 401 (token), 403 (scope), 422 (shape), 409 (state). Every other route
@@ -26,7 +28,7 @@ from referencing import Registry
 from referencing.jsonschema import DRAFT202012
 
 from tdkit.docs import ContractDocs
-from tdkit.mock import media, media_routes, tls
+from tdkit.mock import media, media_routes, taxonomy_routes, tls
 from tdkit.mock.api import Answer, ApiError
 from tdkit.mock.api import Request as _Request
 from tdkit.mock.retries import Retrier
@@ -115,7 +117,8 @@ class MockServer:
             OPENAPI_URI, DRAFT202012.create_resource(docs.openapi)
         )
         self._validators: dict[str, Draft202012Validator] = {}
-        for name in ("PublishedArticlesRequest", "ArticleResultReport", *media_routes.SCHEMAS):
+        schemas = (*media_routes.SCHEMAS, *taxonomy_routes.SCHEMAS)
+        for name in ("PublishedArticlesRequest", "ArticleResultReport", *schemas):
             self._validators[name] = Draft202012Validator(
                 {"$ref": f"{OPENAPI_URI}#/components/schemas/{name}"},
                 registry=registry,
@@ -135,6 +138,7 @@ class MockServer:
             ("POST", re.compile(r"/_tdkit/send"), self._control_send),
             ("POST", re.compile(r"/_tdkit/integration"), self._control_integration),
             *media_routes.routes(self),
+            *taxonomy_routes.routes(self),
         ]
         self._planned = [
             (method.upper(), re.compile(re.sub(r"\{[^}]+\}", "[^/]+", path)))
@@ -319,6 +323,7 @@ class MockServer:
             done = max(self.state.floor, self.state.acked)
             pending = len([c for c in self.state.changes if c.seq > done])
             held = len([b for b in self.state.media.held.values() if b.state == "pending"])
+            taxonomy = self.state.taxonomy.view()
         return Answer(
             200,
             {
@@ -331,6 +336,7 @@ class MockServer:
                 "pending_changes": pending if enabled else None,
                 "held_batches": held if enabled else None,
                 "recent_errors": [],
+                "taxonomy": taxonomy,
             },
         )
 
