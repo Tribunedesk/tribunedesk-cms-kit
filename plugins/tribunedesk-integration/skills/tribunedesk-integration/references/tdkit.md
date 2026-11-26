@@ -19,6 +19,8 @@ building. Do not copy the README into the user's project.
    - `inspect <article_id>`: prints the post made from that article as JSON, or `null`;
    - `publish <article_id>`: publishes that post the way an editor would (levels 2-3);
    - `poll`: runs one poll of the read mode client (read mode).
+   - `taxonomy-sync`: sends the CMS's categories and tags as one full run (level 3,
+     when the CMS has them).
    - Level 4 adds `sync`, `media-inspect`, `media-add`, `media-edit`, `media-delete` and `reset`
      (CMS reference, section 10; the README has their contract).
 
@@ -48,6 +50,9 @@ TDKIT check --levels 1,2 --mode webhook \
 - `--secret` when the integration verifies with its own secret instead of the mock's; the
   report never shows the value. Never pass a production secret.
 - `--social-flag` when the CMS has a "keep this post off Facebook" setting.
+- `--taxonomy-sync-cmd "…"` (level 3) when the CMS has categories and tags: it runs
+  one full run to `POST /v3/cms/taxonomy/terms`. `l3-taxonomy` then needs two tags in
+  the CMS; add them by hand in the test CMS, never from the integration.
 - Level 4: `--levels 4 --mode none` (level 4 alone) with `--sync-cmd`, `--media-inspect-cmd`,
   `--media-add-cmd`, `--media-edit-cmd`, `--media-delete-cmd` and `--reset-cmd`; add
   `--backfill` when the integration answers import requests, and `--body-images` (levels 1 and 4
@@ -66,8 +71,9 @@ Each line is `PASS`, `FAIL` or `SKIP` with a short detail. A `FAIL` also quotes 
 2. Read the detail: it says what the integration did (status code, what `inspect` printed).
 3. Fix the code, rerun only that level.
 
-`SKIP` lines are expected for another mode (read mode scenarios in webhook mode) and for
-`l2-social-flag` without `--social-flag`.
+`SKIP` lines are expected for another mode (read mode scenarios in webhook mode), for
+`l2-social-flag` without `--social-flag` and for `l3-taxonomy-sync` and `l3-taxonomy`
+without `--taxonomy-sync-cmd`.
 
 ## TDKIT mock, for manual work
 

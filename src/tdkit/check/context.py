@@ -50,6 +50,8 @@ class CheckOptions:
     publish_cmd: str | None = None
     poll_cmd: str | None = None
     social_flag: bool = False
+    # Level 3, categories and tags: one full run of the CMS's terms (guide 3).
+    taxonomy_sync_cmd: str | None = None
     port: int = 8787
     # Level 4 (media library): the integration's sync and its library, as commands.
     sync_cmd: str | None = None
@@ -96,9 +98,9 @@ class Context:
     def article(self, *, minutes: int = 0, **fields: Any) -> dict[str, Any]:
         """A level 1 delivery body made from the tag's sample, with a new `article_id`.
 
-        The body has no internal links, no AI label, no `backlink_sources` and no `publication`,
-        so a level 3 integration stores `html` as sent and leaves the post a draft; its image is
-        on an allowed host (the mock).
+        The body has no internal links, no AI label, no `backlink_sources`, no `publication` and
+        no `taxonomy`, so a level 3 integration stores `html` as sent, leaves the post a draft
+        and its terms alone; its image is on an allowed host (the mock).
         """
         body = copy.deepcopy(self.opts.docs.sample_delivery)
         article_id = str(uuid.uuid4())
@@ -108,6 +110,7 @@ class Context:
                 image["url"] = image_url
         body.pop("backlink_sources", None)
         body.pop("publication", None)  # the sample's time is in the past: publish now
+        body.pop("taxonomy", None)  # the sample's term ids are not your CMS's
         body.update(
             article_id=article_id,
             sent_at=self.sent_at(minutes),
@@ -237,6 +240,11 @@ class Context:
         if not self.opts.poll_cmd:
             raise Fail("read mode needs --poll-cmd")
         self._run(self.opts.poll_cmd, "--poll-cmd", "")
+
+    def taxonomy_sync(self) -> None:
+        if not self.opts.taxonomy_sync_cmd:
+            raise Fail("this scenario needs --taxonomy-sync-cmd")
+        self._run(self.opts.taxonomy_sync_cmd, "--taxonomy-sync-cmd", "")
 
     def _run(self, template: str, name: str, article_id: str, **values: str) -> str:
         try:

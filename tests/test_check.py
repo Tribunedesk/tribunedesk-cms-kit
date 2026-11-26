@@ -7,6 +7,7 @@ import sys
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -85,6 +86,7 @@ def options(
         inspect_cmd=command("inspect {article_id}", store),
         publish_cmd=command("publish {article_id}", store),
         poll_cmd=command("poll", store),
+        taxonomy_sync_cmd=command("taxonomy-sync", store),
         port=port,
         **extra,
     )
@@ -117,6 +119,8 @@ def webhook_run(
                 "--publish-cmd",
                 command("publish {article_id}", store),
                 "--social-flag",
+                "--taxonomy-sync-cmd",
+                command("taxonomy-sync", store),
                 "--port",
                 str(port),
                 "--docs",
@@ -160,11 +164,18 @@ def test_json_report_shape(webhook_run: tuple[int, dict[str, Any], str]) -> None
 
 
 def _webhook_check(
-    tmp_path: Path, docs: ContractDocs, flags: tuple[str, ...], levels: list[int]
+    tmp_path: Path,
+    docs: ContractDocs,
+    flags: tuple[str, ...],
+    levels: list[int],
+    **extra: Any,
 ) -> Report:
     port = free_port()
     with reference(tmp_path, port, *flags) as (webhook, store):
-        return run_check(levels, "webhook", options(docs, webhook, store, port))
+        opts = options(docs, webhook, store, port)
+        if extra:
+            opts = replace(opts, **{k: v.replace("{store}", str(store)) for k, v in extra.items()})
+        return run_check(levels, "webhook", opts)
 
 
 def test_check_fails_when_signature_not_verified(
@@ -216,6 +227,45 @@ def test_check_fails_a_cms_that_unpublishes_on_a_new_send(
     assert [r.id for r in report.failed] == ["l1-publication"]
     failed = next(r for r in report.failed if r.id == "l1-publication")
     assert "published" in failed.detail
+
+
+def test_check_fails_a_cms_that_creates_unknown_terms(tmp_path: Path, docs: ContractDocs) -> None:
+    """Contract 3.8: a term the CMS does not have is `ignored` with `unknown_term`, never made."""
+    report = _webhook_check(tmp_path, docs, ("--create-terms",), [3])
+    assert [r.id for r in report.failed] == ["l3-taxonomy"]
+    failed = next(r for r in report.failed if r.id == "l3-taxonomy")
+    assert "unknown_term" in failed.detail
+
+
+def test_check_fails_a_cms_that_clears_terms_without_taxonomy(
+    tmp_path: Path, docs: ContractDocs
+) -> None:
+    """A delivery without `taxonomy` leaves the post's terms alone."""
+    report = _webhook_check(tmp_path, docs, ("--clear-missing-taxonomy",), [3])
+    assert [r.id for r in report.failed] == ["l3-taxonomy"]
+    failed = next(r for r in report.failed if r.id == "l3-taxonomy")
+    assert "without `taxonomy`" in failed.detail
+
+
+def test_check_fails_a_full_run_without_its_last_page(tmp_path: Path, docs: ContractDocs) -> None:
+    """A full run that never sends `is_last` removes nothing in Tribune Desk."""
+    sync = f'"{sys.executable}" "{REFERENCE}" taxonomy-sync --no-is-last --store "{{store}}"'
+    report = _webhook_check(tmp_path, docs, (), [3], taxonomy_sync_cmd=sync)
+    assert [r.id for r in report.failed] == ["l3-taxonomy-sync"]
+    failed = next(r for r in report.failed if r.id == "l3-taxonomy-sync")
+    assert "is_last" in failed.detail
+
+
+def test_taxonomy_scenarios_skip_without_the_sync_command(
+    tmp_path: Path, docs: ContractDocs
+) -> None:
+    """A CMS without categories and tags passes no --taxonomy-sync-cmd."""
+    report = _webhook_check(tmp_path, docs, (), [3], taxonomy_sync_cmd="")
+    results = {r.id: r for r in report.results}
+    for sid in ("l3-taxonomy-sync", "l3-taxonomy"):
+        assert results[sid].passed is None
+        assert "--taxonomy-sync-cmd" in results[sid].detail
+    assert report.failed == []
 
 
 def test_check_accepts_empty_2xx_for_delivery_only_scenarios(

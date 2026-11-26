@@ -186,6 +186,8 @@ def _run_one(scenario: Scenario, ctx: Context, opts: CheckOptions) -> Result:
         return result(None, f"skipped: needs {scenario.mode} mode")
     if scenario.needs_social_flag and not opts.social_flag:
         return result(None, "skipped: the CMS has no 'keep off Facebook' setting (--social-flag)")
+    if scenario.needs_taxonomy and not opts.taxonomy_sync_cmd:
+        return result(None, "skipped: the CMS sends no categories and tags (--taxonomy-sync-cmd)")
     if scenario.needs_backfill and not opts.backfill:
         return result(None, "skipped: the integration does not answer import requests (--backfill)")
     if scenario.needs_body_images and not opts.body_images:

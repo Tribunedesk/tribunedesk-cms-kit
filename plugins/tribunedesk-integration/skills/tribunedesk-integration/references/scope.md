@@ -10,7 +10,7 @@ what the user says onto them.
 |---|---|---|---|
 | "Articles should land in our CMS as drafts" | 1 | webhook | The minimum. |
 | "Articles and links" / "Tribune Desk should know where we published" | 1 + 2 | webhook | Level 2 lets other articles link to the published post. |
-| "Everything: links inside articles, the read-more box, SEO, the AI label" | 1 + 2 + 3 | webhook | Level 3 is more fields of the same delivery, no new route. |
+| "Everything: links inside articles, the read-more box, SEO, the AI label" | 1 + 2 + 3 | webhook | Level 3 is more fields of the same delivery; categories and tags add one route the CMS calls. |
 | "Only photos" / "keep our media library in sync" | 4 | none | No webhook. Core first; the options below only on request. |
 | "Articles, and reuse images already in our library" | 1 + 4 | webhook | Reuse needs level 4 data. |
 | "Our CMS is not reachable from the internet" / "only behind VPN" | 1 (+2, +3) | read | The CMS polls Tribune Desk instead of receiving requests. |
@@ -67,7 +67,10 @@ For local development neither mode needs a public address: `tdkit check` runs th
 - Level 1: `guide/1-article-delivery.md` (webhook and read mode, signature, fields, images,
   the publication mode: `publication` asks for a draft, a scheduled post or one published now).
 - Level 2: `guide/2-link-back.md`.
-- Level 3: `guide/3-full-content.md`.
+- Level 3: `guide/3-full-content.md` (also categories and tags: the CMS sends its terms
+  to `POST /v3/cms/taxonomy/terms`, a full run daily and single changes as they happen,
+  sets the terms a delivery names in `taxonomy` by `cms_term_id`, else by name, never
+  creates a term, and answers with `taxonomy`).
 - Level 4: `guide/4-media-library.md`.
 - Level 5: `guide/5-archive.md` (planned).
 - Errors, scopes, retries: `README.md`.

@@ -186,3 +186,8 @@ handled_by = ["scenario:l4-first-poll", "skill:references/scope.md"]
 version = "3.7.0-draft"
 action = "publish, schedule or keep a draft as `publication` asks, answer with `publication`, and update a scheduled post on a new send as you update a draft."
 handled_by = ["scenario:l1-publication"]
+
+[[integrators]]
+version = "3.8.0-draft"
+action = "send your categories and tags to `POST /v3/cms/taxonomy/terms` (a full run daily, single changes as they happen); set the terms a delivery names in `taxonomy` (by `cms_term_id`, else by name; never create terms) and answer with `taxonomy`."
+handled_by = ["scenario:l3-taxonomy-sync", "scenario:l3-taxonomy", "skill:references/scope.md"]

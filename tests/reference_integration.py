@@ -6,9 +6,11 @@ developer commands:
     python reference_integration.py serve --port 8080 --store store.json [--no-verify]
         [--overwrite-older] [--empty-answer] [--any-image-host] [--answer-500]
         [--keep-embeds] [--naive-embed-hosts] [--ignore-publication] [--unpublish]
+        [--create-terms] [--clear-missing-taxonomy]
     python reference_integration.py inspect --store store.json <article_id>
     python reference_integration.py publish --store store.json <article_id>
     python reference_integration.py poll --store store.json
+    python reference_integration.py taxonomy-sync --store store.json [--no-is-last]
 
 `TD_API_BASE` and `TD_CMS_TOKEN` point at the API (the mock); `TD_WEBHOOK_SECRET` is the
 signing secret (default: the tdkit mock secret). The flags break one rule each, so the tests
@@ -28,6 +30,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -43,9 +46,16 @@ LOCK = threading.Lock()
 # -- store ---------------------------------------------------------------------------------
 
 
+# The CMS's own categories and tags; Tribune Desk never adds to them (contract 3.8).
+TERMS = {
+    "category": {"1": "Uncategorized", "2": "Local politics"},
+    "tag": {"10": "City budget", "11": "Łódź", "12": "Mayor", "13": "Kasia Nowak"},
+}
+
+
 def load(store: Path) -> dict[str, Any]:
     if not store.exists():
-        return {"posts": {}, "cursor": None}
+        return {"posts": {}, "cursor": None, "terms": json.loads(json.dumps(TERMS))}
     return json.loads(store.read_text(encoding="utf-8"))
 
 
@@ -146,6 +156,8 @@ def apply(
     download_body_images: bool = False,
     ignore_publication: bool = False,
     unpublish: bool = False,
+    create_terms: bool = False,
+    clear_missing_taxonomy: bool = False,
 ) -> dict:
     posts = data["posts"]
     article_id = article["article_id"]
@@ -157,7 +169,13 @@ def apply(
     ):
         return {"cms_post_id": existing["cms_post_id"], "edit_url": existing["edit_url"]}
     post_id = existing["cms_post_id"] if existing else str(len(posts) + 1)
-    post = existing or {"status": "draft", "permalink": None, "backlink_sources": []}
+    post = existing or {
+        "status": "draft",
+        "permalink": None,
+        "backlink_sources": [],
+        "categories": ["1"],
+        "tags": [],
+    }
     image = (article.get("featured_image") or {}).get("url")
     if image and download and (any_host or urllib.parse.urlsplit(image).hostname in image_hosts()):
         try:
@@ -193,6 +211,12 @@ def apply(
     )
     if article.get("backlink_sources") is not None:
         post["backlink_sources"] = [str(s["article_id"]) for s in article["backlink_sources"]]
+    taxonomy = article.get("taxonomy")
+    if clear_missing_taxonomy and not isinstance(taxonomy, dict):
+        taxonomy = {"categories": [], "tags": []}  # breaks l3-taxonomy: a missing key is kept
+    ignored = None
+    if isinstance(taxonomy, dict):
+        ignored = apply_taxonomy(post, taxonomy, data["terms"], create=create_terms)
     if not ignore_publication:
         apply_publication(post, article.get("publication"), unpublish=unpublish)
     posts[article_id] = post
@@ -204,7 +228,59 @@ def apply(
     }
     if not ignore_publication:
         answer["publication"] = publication_state(post)
+    if ignored is not None:
+        answer["taxonomy"] = taxonomy_state(post, data["terms"], ignored)
     return answer
+
+
+def apply_taxonomy(
+    post: dict[str, Any], taxonomy: dict[str, Any], terms: dict[str, Any], *, create: bool
+) -> list[dict[str, str]]:
+    """Contract 3.8: a present key replaces that taxonomy, a missing one leaves it alone; a term
+    is found by `cms_term_id`, else by name ignoring case, and never created. Only a post that
+    is not public changes. Returns `ignored`."""
+    ignored: list[dict[str, str]] = []
+    if post["status"] == "published":
+        return ignored
+    for key, name in (("categories", "category"), ("tags", "tag")):
+        refs = taxonomy.get(key)
+        if not isinstance(refs, list):
+            continue
+        other = terms["tag" if name == "category" else "category"]
+        ids: list[str] = []
+        for ref in refs:
+            if not isinstance(ref, dict) or not isinstance(ref.get("name"), str):
+                continue
+            given = str(ref.get("cms_term_id") or "")
+            folded = ref["name"].casefold()
+            term_id = given if given in terms[name] else ""
+            if not term_id:
+                term_id = next((i for i, n in terms[name].items() if n.casefold() == folded), "")
+            if not term_id and create:  # breaks l3-taxonomy: a CMS must never do this
+                term_id = str(100 + sum(len(t) for t in terms.values()))
+                terms[name][term_id] = ref["name"]
+            if term_id:
+                if term_id not in ids:
+                    ids.append(term_id)
+                continue
+            elsewhere = given in other or any(n.casefold() == folded for n in other.values())
+            reason = "wrong_taxonomy" if elsewhere else "unknown_term"
+            ignored.append({"name": ref["name"], "reason": reason})
+        post[key] = ids
+    return ignored
+
+
+def taxonomy_state(
+    post: dict[str, Any], terms: dict[str, Any], ignored: list[dict[str, str]]
+) -> dict[str, Any]:
+    def named(key: str, name: str) -> list[dict[str, str]]:
+        return [{"cms_term_id": i, "name": terms[name][i]} for i in post.get(key, [])]
+
+    return {
+        "categories": named("categories", "category"),
+        "tags": named("tags", "tag"),
+        "ignored": ignored,
+    }
 
 
 def apply_publication(post: dict[str, Any], publication: Any, *, unpublish: bool) -> None:
@@ -255,6 +331,9 @@ def inspect(data: dict[str, Any], article_id: str) -> dict[str, Any] | None:
         "ai_provenance_jws",
     ]
     shown = {key: post.get(key) for key in keys}
+    terms = data["terms"]
+    shown["categories"] = [terms["category"][i] for i in post.get("categories", [])]
+    shown["tags"] = [terms["tag"][i] for i in post.get("tags", [])]
     # The box is part of the public page: it lists published articles on a published post, as
     # the WordPress plugin does.
     shown["read_more"] = sorted(
@@ -277,6 +356,24 @@ def publish(data: dict[str, Any], article_id: str) -> None:
     status, body, _ = api("POST", "/v3/cms/articles/published", {"items": [item]})
     if status != 200 or body["results"][0]["status"] != "ok":
         raise SystemExit(f"link back failed: {status} {body}")
+
+
+def taxonomy_sync(data: dict[str, Any], *, last: bool = True, size: int = 3) -> None:
+    """One full run of every term, in pages of `size` (small, so a run has several pages)."""
+    items = [
+        {"taxonomy": name, "cms_term_id": term_id, "name": term}
+        for name, found in data["terms"].items()
+        for term_id, term in sorted(found.items(), key=lambda kv: int(kv[0]))
+    ]
+    run_id = str(uuid.uuid4())
+    pages = [items[i : i + size] for i in range(0, len(items), size)] or [[]]
+    for number, page in enumerate(pages, 1):
+        body: dict[str, Any] = {"run_id": run_id, "items": page}
+        if last and number == len(pages):
+            body["is_last"] = True
+        status, answer, _ = api("POST", "/v3/cms/taxonomy/terms", body)
+        if status != 200:
+            raise SystemExit(f"POST /taxonomy/terms answered {status}: {answer}")
 
 
 # -- read mode -----------------------------------------------------------------------------
@@ -356,6 +453,8 @@ def serve(args: argparse.Namespace) -> None:
                     download_body_images=args.download_body_images,
                     ignore_publication=args.ignore_publication,
                     unpublish=args.unpublish,
+                    create_terms=args.create_terms,
+                    clear_missing_taxonomy=args.clear_missing_taxonomy,
                 )
                 save(store, data)
             self._reply(200, None if args.empty_answer else answer)
@@ -392,9 +491,12 @@ def main() -> None:
     s.add_argument("--download-body-images", action="store_true")
     s.add_argument("--ignore-publication", action="store_true")
     s.add_argument("--unpublish", action="store_true")
+    s.add_argument("--create-terms", action="store_true")
+    s.add_argument("--clear-missing-taxonomy", action="store_true")
     for name in ("inspect", "publish"):
         sub.add_parser(name).add_argument("article_id")
     sub.add_parser("poll")
+    sub.add_parser("taxonomy-sync").add_argument("--no-is-last", action="store_true")
     for p in sub.choices.values():
         p.add_argument("--store", required=True)
     args = parser.parse_args()
@@ -409,6 +511,8 @@ def main() -> None:
             return
         if args.command == "publish":
             publish(data, args.article_id)
+        elif args.command == "taxonomy-sync":
+            taxonomy_sync(data, last=not args.no_is_last)
         else:
             poll(data)
         save(store, data)

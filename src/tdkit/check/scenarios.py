@@ -38,6 +38,7 @@ class Scenario:
     guide: str
     run: Callable[[Context], str]
     needs_social_flag: bool = False
+    needs_taxonomy: bool = False
     needs_backfill: bool = False
     needs_body_images: bool = False
 
@@ -594,6 +595,127 @@ def ai_label(ctx: Context) -> str:
     return "the AI label's JWS is on the post"
 
 
+# -- level 3, categories and tags ----------------------------------------------------------
+
+TAXONOMY_ROUTE = r"/v3/cms/taxonomy/terms"
+
+
+def taxonomy_sync(ctx: Context) -> str:
+    mark = ctx.mark()
+    ctx.taxonomy_sync()
+    pages = ctx.requests_since(mark, "POST", TAXONOMY_ROUTE)
+    expect(bool(pages), "--taxonomy-sync-cmd sent nothing to POST /v3/cms/taxonomy/terms")
+    refused = [p for p in pages if p.status != 200]
+    expect(
+        not refused,
+        "Tribune Desk refused a page: "
+        + "; ".join(f"{p.status} {p.answer!r}" for p in refused[:2]),
+    )
+    # Pages without `run_id` are single changes the command may send as well.
+    full = [p for p in pages if isinstance(p.body, dict) and p.body.get("run_id")]
+    expect(bool(full), "no page carried `run_id`: a full run sends one on every page")
+    runs = {p.body["run_id"] for p in full}
+    expect(len(runs) == 1, f"one full run sends one `run_id` on every page, not {len(runs)}")
+    expect(
+        full[-1].body.get("is_last") is True,
+        "the last page of the full run has no `is_last: true`: Tribune Desk never removes the "
+        "terms your CMS no longer has",
+    )
+    early = [i for i, p in enumerate(full[:-1], 1) if p.body.get("is_last")]
+    expect(not early, f"`is_last` on page {early[:1]} of {len(full)}, before the last")
+    terms = ctx.state.taxonomy.terms
+    expect(bool(terms), "the full run sent no terms")
+    tags = sum(1 for taxonomy, _ in terms if taxonomy == "tag")
+    return f"{len(full)} page(s) of one run, {len(terms)} terms ({tags} tags), `is_last` last"
+
+
+def _names(value: Any) -> list[str]:
+    """Term names from `inspect` or an answer: a list of names or of `{name, …}` objects."""
+    if not isinstance(value, list):
+        return []
+    names = [v.get("name") if isinstance(v, dict) else v for v in value]
+    return sorted(str(n).casefold() for n in names if isinstance(n, str))
+
+
+def _two_tags(ctx: Context) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Two tags of the CMS with names no other tag has, from its sync (run here if needed)."""
+
+    def unique() -> list[dict[str, Any]]:
+        tags = [t for (taxonomy, _), t in ctx.state.taxonomy.terms.items() if taxonomy == "tag"]
+        counts: dict[str, int] = {}
+        for t in tags:
+            counts[t["name"].casefold()] = counts.get(t["name"].casefold(), 0) + 1
+        return sorted(
+            (t for t in tags if counts[t["name"].casefold()] == 1),
+            key=lambda t: t["cms_term_id"],
+        )
+
+    tags = unique()
+    if len(tags) < 2:
+        ctx.taxonomy_sync()
+        tags = unique()
+    expect(
+        len(tags) >= 2,
+        f"this scenario needs two tags in your CMS with different names; "
+        f"--taxonomy-sync-cmd sent {len(tags)} such tag(s)",
+    )
+    return tags[0], tags[1]
+
+
+def taxonomy_delivery(ctx: Context) -> str:
+    by_id, by_name = _two_tags(ctx)
+    unknown = f"tdkit unknown tag {uuid.uuid4().hex[:8]}"
+    wanted = sorted({by_id["name"].casefold(), by_name["name"].casefold()})
+    body = ctx.article(
+        minutes=-10,
+        taxonomy={
+            "tags": [
+                {"cms_term_id": by_id["cms_term_id"], "name": by_id["name"]},
+                {"name": by_name["name"]},  # no id: find it by name
+                {"cms_term_id": f"tdkit-{uuid.uuid4().hex[:8]}", "name": unknown},
+            ]
+        },
+    )
+    answer = (ctx.delivered(body).json or {}).get("taxonomy")
+    expect(isinstance(answer, dict), f"the answer has no `taxonomy` object: {answer!r}")
+    assert isinstance(answer, dict)
+    listed = answer.get("ignored")
+    ignored: list[Any] = listed if isinstance(listed, list) else []
+    expect(
+        any(
+            isinstance(i, dict) and i.get("name") == unknown and i.get("reason") == "unknown_term"
+            for i in ignored
+        ),
+        f"`taxonomy.ignored` has no {unknown!r} with reason `unknown_term`: {ignored!r}",
+    )
+    expect(
+        _names(answer.get("tags")) == wanted,
+        f"`taxonomy.tags` of the answer is {answer.get('tags')!r}, expected the two known tags",
+    )
+    post = ctx.must_inspect(body["article_id"])
+    expect(
+        _names(post.get("tags")) == wanted,
+        f"the post's tags are {post.get('tags')!r}: expected {by_id['name']!r} (by id) and "
+        f"{by_name['name']!r} (by name), not the unknown one",
+    )
+    ctx.taxonomy_sync()
+    made = [t for t in ctx.state.taxonomy.terms.values() if t["name"] == unknown]
+    expect(not made, f"your CMS created the term {unknown!r}: never create a term")
+    again = {k: v for k, v in body.items() if k != "taxonomy"}
+    again.update(sent_at=ctx.sent_at(-5), title=body["title"] + " (again)")
+    ctx.delivered(again)
+    after = ctx.must_inspect(body["article_id"])
+    expect(
+        after.get("title") == again["title"],
+        f"the delivery without `taxonomy` did not update the post: title {after.get('title')!r}",
+    )
+    expect(
+        _names(after.get("tags")) == wanted,
+        f"a delivery without `taxonomy` changed the post's tags to {after.get('tags')!r}",
+    )
+    return "set by id and by name, the unknown one ignored and not created, kept on a new send"
+
+
 # -- the list ------------------------------------------------------------------------------
 
 DW1 = f"{G1}#done-when"
@@ -673,6 +795,12 @@ D3_AI = (
     "`ai_provenance` is not `null`."
 )
 
+D3_TAXONOMY = (
+    "Categories and tags: your CMS sends its terms to `POST /v3/cms/taxonomy/terms`, sets the "
+    "terms of `taxonomy` on a new or unpublished post, never creates a term, and answers with "
+    "`taxonomy`."
+)
+
 __all__ = ["SCENARIOS", "Scenario", "image_hosts_for"]
 
 SCENARIOS: tuple[Scenario, ...] = (
@@ -715,4 +843,6 @@ SCENARIOS: tuple[Scenario, ...] = (
     Scenario("l3-backlinks-rules", 3, "any", D3_BOX, DW3, backlinks_rules),
     Scenario("l3-seo-author-language", 3, "any", D3_SEO, DW3, seo_author_language),
     Scenario("l3-ai-label", 3, "any", D3_AI, DW3, ai_label),
+    Scenario("l3-taxonomy-sync", 3, "any", D3_TAXONOMY, DW3, taxonomy_sync, needs_taxonomy=True),
+    Scenario("l3-taxonomy", 3, "any", D3_TAXONOMY, DW3, taxonomy_delivery, needs_taxonomy=True),
 )

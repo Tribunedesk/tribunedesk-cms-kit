@@ -68,6 +68,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--social-flag", action="store_true", help="the CMS has a “keep off Facebook” setting"
     )
     check.add_argument(
+        "--taxonomy-sync-cmd",
+        help="sends your categories and tags to POST /v3/cms/taxonomy/terms as one full run "
+        "(level 3)",
+    )
+    check.add_argument(
         "--port", type=int, default=8787, help="port of the mock on 127.0.0.1 (default 8787)"
     )
     check.add_argument("--json", type=Path, help="also write the report as JSON to this file")
@@ -312,6 +317,7 @@ def run_checks(args: argparse.Namespace) -> int:
         publish_cmd=args.publish_cmd,
         poll_cmd=args.poll_cmd,
         social_flag=args.social_flag,
+        taxonomy_sync_cmd=args.taxonomy_sync_cmd,
         port=args.port,
         **level4,
         reset_cmd=args.reset_cmd,

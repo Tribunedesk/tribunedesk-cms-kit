@@ -120,12 +120,13 @@ What the mock does:
 
 | Route | Behaviour |
 |---|---|
-| `GET /v3/cms/status` | `contract_version` of the tag, the token's `scopes`, `state`, `image_hosts` (`["127.0.0.1"]`) |
+| `GET /v3/cms/status` | `contract_version` of the tag, the token's `scopes`, `state`, `image_hosts` (`["127.0.0.1"]`), `taxonomy` (`null` until your CMS sends terms) |
 | `GET /v3/cms/changes` | `article_sent` changes in read mode, only for `articles:read`; level 4 changes (`new_asset`, `fields`, `settings`, `deleted`, `restored`), only for `media:read`; opaque cursors; `409 state_conflict` while the integration is disabled; `410 cursor_expired` after a re-enable or `/_tdkit/expire-cursors`, after which the earlier feed is gone, which is stricter than the guide documents; `422` for a cursor from an earlier run of the mock |
 | `GET /v3/cms/articles/awaiting` | the sends still waiting for a result, oldest first |
 | `GET /v3/cms/articles/{article_id}` | the sent article with its `X-Delivery-Id`; `404` when it was never sent |
 | `POST /v3/cms/articles/{article_id}/result` | closes the send named by `delivery_id`; `409 state_conflict` for a replaced send or a never-sent article; unknown fields come back in `ignored_fields` |
 | `POST /v3/cms/articles/published` | `ok`, `not_found` or `invalid_url` per item |
+| `POST /v3/cms/taxonomy/terms` | your categories and tags (`articles:write`), pages up to 1000; a full run (`run_id`) removes the terms it did not send after its `is_last` page, a run without it removes nothing, a new `run_id` abandons the open run, a run open for 24 hours gets `409 state_conflict`; without `run_id`, single changes (`deleted: true` answers `unknown` for a term that was not there) |
 | `GET /v3/cms/openapi.json` | the tag's OpenAPI document, no token |
 | `GET /files/<name>` | a small JPEG; the mock records every download |
 | `POST /v3/cms/media`, `/media/fields`, `/media/deletions`, `/media/{asset_id}/link`, `/media/push-existing` | as guide 4: per-item results, the six steps of "Conflicts and base_version", the mass-change threshold (60-minute run, `held`), `422` for NUL and for a time without a zone |
@@ -168,7 +169,8 @@ to `http://localhost`. This route is the mock's own, not part of the Tribune Des
 ```bash
 tdkit check --levels 1,2,3 [--mode webhook|read] --webhook URL
             --inspect-cmd "…{article_id}…" [--publish-cmd "…{article_id}…"] [--poll-cmd "…"]
-            [--secret whsec_…] [--social-flag] [--port 8787] [--json report.json]
+            [--secret whsec_…] [--social-flag] [--taxonomy-sync-cmd "…"]
+            [--port 8787] [--json report.json]
             [--docs DIR] [--contract TAG]
 tdkit check --levels 4 --mode none --sync-cmd "…" --media-inspect-cmd "…{cms_media_id}…"
             --media-add-cmd "…{file}…" --media-edit-cmd "…{cms_media_id} {field} {value}…"
@@ -205,6 +207,7 @@ without a shell, with a 60-second limit. A non-zero exit code fails the scenario
 | `--inspect-cmd` | always | prints, as JSON on stdout (UTF-8), the post your CMS made from `{article_id}`, or `null` when there is none |
 | `--publish-cmd` | levels 2 and 3 | publishes the post made from `{article_id}`, the way an editor would; your CMS then reports its address (link back) |
 | `--poll-cmd` | read mode | runs one poll of your read mode client: `GET /changes`, then fetch, apply and `POST /result` for each sent article |
+| `--taxonomy-sync-cmd` | level 3, when your CMS has categories and tags | sends all your categories and tags to `POST /v3/cms/taxonomy/terms` as one full run (the same `run_id` on every page, `is_last: true` on the last) and finishes before it exits; without it `l3-taxonomy-sync` and `l3-taxonomy` are skipped |
 | `--sync-cmd` | level 4 | runs one whole sync cycle of the media library: `GET /changes` until `has_more` is false, apply, store the cursor, send your new files, field edits and deletions, answer import requests (with `--backfill`); it finishes sending before it exits |
 | `--media-inspect-cmd` | level 4 | prints the file `{cms_media_id}` of your library as JSON (below), or `null` |
 | `--media-add-cmd` | level 4 | adds the image `{file}` (a PNG `check` writes) to your library as an editor would, and prints `{"cms_media_id": "…"}` |
@@ -233,6 +236,7 @@ For example `python manage.py td_inspect {article_id}` (Django) or
 | 3 | `author` | the post's author (any non-empty value) |
 | 3 | `read_more` | the `article_id`s of the articles shown in **this** post's "read more" box |
 | 3 | `ai_provenance_jws` | the `jws` of the AI label on the public page, or `null` |
+| 3 | `categories`, `tags` | the names of the post's categories and tags, as a list of text (with `--taxonomy-sync-cmd`) |
 
 **Windows and `.cmd`/`.bat` programs.** A template whose program resolves to a `.cmd` or
 `.bat` file (`npx.cmd`, `wp.bat`) runs through `cmd.exe`, which parses the arguments again: a
@@ -292,6 +296,8 @@ point for the behaviour, the guide's sentence that requires it.
 | `l3-backlinks-rules` | 3 any | A and B published (`--publish-cmd`), B with `backlink_sources=[A]`, then without the key, then `[]` | A's `read_more`: `[B]`, `[B]`, `[]` | The "read more" box follows `backlink_sources`, including the missing-key and empty-list rules. |
 | `l3-seo-author-language` | 3 any | the sample's SEO, author and language | stored as sent; author not empty | SEO fields, author and language are stored on the post. |
 | `l3-ai-label` | 3 any | a delivery with `ai_provenance`, published | `ai_provenance_jws` equals the delivery's `jws` | The AI label is in the `<head>` of every public page made from a delivery whose `ai_provenance` is not `null`. |
+| `l3-taxonomy-sync` | 3 any, with `--taxonomy-sync-cmd` | `--taxonomy-sync-cmd` | every page `200`; the full run's pages carry one `run_id`, only the last has `is_last: true`; terms arrived | Categories and tags: your CMS sends its terms to `POST /v3/cms/taxonomy/terms`, sets the terms of `taxonomy` on a new or unpublished post, never creates a term, and answers with `taxonomy`. |
+| `l3-taxonomy` | 3 any, with `--taxonomy-sync-cmd` | `taxonomy.tags` with one of your tags by `cms_term_id`, another by name only and one your CMS does not have; then a new send without `taxonomy` | the post and the answer's `taxonomy.tags` have the two tags (names compared ignoring case); `ignored` names the unknown one with `unknown_term`; the next full run does not carry it; after the send without `taxonomy` the post keeps both tags. Needs two tags with different names in your CMS | (same) |
 | `l4-first-poll` | 4 | two syncs | every poll after the first sends a cursor the previous answer gave | Your CMS polls `GET /v3/cms/changes` and stores the cursor only after applying the changes it returned. |
 | `l4-new-asset-linked` | 4 | 101 field changes, then a new file in Tribune Desk; one sync | `/link` with your `cms_media_id`; the stored file has the same `sha256` and texts; every page was read | Call `POST /v3/cms/media/{asset_id}/link` with `cms_media_id` … |
 | `l4-cursor-after-apply` | 4 | a new file whose download fails; sync; then it works; sync | not linked while it failed; the next poll's cursor is before it | (as `l4-first-poll`) |
