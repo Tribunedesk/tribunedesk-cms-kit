@@ -48,7 +48,8 @@ feature image, its alt text and caption.
 
 Bridge CLI scripts: `node bridge.js inspect <article_id>`, `node bridge.js publish <article_id>`
 (publishes through the Admin API), `node bridge.js poll`. `inspect` reads the bridge database and
-Ghost.
+Ghost. At level 3, `node bridge.js taxonomy-sync` reads Ghost's tags through the Admin API and
+sends them as one full run to `POST /v3/cms/taxonomy/terms` (Ghost has tags, no categories).
 
 `publish` sends the link back before it exits, so `check` finds it: it reads the report right after
 the command returns. A retry queue may still handle a failed send later.

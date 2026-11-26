@@ -64,7 +64,9 @@ Testing with `tdkit`: the mock serves images over https with a test certificate.
 ## 7. Developer commands
 
 Drush commands in `src/Drush/Commands/TribunedeskCommands.php` (Drush 12+ attributes):
-`drush td:inspect <article_id>`, `drush td:publish <article_id>`, `drush td:poll`. On Windows run
+`drush td:inspect <article_id>`, `drush td:publish <article_id>`, `drush td:poll`, and at level 3
+`drush td:taxonomy-sync` (one full run of your vocabularies' terms to
+`POST /v3/cms/taxonomy/terms`). On Windows run
 `vendor\bin\drush.bat` or `vendor/bin/drush` explicitly.
 
 `publish` sends the link back before it exits, so `check` finds it: it reads the report right after

@@ -62,8 +62,10 @@ Testing with `tdkit`: the mock serves images over https with a test certificate.
 
 ## 7. Developer commands
 
-Three commands runnable without a shell (a script, a CLI entry point):
-`<cli> inspect <article_id>`, `<cli> publish <article_id>`, `<cli> poll`. Their output contract is
+Commands runnable without a shell (a script, a CLI entry point):
+`<cli> inspect <article_id>`, `<cli> publish <article_id>`, `<cli> poll`, and at level 3, when the
+CMS has categories or tags, `<cli> taxonomy-sync` (one full run to `POST /v3/cms/taxonomy/terms`).
+Their output contract is
 in the kit README, "The commands your integration provides".
 
 `publish` sends the link back before it exits, so `check` finds it: it reads the report right after

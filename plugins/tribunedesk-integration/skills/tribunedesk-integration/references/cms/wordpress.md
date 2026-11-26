@@ -48,7 +48,8 @@ Testing with `tdkit`: the mock serves images over https with a test certificate.
 ## 7. Developer commands
 
 WP-CLI commands: `wp td inspect <article_id>`, `wp td publish <article_id>`, `wp td poll`
-(`WP_CLI::add_command`).
+(`WP_CLI::add_command`), and at level 3 `wp td taxonomy-sync`: one full run of the site's
+categories and tags to `POST /v3/cms/taxonomy/terms`, finished before it exits.
 
 `publish` sends the link back before it exits, so `check` finds it: it reads the report right after
 the command returns. A retry queue may still handle a failed send later.

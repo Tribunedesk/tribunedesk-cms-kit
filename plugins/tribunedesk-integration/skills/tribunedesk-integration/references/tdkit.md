@@ -13,7 +13,7 @@ building. Do not copy the README into the user's project.
    secret is `whsec_dGRraXQtbW9jay1zaWduaW5nLXNlY3JldC0wMDAwMDA=` (`TDKIT mock` prints it too);
    `TDKIT check` signs with it unless you pass `--secret`. It is a public test value, safe to put
    into a local `.env`, never into production.
-3. **Three developer commands** in the CMS's idiom (CMS reference, section 7). Their exact
+3. **Developer commands** in the CMS's idiom (CMS reference, section 7). Their exact
    contract, including the JSON keys `inspect` prints per level, is in the kit README, section
    "The commands your integration provides". Read it there; they are:
    - `inspect <article_id>`: prints the post made from that article as JSON, or `null`;
@@ -46,7 +46,7 @@ TDKIT check --levels 1,2 --mode webhook \
 - `--docs <path>`: the `path` that `TDKIT docs` printed, the contract of the tag you build against.
 - `--mode read` with `--poll-cmd "…"` instead of `--webhook`.
 - `--port` changes the mock's port (default 8787); the integration's `TD_API_BASE` must match.
-  `check` also sets `TD_API_BASE` and `TD_CMS_TOKEN` in the environment of the three commands.
+  `check` also sets `TD_API_BASE` and `TD_CMS_TOKEN` in the environment of the developer commands.
 - `--secret` when the integration verifies with its own secret instead of the mock's; the
   report never shows the value. Never pass a production secret.
 - `--social-flag` when the CMS has a "keep this post off Facebook" setting.
@@ -72,8 +72,9 @@ Each line is `PASS`, `FAIL` or `SKIP` with a short detail. A `FAIL` also quotes 
 3. Fix the code, rerun only that level.
 
 `SKIP` lines are expected for another mode (read mode scenarios in webhook mode), for
-`l2-social-flag` without `--social-flag` and for `l3-taxonomy-sync` and `l3-taxonomy`
-without `--taxonomy-sync-cmd`.
+`l2-social-flag` without `--social-flag`. Pass `--taxonomy-sync-cmd` whenever the CMS has
+categories or tags; `SKIP` of `l3-taxonomy-sync` and `l3-taxonomy` is acceptable only when it
+has none.
 
 ## TDKIT mock, for manual work
 

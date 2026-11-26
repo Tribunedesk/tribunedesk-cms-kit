@@ -196,7 +196,7 @@ integration must be running and configured for the mock:
 
 ### The commands your integration provides
 
-`check` cannot look into your database, so the integration gives it three developer commands.
+`check` cannot look into your database, so the integration gives it developer commands.
 Each is a template: `{article_id}` is replaced by the article's id. The command is split into
 arguments (on Windows only double quotes group, so `C:\Users\O'Brien\...` needs no quoting),
 the program is looked up on `PATH` (so `drush.bat` or `npx.cmd` work on Windows), and it runs

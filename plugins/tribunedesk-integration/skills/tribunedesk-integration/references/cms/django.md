@@ -56,7 +56,9 @@ Management commands in `<app>/management/commands/`:
 - `python manage.py td_inspect <article_id>` prints the JSON the kit README defines;
 - `python manage.py td_publish <article_id>` publishes the post (runs the same code as the
   editor's publish, so the link back fires);
-- `python manage.py td_poll` runs one read mode poll.
+- `python manage.py td_poll` runs one read mode poll;
+- `python manage.py td_taxonomy_sync` sends your categories and tags as one full run to
+  `POST /v3/cms/taxonomy/terms` (level 3, when the site has them).
 
 Print with `self.stdout.write(json.dumps(..., ensure_ascii=False))`.
 

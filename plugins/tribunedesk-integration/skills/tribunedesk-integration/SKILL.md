@@ -157,7 +157,8 @@ tell the user which contract version you build against.
     never the repository or exported configuration), and the variable names for `.env.example`;
   - a configurable API base address (`TD_API_BASE`), so tests run against the mock;
   - `.env` (and any local secrets file) listed in `.gitignore` before any value goes into it;
-  - the developer commands `inspect`, `publish` (levels 2-3) and `poll` (read mode) that
+  - the developer commands `inspect`, `publish` (levels 2-3), `poll` (read mode) and
+    `taxonomy-sync` (level 3, when the CMS has categories or tags) that
     `TDKIT check` needs, in the CMS's idiom (see the CMS reference, section 7);
   - tests in the project's own test runner for the signature check and the upsert.
 - **Stop:** wait for approval, unless the user pre-approved (section 3).

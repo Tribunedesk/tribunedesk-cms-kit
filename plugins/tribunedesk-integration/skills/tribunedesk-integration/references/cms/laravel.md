@@ -48,7 +48,9 @@ Testing with `tdkit`: the mock serves images over https with a test certificate.
 ## 7. Developer commands
 
 Artisan commands in `app/Console/Commands`: `php artisan td:inspect {article_id}`,
-`php artisan td:publish {article_id}`, `php artisan td:poll`. Print with
+`php artisan td:publish {article_id}`, `php artisan td:poll`, and at level 3, when the app has
+categories or tags, `php artisan td:taxonomy-sync` (one full run to
+`POST /v3/cms/taxonomy/terms`). Print with
 `$this->line(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))`.
 
 `publish` sends the link back before it exits, so `check` finds it: it reads the report right after

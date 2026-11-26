@@ -47,7 +47,8 @@ Testing with `tdkit`: the mock serves images over https with a test certificate.
 Scripts in `package.json`, run with node directly so `tdkit` can call them without a shell:
 `node scripts/td.js inspect <article_id>`, `node scripts/td.js publish <article_id>`,
 `node scripts/td.js poll`. (`npm run td -- inspect …` works too; on Windows `tdkit` finds
-`npm.cmd` on `PATH`.)
+`npm.cmd` on `PATH`.) At level 3, when the app has categories or tags,
+`node scripts/td.js taxonomy-sync` sends them as one full run to `POST /v3/cms/taxonomy/terms`.
 
 `publish` sends the link back before it exits, so `check` finds it: it reads the report right after
 the command returns. A retry queue may still handle a failed send later.
