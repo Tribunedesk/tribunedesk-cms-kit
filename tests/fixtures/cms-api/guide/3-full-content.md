@@ -1,6 +1,6 @@
 # Level 3 – Full content
 
-Level 3 uses the same deliveries as level 1 and reads more of their fields. Nothing here needs a new route.
+Level 3 uses the same deliveries as level 1 and reads more of their fields. The one new route is `POST /v3/cms/taxonomy/terms`, which syncs your categories and tags (see [Categories and tags](#categories-and-tags)).
 
 ## Internal links
 

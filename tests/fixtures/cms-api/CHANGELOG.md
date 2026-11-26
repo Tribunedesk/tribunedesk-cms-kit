@@ -2,6 +2,14 @@
 
 Changes of the Tribune Desk CMS API contract, newest first. Versions follow [Versioning](VERSIONING.md).
 
+## 3.8.1-draft – 2026-11-26
+
+- The intro of guide 3 no longer says level 3 needs no new route: it points to `POST /v3/cms/taxonomy/terms`, added in 3.8.0-draft. Documentation only.
+
+**Integrators:**
+
+- Nothing to do.
+
 ## 3.8.0-draft – 2026-11-25
 
 - `POST /v3/cms/taxonomy/terms` (`articles:write`): your CMS sends its categories and tags, up to 1000 per request; a full run (`run_id`, `is_last`) also removes the terms your CMS no longer has; run one full run at a time, since a page with a new `run_id` abandons the previous run. `GET /v3/cms/status` shows `taxonomy`.
