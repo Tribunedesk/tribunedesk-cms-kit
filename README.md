@@ -419,6 +419,9 @@ reconcile its wording):
 | `parity-django` | all pass: tdkit 1.6, contract 3.7.1-draft, levels 1-4, 36 passed, 0 failed (`l1-publication` and `l4-body-image` included); clean room (run 2026-11-25, Claude Code 2.1.323) | fail: final message stands alone (the plan only in stages, no single standalone summary) | 4.61 USD |
 | `parity-laravel` | all pass: tdkit 1.6, contract 3.7.1-draft, levels 1-4, 35 passed, 0 failed (`l1-publication` and `l4-body-image` included); clean room (run 2026-11-25, Claude Code 2.1.323) | final message stands alone; scheduled posts published by `posts:publish-scheduled` | 6.42 USD |
 | `parity-node` | all pass: tdkit 1.6, contract 3.7.1-draft, levels 1-4, 35 passed, 0 failed (`l1-publication` included); clean room (run 2026-11-25, Claude Code 2.1.323) | final message stands alone; historical import not built | 4.40 USD |
+| `parity-django` | all pass: tdkit 1.7, contract 3.8.0-draft, levels 1-4, 36 passed, 0 failed; `l3-taxonomy*` skipped (the blog has no categories or tags); clean room (run 2026-11-26, Claude Code 2.1.323) | fail: final message stands alone | 5.54 USD |
+| `parity-laravel` | all pass: tdkit 1.7, contract 3.8.0-draft, levels 1-4, 35 passed, 0 failed, `tribunedesk/cms-protocol` 1.4.0; `l3-taxonomy*` skipped (no categories or tags); clean room (run 2026-11-26, Claude Code 2.1.323) | final message stands alone | 5.65 USD |
+| `parity-node` | all pass: tdkit 1.7, contract 3.8.0-draft, levels 1-4, 35 passed, 0 failed; `l3-taxonomy*` skipped (no categories or tags; named terms answered as `unknown_term`, none created); clean room (run 2026-11-26, Claude Code 2.1.323) | final message stands alone | 4.63 USD |
 
 The integrations of the Django and Drupal runs are in [`reference/`](reference/README.md).
 
