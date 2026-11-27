@@ -82,9 +82,8 @@ no user to take it from; check that it keeps the elements listed in guide 1, "Th
 
 **No filter in the CMS.** A hand-written site may print the body as it is. Then add a maintained
 sanitizer configured as `guide/complete-integration.md`, "Filtering the HTML", says (PHP:
-`references/php-library.md`, "The HTML filter"), never a regular expression. `TDKIT check` tests
-only `script` and `iframe` (`l1-embeds`): put the guide's unsafe and safe samples into the
-project's own tests.
+`references/php-library.md`, "The HTML filter"), never a regular expression. `l1-embeds` of `TDKIT check`
+sends the guide's samples; keep them in the project's own tests as well.
 
 ## 6. Images
 

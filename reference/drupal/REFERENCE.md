@@ -21,7 +21,7 @@ no longer creates that type; apply the core recipe first if the site has none:
 `vendor/bin/drush recipe web/core/recipes/article_content_type`.
 
 ```
-composer require tribunedesk/cms-protocol:^1.4
+composer require tribunedesk/cms-protocol:^1.4 symfony/html-sanitizer:^7.3
 cp -r tribunedesk web/modules/custom/
 cat settings.tribunedesk.php | tail -n +4 >> web/sites/default/settings.php
 vendor/bin/drush en tribunedesk -y

@@ -215,8 +215,36 @@ def overlapping_attempts(ctx: Context) -> str:
     return f"one post {ids.pop()!r} (answers {statuses})"
 
 
+class _Elements(HTMLParser):
+    """Every start tag of a stored body with its attributes (values unescaped)."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.tags: list[tuple[str, dict[str, str]]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.tags.append((tag, {name: value or "" for name, value in attrs}))
+
+
+def elements(html: str) -> list[tuple[str, dict[str, str]]]:
+    parser = _Elements()
+    parser.feed(html)
+    parser.close()
+    return parser.tags
+
+
+_UNSAFE_SCHEME = re.compile(r"^(javascript|vbscript|data):")
+
+
+def _scheme_of(value: str) -> str:
+    """The address as a browser reads its scheme: no whitespace or control characters."""
+    return re.sub(r"[\x00-\x20]", "", value).lower()
+
+
 def embeds(ctx: Context) -> str:
-    """Guide 1, The HTML body (3.5): trusted players stay, scripts and other iframes go."""
+    """Guide 1, The HTML body (3.5): trusted players stay, scripts and other iframes go. Since
+    tdkit 1.8 also the unsafe and safe samples of complete-integration.md, Filtering the HTML
+    (3.9): no `on*` attribute, no `javascript:` address, embeds by parsed host."""
     youtube = "https://www.youtube.com/embed/tdkit"
     html = (
         "<p>Before the embeds.</p>"
@@ -224,19 +252,58 @@ def embeds(ctx: Context) -> str:
         '<iframe src="https://evil.example/embed/x"></iframe>'
         '<iframe src="https://www.youtube.com.evil.example/embed/x"></iframe>'
         "<script>document.title = 'tdkit-script-marker';</script>"
+        '<p><img src="x" onerror="alert(1)" alt="tdkit-onerror"></p>'
+        '<p><a href="javascript:alert(1)">tdkit-js-link</a></p>'
+        '<p><a href="JaVa&#115;cript:alert(1)">tdkit-js-entity-link</a></p>'
+        '<svg onload="alert(1)"></svg>'
+        '<figure class="alignleft"><img src="https://127.0.0.1/files/tdkit-figure.jpg" '
+        'alt="figure" data-td-asset-id="tdkit-asset" data-td-cms-media-id="tdkit-media">'
+        "</figure>"
+        '<p><a href="https://example.com/tdkit-safe" target="_blank" rel="noopener">safe</a></p>'
+        f'<iframe src="https://evil.example/embed/y" title="{youtube}"></iframe>'
         "<p>After the embeds.</p>"
+        # Last: without `</iframe>` a parser takes the rest of the body as its content.
+        '<iframe src="https://evil.example/embed/unclosed">'
     )
     body = ctx.article(html=html)
     ctx.delivered(body)
     stored = str(ctx.must_inspect(body["article_id"]).get("html") or "")
+    tags = elements(stored)
     expect("www.youtube.com/embed/tdkit" in stored, "the YouTube iframe was removed")
-    expect("evil.example" not in stored, "an iframe from an untrusted host (evil.example) stayed")
+    iframes = [a.get("src", "") for t, a in tags if t == "iframe"]
+    expect(
+        all(src.startswith("https://www.youtube.com/embed/") for src in iframes),
+        f"an iframe from an untrusted host stayed: {[s for s in iframes if 'evil' in s]}",
+    )
     expect(
         "tdkit-script-marker" not in stored and "tdkit-script-marker" not in text_of(stored),
         "the script or its content stayed in html",
     )
+    handlers = sorted({f"<{t} {n}>" for t, a in tags for n in a if n.lower().startswith("on")})
+    expect(not handlers, f"event attributes stayed in html: {handlers}")
+    unsafe = sorted(
+        f"<{t} {n}={v!r}>"
+        for t, a in tags
+        for n, v in a.items()
+        if n.lower() in {"href", "src", "action", "formaction", "xlink:href"}
+        and _UNSAFE_SCHEME.match(_scheme_of(v))
+    )
+    expect(not unsafe, f"unsafe addresses stayed in html: {unsafe}")
+    figure = [a for t, a in tags if t == "img" and a.get("data-td-asset-id") == "tdkit-asset"]
+    expect(
+        bool(figure) and figure[0].get("data-td-cms-media-id") == "tdkit-media",
+        "the library figure lost its img or its data-td-* attributes (guide 1, The HTML body)",
+    )
+    links = [a for t, a in tags if t == "a" and a.get("href") == "https://example.com/tdkit-safe"]
+    expect(
+        bool(links) and links[0].get("target") == "_blank",
+        "the safe link with target=_blank did not survive",
+    )
     expect("Before the embeds." in text_of(stored), "the text around the embeds was lost")
-    return "the YouTube player stays; the script and the untrusted iframes are gone"
+    return (
+        "the YouTube player, the library figure and the safe link stay; scripts, event "
+        "attributes, javascript: addresses and untrusted iframes are gone"
+    )
 
 
 def unknown_fields(ctx: Context) -> str:

@@ -12,6 +12,7 @@ tdkit = "tdkit.cli:main"
 
 [dependency-groups]
 dev = [
+    "nh3>=0.3.8",
     "pyright>=1.1.409",
     "pytest>=9.0.3",
     "ruff>=0.15.12",

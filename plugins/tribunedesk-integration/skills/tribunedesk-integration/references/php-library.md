@@ -81,9 +81,8 @@ content. A hand-written PHP site often has none. Then configure a maintained san
 `guide/complete-integration.md`, "Filtering the HTML", says (its allow list and its unsafe and
 safe samples): `symfony/html-sanitizer`, or HTML Purifier (`ezyang/htmlpurifier`, also usable
 without Composer from its standalone download). A regular expression or `strip_tags` is not a
-filter: they leave event attributes (`onerror`) and `javascript:` addresses through, which
-`TDKIT check` does not test (`l1-embeds` checks only `script` and `iframe`). Put the guide's
-samples into the project's own tests.
+filter: they leave event attributes (`onerror`) and `javascript:` addresses through, and
+`l1-embeds` of `TDKIT check` fails them. Keep the guide's samples in the project's own tests.
 
 ## Which class for what
 

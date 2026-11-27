@@ -103,6 +103,26 @@ class WebhookTests(TestCase):
         self.assertNotIn("marker", body)
         self.assertIn("data-hf-provenance", body)  # the AI label block may stay
 
+    def test_unsafe_samples_of_the_guide_are_filtered(self):
+        """guide/complete-integration.md, Filtering the HTML (3.9): the unsafe samples go, the
+        safe ones stay."""
+        html = (
+            '<p><img src="x" onerror="alert(1)"></p>'
+            '<a href="javascript:alert(1)">a</a><a href="JaVa&#115;cript:alert(1)">b</a>'
+            '<svg onload="alert(1)"></svg>'
+            '<iframe src="https://evil.example/x" title="https://www.youtube.com/embed/x"></iframe>'
+            '<figure class="alignleft"><img src="https://img.test/a.jpg" data-td-asset-id="1" '
+            'data-td-cms-media-id="2"></figure>'
+            '<a href="https://example.com/" target="_blank" rel="noopener">ok</a>'
+            '<iframe src="https://evil.example/unclosed">'
+        )
+        answer = self.deliver(str(uuid.uuid4()), extra={"html": html}).json()
+        body = Post.objects.get(pk=answer["cms_post_id"]).body.lower()
+        for unsafe in ("onerror", "onload", "javascript", "evil.example", "<svg"):
+            self.assertNotIn(unsafe, body)
+        for safe in ('data-td-cms-media-id="2"', 'target="_blank"', 'class="alignleft"'):
+            self.assertIn(safe, body)
+
     def test_bad_signature_and_old_timestamp_get_401(self):
         other = "whsec_" + base64.b64encode(b"another-secret").decode()
         self.assertEqual(self.deliver(str(uuid.uuid4()), secret=other).status_code, 401)

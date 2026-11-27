@@ -13,7 +13,9 @@ import logging
 import re
 import time
 from datetime import UTC, datetime
+from urllib.parse import urlsplit
 
+import nh3
 import requests
 from django.conf import settings
 from django.db import IntegrityError, transaction
@@ -29,19 +31,60 @@ SECRET_PREFIX = "whsec_"
 TOLERANCE_SECONDS = 300  # guide 1, "Verifying the signature", step 5
 LINK_BACK_BATCH = 100  # guide 2: 1 to 100 items per request
 RETRYABLE_STATUSES = {429, 500, 502, 503, 504}  # README, "Retries"
-# Guide 1, "The HTML body", Embeds: players we trust. Each prefix ends with "/", so a
-# look-alike host (www.youtube.com.evil.example) does not pass.
-TRUSTED_PLAYERS = ("https://www.youtube.com/embed/", "https://player.vimeo.com/video/")
-_SCRIPT = re.compile(r"<script\b([^>]*)>.*?</script>", re.S | re.I)
-_IFRAME = re.compile(r"<iframe\b[^>]*\bsrc=[\"']([^\"']*)[\"'][^>]*>.*?</iframe>", re.S | re.I)
+# guide/complete-integration.md, "Filtering the HTML": players we trust, by parsed host and
+# path, so a look-alike host (www.youtube.com.evil.example) does not pass.
+TRUSTED_PLAYERS = {"www.youtube.com": "/embed/", "player.vimeo.com": "/video/"}
+ALLOWED_TAGS = {
+    "p", "h2", "h3", "h4", "h5", "h6", "strong", "b", "em", "i", "u", "br", "hr", "ul", "ol",
+    "li", "blockquote", "a", "figure", "figcaption", "img", "table", "thead", "tbody", "tfoot",
+    "tr", "th", "td", "caption", "iframe",
+}  # fmt: skip
+ALLOWED_ATTRIBUTES = {
+    "a": {"href", "target", "rel", "title"},
+    "img": {"src", "alt", "width", "height"},
+    "figure": {"class"},
+    "iframe": {"src", "width", "height", "frameborder", "allowfullscreen", "allow", "title"},
+}
+# The AI label block (guide 1, "The HTML body"): taken out before the filter, put back after.
+_AI_LABEL = re.compile(
+    r"<script\b[^>]*\bdata-hf-provenance\b[^>]*>.*?</script>\s*$", re.S | re.I
+)
+_EMPTY_IFRAME = re.compile(r"<iframe\b(?![^>]*\ssrc=)[^>]*>.*?</iframe>", re.S)
+
+
+def trusted_player(src: str) -> bool:
+    url = urlsplit(src)
+    path = TRUSTED_PLAYERS.get(url.hostname or "")
+    return url.scheme == "https" and path is not None and url.path.startswith(path)
+
+
+def _keep_attribute(tag: str, attribute: str, value: str) -> str | None:
+    if tag == "iframe" and attribute == "src" and not trusted_player(value):
+        return None
+    return value
 
 
 def filter_embeds(html: str) -> str:
-    """Drop every script (with its content) but the AI label block, and every iframe whose
-    `src` is not a trusted player. Deliveries arrive with no user logged in, so this is the
-    only filter they pass; the template renders `body|safe`."""
-    html = _SCRIPT.sub(lambda m: m.group(0) if "data-hf-provenance" in m.group(1) else "", html)
-    return _IFRAME.sub(lambda m: m.group(0) if m.group(1).startswith(TRUSTED_PLAYERS) else "", html)
+    """The body through an allow list on an HTML parser (nh3), as
+    `guide/complete-integration.md`, "Filtering the HTML", says: no `on*` attributes, no
+    `javascript:` or `data:` addresses, iframes only from trusted players. Deliveries arrive
+    with no user logged in, so this is the only filter they pass; the template renders
+    `body|safe`."""
+    label = _AI_LABEL.search(html)
+    if label:
+        html = html[: label.start()]
+    clean = nh3.clean(
+        html,
+        tags=ALLOWED_TAGS,
+        clean_content_tags={"script", "style", "object", "embed", "form", "svg", "math"},
+        attributes=ALLOWED_ATTRIBUTES,
+        generic_attribute_prefixes={"data-td-"},
+        attribute_filter=_keep_attribute,
+        url_schemes={"http", "https", "mailto"},
+        link_rel=None,
+    )
+    clean = _EMPTY_IFRAME.sub("", clean)
+    return clean + label.group(0) if label else clean
 
 
 class InvalidSignature(Exception):

@@ -301,7 +301,7 @@ point for the behaviour, the guide's sentence that requires it.
 | `l1-unknown-fields` | 1 webhook | an unknown field and an unknown link `kind` | 2xx, post made | Fields you do not know are ignored, not rejected; … |
 | `l1-non-ascii` | 1 webhook | title `Zażółć gęślą jaźń — „test”` | the title comes back identical | (as `l1-creates-draft`) |
 | `l1-image-host` | 1 webhook | the image on a host outside `image_hosts`: `localhost`, or `127.0.0.1` when your webhook is on `localhost` (a receiver may trust its own host) | first an image on the allowed host, over https: downloading it is optional, but a download refused on the test certificate fails (trust `TD_CA_BUNDLE`); then the other host: 2xx, and no download or attempt | Download images only from these hosts and refuse any other address. |
-| `l1-embeds` | 1 webhook | `html` with a YouTube player, an `iframe` from `evil.example`, one from a look-alike `www.youtube.com.evil.example` and a `script` | the YouTube `iframe` stays; both other `iframe`s, the `script` and its text are gone; the text around them stays | A `script` in `html` other than the AI label block is removed with its content; an `iframe` of a YouTube player is kept and an `iframe` from a host you do not trust is removed. |
+| `l1-embeds` | 1 webhook | `html` with a YouTube player, `iframe`s from `evil.example`, from a look-alike `www.youtube.com.evil.example`, with a trusted address in `title` and one without `</iframe>`, a `script`, `<img onerror>`, `javascript:` links (also written with an entity), `<svg onload>`, a library `figure` with `data-td-*` and a link with `target="_blank"` (since tdkit 1.8: the samples of `guide/complete-integration.md`, Filtering the HTML) | the YouTube `iframe`, the figure with its `data-td-*` and the safe link stay; every other `iframe`, the `script` and its text, every `on*` attribute and every `javascript:`, `vbscript:` or `data:` address are gone; the text around them stays | A `script` in `html` other than the AI label block is removed with its content; an `iframe` of a YouTube player is kept and an `iframe` from a host you do not trust is removed. |
 | `l1-publication` | 1 any | `publication` `schedule`, again with another time and title, then `draft`, `publish`, and `schedule` once more | each answer's `publication` matches (`scheduled` with its `at`, `draft`, `published`); the scheduled post took the new title; `publish` made it `published` and the last `schedule` did not unpublish it | A delivery with `publication` makes a draft, a post scheduled for `at`, or a published post; a scheduled post takes a new send like a draft, and a published one is never unpublished. … |
 | `read-delivers-result` | 1 read | a send, `--poll-cmd` | `POST /result` with the send's `delivery_id`; post made | The body (`ArticleResultReport`) is what your webhook would answer with, plus `delivery_id`: … |
 | `read-superseded-409` | 1 read | a newer send right after your fetch, `--poll-cmd` twice | the old send's result got `409`, the last accepted result is for the newer send | With it the result closes exactly that send; if a newer send of the article replaced it you get `409` … |
@@ -347,8 +347,8 @@ answers `401` to real deliveries and loses articles: keep it in sync.
 - The screens for held batches and the resync preview are a person's: `check` proves the sync
   never decides them, not how they look.
 - No rate limit (`429`) and no frozen organization (`project_deactivated`).
-- `l1-embeds` checks `script` and `iframe` only: event attributes (`onerror`) and `javascript:`
-  links in `html` are your content filter's job, tested by your own tests.
+- `l1-embeds` sends the unsafe samples of the guide's "Filtering the HTML" in one body; a
+  filter has more ways to fail than one body shows, so keep the samples in your own tests too.
 - `l1-overlapping-attempts` proves the lock only when your server answers requests in parallel
   (PHP's `php -S` does not by default).
 

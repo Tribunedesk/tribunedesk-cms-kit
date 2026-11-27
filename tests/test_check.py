@@ -213,6 +213,16 @@ def test_check_fails_a_cms_that_trusts_a_lookalike_host(tmp_path: Path, docs: Co
     assert "evil.example" in failed.detail
 
 
+def test_check_fails_a_regex_filter(tmp_path: Path, docs: ContractDocs) -> None:
+    """Audit 2026-11-27, contract 3.9 (complete-integration.md, Filtering the HTML): a filter
+    that removes only scripts and iframes lets `onerror` and `javascript:` through."""
+    report = _webhook_check(tmp_path, docs, ("--regex-embeds",), [1])
+    assert [r.id for r in report.failed] == ["l1-embeds"]
+    detail = next(r for r in report.failed if r.id == "l1-embeds").detail
+    # The regex misses the iframe without `</iframe>` first; the event attributes come after it.
+    assert "embed/unclosed" in detail
+
+
 def test_check_fails_a_cms_that_ignores_publication(tmp_path: Path, docs: ContractDocs) -> None:
     """Contract 3.7: `publication` is applied and answered."""
     report = _webhook_check(tmp_path, docs, ("--ignore-publication",), [1])

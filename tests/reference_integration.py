@@ -5,7 +5,7 @@ developer commands:
 
     python reference_integration.py serve --port 8080 --store store.json [--no-verify]
         [--overwrite-older] [--empty-answer] [--any-image-host] [--answer-500]
-        [--keep-embeds] [--naive-embed-hosts] [--ignore-publication] [--unpublish]
+        [--keep-embeds] [--naive-embed-hosts] [--regex-embeds] [--ignore-publication] [--unpublish]
         [--create-terms] [--clear-missing-taxonomy]
     python reference_integration.py inspect --store store.json <article_id>
     python reference_integration.py publish --store store.json <article_id>
@@ -35,6 +35,8 @@ from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+
+import nh3
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -124,8 +126,26 @@ _SCRIPT = re.compile(r"<script\b[^>]*>.*?</script>", re.S | re.I)
 _IFRAME = re.compile(r"<iframe\b[^>]*\bsrc=\"([^\"]*)\"[^>]*>.*?</iframe>", re.S | re.I)
 
 
-def filter_embeds(html: str, *, keep_all: bool = False, naive_hosts: bool = False) -> str:
-    """Drop every script with its content and every iframe outside TRUSTED_PLAYERS."""
+_TAGS = {
+    "p", "h2", "h3", "h4", "h5", "h6", "strong", "b", "em", "i", "u", "br", "hr", "ul", "ol",
+    "li", "blockquote", "a", "figure", "figcaption", "img", "table", "thead", "tbody", "tfoot",
+    "tr", "th", "td", "caption", "iframe",
+}  # fmt: skip
+_ATTRIBUTES = {
+    "a": {"href", "target", "rel", "title"},
+    "img": {"src", "alt", "width", "height"},
+    "figure": {"class"},
+    "iframe": {"src", "width", "height", "frameborder", "allowfullscreen", "allow", "title"},
+}
+_EMPTY_IFRAME = re.compile(r"<iframe\b(?![^>]*\ssrc=)[^>]*>.*?</iframe>", re.S)
+
+
+def filter_embeds(
+    html: str, *, keep_all: bool = False, naive_hosts: bool = False, regex: bool = False
+) -> str:
+    """Contract 3.9, complete-integration.md, Filtering the HTML: an allow list on a parser
+    (nh3); iframes only from TRUSTED_PLAYERS. `regex` is the filter before tdkit 1.8 (scripts
+    and iframes by regular expression), which the unsafe samples get through."""
     if keep_all:
         return html
     prefixes = (
@@ -133,8 +153,26 @@ def filter_embeds(html: str, *, keep_all: bool = False, naive_hosts: bool = Fals
         if naive_hosts
         else TRUSTED_PLAYERS
     )
-    html = _SCRIPT.sub("", html)
-    return _IFRAME.sub(lambda m: m.group(0) if m.group(1).startswith(prefixes) else "", html)
+    if regex:
+        html = _SCRIPT.sub("", html)
+        return _IFRAME.sub(lambda m: m.group(0) if m.group(1).startswith(prefixes) else "", html)
+
+    def keep(tag: str, attribute: str, value: str) -> str | None:
+        if tag == "iframe" and attribute == "src" and not value.startswith(prefixes):
+            return None
+        return value
+
+    clean = nh3.clean(
+        html,
+        tags=_TAGS,
+        clean_content_tags={"script", "style", "object", "embed", "form", "svg", "math"},
+        attributes=_ATTRIBUTES,
+        generic_attribute_prefixes={"data-td-"},
+        attribute_filter=keep,
+        url_schemes={"http", "https", "mailto"},
+        link_rel=None,
+    )
+    return _EMPTY_IFRAME.sub("", clean)
 
 
 def _tls() -> ssl.SSLContext | None:
@@ -153,6 +191,7 @@ def apply(
     trust_ca: bool = True,
     keep_embeds: bool = False,
     naive_embed_hosts: bool = False,
+    regex_embeds: bool = False,
     download_body_images: bool = False,
     ignore_publication: bool = False,
     unpublish: bool = False,
@@ -198,7 +237,10 @@ def apply(
         sent_at=article["sent_at"],
         title=article["title"],
         html_raw=filter_embeds(
-            article["html"], keep_all=keep_embeds, naive_hosts=naive_embed_hosts
+            article["html"],
+            keep_all=keep_embeds,
+            naive_hosts=naive_embed_hosts,
+            regex=regex_embeds,
         ),
         excerpt=article.get("excerpt"),
         featured_image_url=image,
@@ -450,6 +492,7 @@ def serve(args: argparse.Namespace) -> None:
                     trust_ca=not args.no_ca,
                     keep_embeds=args.keep_embeds,
                     naive_embed_hosts=args.naive_embed_hosts,
+                    regex_embeds=args.regex_embeds,
                     download_body_images=args.download_body_images,
                     ignore_publication=args.ignore_publication,
                     unpublish=args.unpublish,
@@ -488,6 +531,7 @@ def main() -> None:
     s.add_argument("--answer-500", action="store_true")
     s.add_argument("--keep-embeds", action="store_true")
     s.add_argument("--naive-embed-hosts", action="store_true")
+    s.add_argument("--regex-embeds", action="store_true")
     s.add_argument("--download-body-images", action="store_true")
     s.add_argument("--ignore-publication", action="store_true")
     s.add_argument("--unpublish", action="store_true")

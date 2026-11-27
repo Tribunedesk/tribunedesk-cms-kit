@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace Drupal\tribunedesk;
 
 use Drupal\Component\Datetime\TimeInterface;
+use Drupal\Component\Utility\Html;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Lock\LockBackendInterface;
 use Drupal\node\NodeInterface;
 use Drupal\tribunedesk\Exception\LockBusyException;
+use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
+use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 use TribuneDesk\Protocol\DeliveryAnswer;
 use TribuneDesk\Protocol\DraftRules;
 
@@ -22,41 +25,68 @@ use TribuneDesk\Protocol\DraftRules;
 class DeliveryHandler {
 
   /**
-   * Players whose iframes stay (guide/1-article-delivery.md, The HTML body,
-   * Embeds). Each prefix ends with "/", so a look-alike host does not pass.
+   * Players whose iframes stay, by host and path prefix
+   * (guide/complete-integration.md, Filtering the HTML).
    */
   public const TRUSTED_PLAYERS = [
-    'https://www.youtube.com/embed/',
-    'https://player.vimeo.com/video/',
+    'www.youtube.com' => '/embed/',
+    'player.vimeo.com' => '/video/',
+  ];
+
+  private const TAGS = [
+    'p', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'b', 'em', 'i', 'u', 'br', 'hr', 'ul', 'ol',
+    'li', 'blockquote', 'figcaption', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
+    'caption',
   ];
 
   /**
-   * Drops every script (with its content) but the AI label block, and every
-   * iframe whose src is not a trusted player.
+   * The body through an allow list on an HTML parser (symfony/html-sanitizer),
+   * as guide/complete-integration.md, "Filtering the HTML", says: no on*
+   * attributes, no javascript: or data: addresses, iframes only from trusted
+   * players. The AI label block is taken out first and put back after.
    *
-   * The text format filters on output, but a delivery is stored as sent and
-   * arrives with no user logged in; this keeps the stored body clean. The
+   * The text format filters on output too, but a delivery is stored as sent
+   * and arrives with no user logged in; this keeps the stored body clean. The
    * text format must allow <iframe src width height title allow
    * allowfullscreen frameborder> for the trusted players to show.
    */
   public static function filterEmbeds(string $html): string {
-    $html = preg_replace_callback(
-      '#<script\b([^>]*)>.*?</script>#is',
-      static fn (array $m): string => str_contains($m[1], 'data-hf-provenance') ? $m[0] : '',
-      $html,
-    ) ?? '';
-    return preg_replace_callback(
-      '#<iframe\b[^>]*\bsrc=["\']([^"\']*)["\'][^>]*>.*?</iframe>#is',
-      static function (array $m): string {
-        foreach (self::TRUSTED_PLAYERS as $prefix) {
-          if (str_starts_with($m[1], $prefix)) {
-            return $m[0];
-          }
-        }
-        return '';
-      },
-      $html,
-    ) ?? '';
+    $label = '';
+    if (preg_match('#<script\b[^>]*\bdata-hf-provenance\b[^>]*>.*?</script>\s*$#is', $html, $m, PREG_OFFSET_CAPTURE)) {
+      $label = $m[0][0];
+      $html = substr($html, 0, $m[0][1]);
+    }
+    $config = (new HtmlSanitizerConfig())
+      ->allowLinkSchemes(['http', 'https', 'mailto'])
+      ->allowRelativeLinks()
+      ->allowMediaSchemes(['http', 'https'])
+      ->allowRelativeMedias()
+      ->allowElement('a', ['href', 'target', 'rel', 'title'])
+      ->allowElement('img', ['src', 'alt', 'width', 'height', 'data-td-asset-id', 'data-td-cms-media-id'])
+      ->allowElement('figure', ['class'])
+      ->allowElement('iframe', ['src', 'width', 'height', 'frameborder', 'allowfullscreen', 'allow', 'title']);
+    foreach (self::TAGS as $tag) {
+      $config = $config->allowElement($tag);
+    }
+    foreach (['script', 'style', 'object', 'embed', 'form', 'svg', 'math'] as $tag) {
+      $config = $config->dropElement($tag);
+    }
+    $clean = (new HtmlSanitizer($config->withMaxInputLength(-1)))->sanitize($html);
+    // Iframes: only a trusted player, by its parsed host and path.
+    $dom = Html::load($clean);
+    foreach (iterator_to_array($dom->getElementsByTagName('iframe')) as $iframe) {
+      if (!self::trustedPlayer($iframe->getAttribute('src'))) {
+        $iframe->parentNode->removeChild($iframe);
+      }
+    }
+    return Html::serialize($dom) . $label;
+  }
+
+  public static function trustedPlayer(string $src): bool {
+    $url = parse_url($src);
+    $path = self::TRUSTED_PLAYERS[$url['host'] ?? ''] ?? NULL;
+    return ($url['scheme'] ?? '') === 'https' && $path !== NULL
+      && str_starts_with($url['path'] ?? '', $path);
   }
 
   public function __construct(
