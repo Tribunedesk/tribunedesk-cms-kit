@@ -35,7 +35,7 @@ TD_WEBHOOK_SECRET=whsec_dGRraXQtbW9jay1zaWduaW5nLXNlY3JldC0wMDAwMDA= \
 TD_API_BASE=http://127.0.0.1:8787 TD_CMS_TOKEN=tdcms_mock TD_SITE_URL=http://127.0.0.1:8888 \
   php -S 127.0.0.1:8888 .ht.router.php &
 cd ..
-tdkit check --levels 1,2 --mode webhook --contract v3.8.0-draft --webhook http://127.0.0.1:8888/td/webhook \
+tdkit check --levels 1,2 --mode webhook --contract v3.9.0-draft --webhook http://127.0.0.1:8888/td/webhook \
   --inspect-cmd "vendor/bin/drush td:inspect {article_id}" \
   --publish-cmd "vendor/bin/drush td:publish {article_id}"
 ```
@@ -53,7 +53,7 @@ Start the PHP server from inside `web/`: started from the project root with `-t 
 "Run it"). The secret and the token above are the mock's public test values.
 
 Last checked 2026-11-27 in CI (job `reference-drupal`, Ubuntu, PHP 8.3, Drupal 11,
-`tribunedesk/cms-protocol` 1.4.0): tdkit 1.7.0, contract 3.8.0-draft, 15 passed, 0 failed.
+`tribunedesk/cms-protocol` 1.4.0, `symfony/html-sanitizer` 7.x): tdkit 1.8.0, contract 3.9.0-draft, 15 passed, 0 failed.
 `tribunedesk.json` was written from that run's report (artifact `reference-drupal-report`).
 
 ## Changed by the reviewer
@@ -63,4 +63,7 @@ Last checked 2026-11-27 in CI (job `reference-drupal`, Ubuntu, PHP 8.3, Drupal 1
 - 2026-11-17: the embed filter of guide 1 (contract 3.5); 2026-11-25: the publication mode with
   `hook_cron()` publishing scheduled nodes (contract 3.7).
 - 2026-11-27: the library comes from Packagist (the run added it as a `git` repository, before
-  it was published there); `^1.4` instead of `^1.0`, the release that knows contract 3.8.
+  it was published there); `^1.4` instead of `^1.0`, the release that knows contract 3.8. The
+  body filter is an allow list on a parser (`symfony/html-sanitizer`) plus a host and path check
+  of iframes, as `guide/complete-integration.md` asks since 3.9 (the regular expressions before
+  let `onerror` and `javascript:` through).
