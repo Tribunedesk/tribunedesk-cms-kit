@@ -51,9 +51,11 @@ def test_skill_runs_check_for_level_4() -> None:
 
 
 def test_cms_references_have_level_4_section() -> None:
-    for name in ("generic.md", "laravel.md", "django.md", "wordpress.md"):
-        text = (REFERENCES / "cms" / name).read_text(encoding="utf-8")
-        assert "## 10. Level 4 (media library)" in text, name
+    """Every CMS with a media library; Ghost has none (scope.md)."""
+    for path in sorted((REFERENCES / "cms").glob("*.md")):
+        if path.name == "ghost.md":
+            continue
+        assert "## 10. Level 4 (media library)" in path.read_text(encoding="utf-8"), path.name
     generic = (REFERENCES / "cms" / "generic.md").read_text(encoding="utf-8")
     for needle in ("Staging", "held batches", "resync", "changed_at", "lock"):
         assert needle in generic, needle
@@ -268,3 +270,83 @@ def test_conduct_accepts_the_plan_in_the_final_message() -> None:
         assert "final message" in conduct, name
         assert "short progress" in conduct, name
         assert "stopped there" in conduct, name
+
+
+def test_one_plan_before_code_rule() -> None:
+    """Audit 2026-11-27: SKILL.md (plan in the final message under pre-approval) and the parity
+    reviews (plan before code) asked for different things. One rule, named the same in both."""
+    text = skill_text()
+    assert text.count("**The plan before code (one rule") == 1
+    assert "Never write code before the plan" in text
+    for name in ("django-l12", "drupal-l12", "parity-django", "parity-laravel", "parity-node"):
+        scenario = (ROOT / "evals" / "scenarios" / f"{name}.md").read_text(encoding="utf-8")
+        conduct = scenario.split("### conduct", 1)[1].split("\n### ", 1)[0]
+        assert 'SKILL.md, "The plan before code"' in conduct, name
+        assert "printed a plan" not in conduct, name
+
+
+def test_skill_has_extend_mode() -> None:
+    """Audit 2026-11-27: "add photos" fell into check mode, which forbids changes."""
+    text = skill_text()
+    modes = text.split("## 2. Choose the mode", 1)[1].split("\n## ", 1)[0]
+    assert "- **extend**:" in modes
+    assert "never check mode" in modes
+    extend = text.split("## 6. Extend mode", 1)[1].split("\n## ", 1)[0]
+    for needle in ("update mode first", "TDKIT check --docs <path>", "TDKIT manifest write"):
+        assert needle in extend, needle
+    scope = (REFERENCES / "scope.md").read_text(encoding="utf-8")
+    assert "## Adding to an existing integration (extend mode)" in scope
+
+
+def test_webhook_launch_steps_name_the_schedule() -> None:
+    stage = skill_text().split("**Webhook mode (levels 1-3):**", 1)[1].split("\n**", 1)[0]
+    assert "Schedule the jobs" in stage
+
+
+def test_php_without_framework_is_covered() -> None:
+    php = (REFERENCES / "php-library.md").read_text(encoding="utf-8")
+    for heading in (
+        "## A PHP site without Composer",
+        "## PHP older than 8.3",
+        "## Running it locally for `TDKIT check`",
+        "## The HTML filter",
+    ):
+        assert heading in php, heading
+    assert "^1.0" not in php
+    assert "--protocol 1.0.0" not in php
+    generic = (REFERENCES / "cms" / "generic.md").read_text(encoding="utf-8")
+    for needle in (
+        "**Plain PHP (no framework).**",
+        "**Jobs without a framework.**",
+        "BEGIN IMMEDIATE",
+    ):
+        assert needle in generic, needle
+
+
+def test_site_url_has_the_kit_name() -> None:
+    """One environment variable for the site address, TD_SITE_URL, in the skill and the reference
+    projects (audit 2026-11-27: Django used SITE_URL, Drupal TD_SITE_URL)."""
+    env_names = re.compile(
+        r"^SITE_URL=|environ\.get\(\"SITE_URL\"\)|getenv\('SITE_URL'\)|env\.SITE_URL|`SITE_URL`",
+        re.M,
+    )
+    paths = [*REFERENCES.rglob("*.md"), *(ROOT / "reference").rglob("*")]
+    for path in paths:
+        if path.is_file() and (
+            path.suffix in {".md", ".py", ".php"} or path.name == ".env.example"
+        ):
+            assert not env_names.search(path.read_text(encoding="utf-8")), path
+
+
+def test_reference_integrations_are_on_a_supported_contract() -> None:
+    """Audit 2026-11-27: REFERENCE.md told developers to check on 3.4.1, which tdkit refuses."""
+    from tdkit.docs import is_supported
+
+    for name in ("django", "drupal"):
+        folder = ROOT / "reference" / name
+        manifest = json.loads((folder / "tribunedesk.json").read_text(encoding="utf-8"))
+        assert is_supported(manifest["contract"]), name
+        reference = (folder / "REFERENCE.md").read_text(encoding="utf-8")
+        assert f"--contract v{manifest['contract']}" in reference, name
+        readme = (ROOT / "reference" / "README.md").read_text(encoding="utf-8")
+        assert f"| {manifest['contract']} |" in readme, name

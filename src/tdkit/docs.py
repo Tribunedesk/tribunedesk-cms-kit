@@ -27,11 +27,44 @@ from tdkit.errors import UsageError
 SUPPORTED_MINORS = frozenset({(3, 8)})
 _VERSION = re.compile(r"^(\d+)\.(\d+)\.\d+(-draft)?$")
 
+# The last tdkit release that supports each older minor, for an integration still on it. A test
+# fails when a minor between the oldest one here and SUPPORTED_MINORS has no entry.
+LAST_RELEASE_FOR_MINOR = {
+    (3, 4): "1.3.2",
+    (3, 5): "1.4.1",
+    (3, 6): "1.5.1",
+    (3, 7): "1.6.1",
+}
+
+
+def _minor(version: str) -> tuple[int, int] | None:
+    match = _VERSION.match(version)
+    return (int(match.group(1)), int(match.group(2))) if match else None
+
 
 def is_supported(version: str) -> bool:
     """True for any patch of a supported minor, draft or not."""
-    match = _VERSION.match(version)
-    return bool(match) and (int(match.group(1)), int(match.group(2))) in SUPPORTED_MINORS
+    return _minor(version) in SUPPORTED_MINORS
+
+
+def unsupported_message(version: str) -> str:
+    """What to do about a contract this tdkit does not support: older and newer differ."""
+    supported = ", ".join(f"{a}.{b}" for a, b in sorted(SUPPORTED_MINORS))
+    head = f"contract {version} is not supported by tdkit {__version__} (it supports {supported})"
+    minor = _minor(version)
+    if minor is not None and minor < min(SUPPORTED_MINORS):
+        release = LAST_RELEASE_FOR_MINOR.get(minor)
+        older = (
+            f"; to check it on its own contract use tdkit {release} "
+            f"(git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v{release})"
+            if release
+            else ""
+        )
+        return (
+            f"{head}: the integration is on an older contract; update it to {supported} "
+            f"(the skill's update mode){older}"
+        )
+    return f"{head}; update the plugin"
 
 
 REPO_URL = "https://github.com/Tribunedesk/tribunedesk-cms-api"
@@ -98,9 +131,7 @@ def load_docs(root: Path) -> ContractDocs:
     openapi = _read_json(root / "openapi.json")
     version = str(openapi.get("info", {}).get("version", ""))
     if not is_supported(version):
-        raise UsageError(
-            f"contract {version} is not supported by tdkit {__version__}; update the plugin"
-        )
+        raise UsageError(unsupported_message(version))
     # The signature vectors arrived in 3.4.1-draft; only tdkit's own tests read them.
     vectors = _read_json(root / VECTORS) if (root / VECTORS).is_file() else {"vectors": []}
     return ContractDocs(

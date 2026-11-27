@@ -12,6 +12,13 @@ project use `tribunedesk/cms-protocol` (`references/php-library.md`).
   follow `guide/1-article-delivery.md`, Verifying the signature, step by step.
 - The exact registered address, no redirects (trailing slash, `http`→`https`, locale prefix).
 
+**Plain PHP (no framework).** One script as the route, for example `public/td-webhook.php`.
+Read `file_get_contents('php://input')` (never `$_POST`), take the headers from
+`$_SERVER['HTTP_WEBHOOK_ID']`, `HTTP_WEBHOOK_TIMESTAMP` and `HTTP_WEBHOOK_SIGNATURE`, verify,
+then `json_decode(..., true, 512, JSON_THROW_ON_ERROR)`. Answer with `http_response_code()`,
+`header('Content-Type: application/json')` and `echo json_encode(...)`. Check that the web
+server's rewrite rules (`.htaccess`) do not redirect it.
+
 ## 2. Secret and token
 
 Environment variables or the platform's secret store: `TD_WEBHOOK_SECRET`, `TD_CMS_TOKEN`,
@@ -28,6 +35,11 @@ Never a constant in code, a seed, a fixture or exported configuration.
 - A table keyed by `article_id` with a unique constraint, plus `last_sent_at` and the delivery id.
 - Read-compare-write inside a transaction with a row lock (or an atomic conditional upsert), so
   two overlapping attempts of one send cannot create two posts or let an older send win.
+- Plain PHP with PDO: `$pdo->beginTransaction()` and `SELECT … FOR UPDATE` on MySQL (InnoDB) or
+  PostgreSQL; SQLite has no row locks, so open the transaction with `BEGIN IMMEDIATE`
+  (`$pdo->exec('BEGIN IMMEDIATE')`), which serialises writers. MyISAM tables have no
+  transactions: use `GET_LOCK('td:' . $articleId, 30)` around the write, or move the table to
+  InnoDB. Prove it on a server that runs requests in parallel (section 8).
 
 ## 4. Publish hook and link back
 
@@ -41,6 +53,22 @@ post goes public, from the scheduler's own event or the first job after that tim
 asks for the report once the post is public. Take the address from the post as it is then, not
 from the scheduled time.
 
+**Jobs without a framework.** A site with no queue and no scheduler still needs three periodic
+jobs, whichever its scope has: link back retries (guide 2, "When a report fails"), publishing
+scheduled posts whose time has come (when the CMS does not), and the daily full run of
+categories and tags (level 3). Build them as:
+
+- a queue table (`job`, `payload`, `attempts`, `next_attempt_at`, `last_error`), written in the
+  same transaction as the change that needs the job;
+- one CLI script, for example `php bin/td.php cron`, that takes a lock (`flock` on a file
+  outside the web root, or the database lock of section 3), runs the jobs that are due, and
+  exits; never a job inside the webhook request after the answer, and never a "poor man's cron"
+  run on page views, which does not run on a quiet site;
+- a system cron line every minute, `* * * * * php /path/to/bin/td.php cron` (Windows: Task
+  Scheduler), which the launch steps name (SKILL.md, stage 7).
+
+The developer commands (section 7) may be subcommands of the same script.
+
 ## 5. Edit URL
 
 An absolute `http(s)` address of the post's editor, built from the post id and the site's base URL
@@ -52,6 +80,12 @@ of the site, read from the environment like the other `TD_` names (section 2). T
 from the `author` field of the delivery (guide 1, The fields of the request), and the body goes
 through the text filter your CMS applies to editor content, chosen for the system because there is
 no user to take it from; check that it keeps the elements listed in guide 1, "The HTML body".
+
+**No filter in the CMS.** A hand-written site may print the body as it is. Then add a maintained
+sanitizer with an allow-list (PHP: `references/php-library.md`, "The HTML filter"; Python:
+`nh3`; Node: `sanitize-html`), never a regular expression: event attributes (`onerror`) and
+`javascript:` links must go too, and `TDKIT check` tests only `script` and `iframe`
+(`l1-embeds`), so add the project's own test for them.
 
 ## 6. Images
 
@@ -81,6 +115,10 @@ attempts of one send, and for an older send after a newer one.
 the user and ask before adding a runner or a dependency, since that choice is theirs. The signature
 check can still be tested against the contract's vectors (`examples/vectors/webhook-signature.json`)
 with a small script the user can run.
+
+**The local server for `TDKIT check`.** Run the integration on a server that answers requests in
+parallel, or `l1-overlapping-attempts` passes without proving the lock. PHP's `php -S` answers
+one at a time: `references/php-library.md`, "Running it locally", says what to use instead.
 
 ## 9. Pitfalls
 

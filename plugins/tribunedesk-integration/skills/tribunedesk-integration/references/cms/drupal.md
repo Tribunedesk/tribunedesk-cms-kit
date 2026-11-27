@@ -51,8 +51,9 @@ tests. Read it before writing your own, and copy the order of the steps, not its
 ## 5. Edit URL
 
 `$node->toUrl('edit-form', ['absolute' => TRUE])->toString()` built without access checks (do
-not use `->access()`); with no request during cron, set the base URL in settings so absolute
-URLs are right.
+not use `->access()`); with no request during cron and drush, build absolute URLs on the site
+address from `TD_SITE_URL` in `settings.php` (the reference module's `site_url`), so they are
+right.
 
 ## 6. Images
 
@@ -93,4 +94,29 @@ container (`ddev exec`), and then `tdkit` must run where the site can reach it.
   or the node type list) and ask which content type posts go to; on a fresh site the core recipe
   `core/recipes/article_content_type` adds the article type (`drush recipe core/recipes/article_content_type`).
 - **Local runs with `php -S`:** start it from the `web/` directory (the document root), with
-  `.ht.router.php` as the router, or Drupal's routes give 404.
+  `.ht.router.php` as the router, or Drupal's routes give 404. It serves one request at a time
+  by default (`references/php-library.md`, "Running it locally").
+
+## 10. Level 4 (media library)
+
+The model (state, queue, screens, staging) is in `references/cms/generic.md`, section 10. In
+Drupal:
+
+- Module tables (`hook_schema`): `tribunedesk_sync_state` (one row: cursor, attempts, resync
+  flag, open preview id) and `tribunedesk_media` keyed by the Media entity id (`asset_id`, field
+  versions serialized, set-aside values, send result), plus `tribunedesk_media_edits` (media id,
+  field, `changed_at`, unique per media and field) and a deletions table.
+- `hook_media_update()` and `hook_media_delete()` fill the queues; the sync applies feed changes
+  with a flag the hooks check (a service property set around the save), so they do not enter
+  them.
+- The lock: `\Drupal::lock()->acquire('tribunedesk:sync', 300)` (the database lock service on
+  several web heads) around one cycle.
+- `hook_cron()` runs one cycle (needs a real cron calling `drush cron` every few minutes; the
+  Automated Cron module runs only after page views); a `QueueWorker` sends the local edits.
+- Field mapping: the Media type's `field_media_image` `alt` and `title`, or text fields on the
+  Media entity; decide with the user (generic, section 10, Field mapping).
+- Admin routes with `_permission: 'administer tribunedesk'` for held batches and the resync
+  preview.
+- Drush commands for `TDKIT check`: `td:sync`, `td:media-inspect <cms_media_id>`,
+  `td:media-add <file>`, `td:media-edit <cms_media_id> <field> <value>`,
+  `td:media-delete <cms_media_id>`, `td:media-reset`.

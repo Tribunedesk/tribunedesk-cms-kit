@@ -130,7 +130,7 @@ TIME_ZONE = "Europe/Warsaw"
 DATABASES["default"]["OPTIONS"] = {"transaction_mode": "IMMEDIATE", "timeout": 20}
 
 # Tribune Desk integration. Values come from the environment only; names in .env.example.
-SITE_URL = (os.environ.get("SITE_URL") or "https://blog.example.com").rstrip("/")
+SITE_URL = (os.environ.get("TD_SITE_URL") or "https://blog.example.com").rstrip("/")
 TD_WEBHOOK_SECRET = os.environ.get("TD_WEBHOOK_SECRET", "")
 TD_CMS_TOKEN = os.environ.get("TD_CMS_TOKEN", "")
 TD_API_BASE = os.environ.get("TD_API_BASE") or "https://api.tribunedesk.com"

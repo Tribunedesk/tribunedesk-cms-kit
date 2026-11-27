@@ -2,8 +2,8 @@
 
 **Reference to read, not a supported module.** Built by the skill `tribunedesk-integration` in the
 `drupal-l12` run (2026-11-12) on a Drupal 11 site (standard profile, SQLite), on top of the
-official PHP library `tribunedesk/cms-protocol` 1.0.0 (signature check, draft rules, answers,
-link back, API errors).
+official PHP library `tribunedesk/cms-protocol` (signature check, draft rules, answers,
+link back, API errors): 1.0.0 in the run, 1.4.x today.
 
 ## What is here
 
@@ -21,8 +21,8 @@ no longer creates that type; apply the core recipe first if the site has none:
 `vendor/bin/drush recipe web/core/recipes/article_content_type`.
 
 ```
-composer config repositories.tribunedesk-cms-php vcs https://github.com/Tribunedesk/tribunedesk-cms-php
-composer require tribunedesk/cms-protocol:^1.0
+composer config repositories.tribunedesk-cms-php git https://github.com/Tribunedesk/tribunedesk-cms-php.git
+composer require tribunedesk/cms-protocol:^1.4
 cp -r tribunedesk web/modules/custom/
 cat settings.tribunedesk.php | tail -n +4 >> web/sites/default/settings.php
 vendor/bin/drush en tribunedesk -y
@@ -36,17 +36,28 @@ TD_WEBHOOK_SECRET=whsec_dGRraXQtbW9jay1zaWduaW5nLXNlY3JldC0wMDAwMDA= \
 TD_API_BASE=http://127.0.0.1:8787 TD_CMS_TOKEN=tdcms_mock TD_SITE_URL=http://127.0.0.1:8888 \
   php -S 127.0.0.1:8888 .ht.router.php &
 cd ..
-tdkit check --levels 1,2 --mode webhook --contract v3.4.1-draft --webhook http://127.0.0.1:8888/td/webhook \
+tdkit check --levels 1,2 --mode webhook --contract v3.8.1-draft --webhook http://127.0.0.1:8888/td/webhook \
   --inspect-cmd "vendor/bin/drush td:inspect {article_id}" \
   --publish-cmd "vendor/bin/drush td:publish {article_id}"
 ```
 
 Start the PHP server from inside `web/`: started from the project root with `-t web` it answered
-500 once the module was enabled (found in the run).
+500 once the module was enabled (found in the run). `php -S` answers one request at a time, so
+`l1-overlapping-attempts` passes there without proving the lock; on Linux or macOS add
+`PHP_CLI_SERVER_WORKERS=4` before `php -S`, elsewhere check on the site's real server (skill,
+`references/php-library.md`, "Running it locally"). On Windows run `vendor\bin\drush.bat` and
+set the variables with `$env:NAME = "…"` in PowerShell.
+
+`tdkit` is the kit's command line tool:
+`uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.7.0 tdkit` (kit README,
+"Run it"). The secret and the token above are the mock's public test values.
 
 ## Changed by the reviewer
 
 - Kept only what the integration adds; the run's Drupal site, its `composer.lock` and the
   development packages it added for tests are left out.
-- The run added the library as a `git` repository; the install line above uses `vcs`, as
-  `references/php-library.md` of the skill says. Both work.
+- 2026-11-17: the embed filter of guide 1 (contract 3.5); 2026-11-25: the publication mode with
+  `hook_cron()` publishing scheduled nodes (contract 3.7).
+- 2026-11-27: the library comes from a `git` repository over `https` (as the run did and the
+  skill's `references/php-library.md` now says): the `vcs` type without a GitHub token may fall
+  back to SSH and fail. `^1.4` instead of `^1.0`, the release that knows contract 3.8.

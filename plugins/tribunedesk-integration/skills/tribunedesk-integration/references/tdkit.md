@@ -29,7 +29,7 @@ building. Do not copy the README into the user's project.
 
 ## TDKIT check
 
-The mock serves images (deliveries, `file_url`) over https with a test certificate; `TDKIT check` and `TDKIT mock` print its CA as `TD_CA_BUNDLE=<path>` and pass it to the developer commands. A webhook server started by hand needs it in its own environment, and the integration trusts it in tests only (CMS reference, section 6). An integration that does not download the allowed image fails `l1-image-host`.
+The mock serves images (deliveries, `file_url`) over https with a test certificate; `TDKIT check` and `TDKIT mock` print its CA as `TD_CA_BUNDLE=<path>` and pass it to the developer commands. A webhook server started by hand needs it in its own environment, and the integration trusts it in tests only (CMS reference, section 6). `l1-image-host` does not require a download (guide 1 allows keeping the URL only); it fails when the integration tries the allowed image and refuses the mock's certificate (trust `TD_CA_BUNDLE`), or when it downloads, or tries, the image on a host outside `image_hosts`.
 
 Start the integration first (its web server, with the mock secret and `TD_API_BASE` pointing at
 the mock's port), then:

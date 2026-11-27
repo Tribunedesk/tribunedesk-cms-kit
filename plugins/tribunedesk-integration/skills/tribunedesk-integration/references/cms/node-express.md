@@ -33,7 +33,9 @@ outbox table polled by a worker) that sends the link back with `fetch`. A repeat
 
 ## 5. Edit URL
 
-`${process.env.ADMIN_URL}/posts/${id}/edit`, built without the current user.
+`${process.env.TD_SITE_URL}/admin/posts/${id}/edit` (the app's own editor route), built without
+the current user; `TD_SITE_URL` is the public address of the site (`references/cms/generic.md`,
+section 5) and gives the `permalink` too.
 
 ## 6. Images
 
@@ -65,3 +67,25 @@ the command returns. A retry queue may still handle a failed send later.
 - `bodyParser.json({ verify })` keeping a raw copy also works, but only if every path keeps it.
 - Comparing signatures with `===` leaks timing; use `timingSafeEqual` on equal-length buffers.
 - Serverless platforms may decode or re-encode bodies; check the platform's raw body option.
+
+## 10. Level 4 (media library)
+
+The model (state, queue, screens, staging) is in `references/cms/generic.md`, section 10. In
+Node:
+
+- Tables `td_sync_state` (one row: cursor, attempts, resync flag, open preview id) and
+  `td_media` keyed by the app's media id (`asset_id`, field versions as JSON, set-aside values,
+  send result), plus `td_media_edits` (media id, field, `changed_at`, unique per media and field)
+  and `td_media_deletions`.
+- Fill the edit queue where the app saves a media item (the service method or the ORM hook); the
+  sync applies feed changes through a path that skips it (a flag argument, or a direct update).
+- The lock: `SELECT … FOR UPDATE` on the `td_sync_state` row in a transaction (PostgreSQL,
+  MySQL), `BEGIN IMMEDIATE` on SQLite, or a lock row with an expiry. In-process locks do not
+  work across workers.
+- Run one cycle from a scheduler outside web requests: a system cron line calling
+  `node scripts/td.js sync`, a `node-cron` or BullMQ repeatable job in a worker process, every
+  few minutes; queue a delayed job a minute after an edit.
+- Admin pages (the app's own) for held batches and the resync preview.
+- Commands for `TDKIT check`: `node scripts/td.js sync`, `media-inspect <cms_media_id>`,
+  `media-add <file>`, `media-edit <cms_media_id> <field> <value>`, `media-delete <cms_media_id>`,
+  `reset`.

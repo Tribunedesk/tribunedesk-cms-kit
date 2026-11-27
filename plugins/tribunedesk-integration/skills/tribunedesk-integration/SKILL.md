@@ -1,6 +1,6 @@
 ---
 name: tribunedesk-integration
-description: Builds, updates and checks a CMS integration with Tribune Desk (the newsroom tool that sends articles to a CMS). Use when the user asks to integrate a CMS or website with Tribune Desk, to receive Tribune Desk articles, to report published links back, to sync media, to update an existing Tribune Desk integration to a new contract version, or to test one - in English or Polish, e.g. "Build me an integration with Tribune Desk", "integrate my CMS with Tribune Desk", "update my Tribune Desk integration", "Zbuduj mi integrację z Tribune Desk", "sprawdź integrację z Tribune Desk". It reads the contract from the official documentation, builds level by level and tests against a local mock of Tribune Desk (tdkit). It does not order tokens or secrets from Tribune Desk and does not deploy to production.
+description: Builds, updates and checks a CMS integration with Tribune Desk (the newsroom tool that sends articles to a CMS). Use when the user asks to integrate a CMS or website with Tribune Desk, to receive Tribune Desk articles, to report published links back, to sync media, to add a level to an existing Tribune Desk integration (photos, full content, read mode), to update one to a new contract version, or to test one - in English or Polish, e.g. "Build me an integration with Tribune Desk", "build a Tribune Desk plugin for our CMS", "integrate my CMS with Tribune Desk", "add photos to our Tribune Desk integration", "update my Tribune Desk integration", "Zbuduj mi integrację z Tribune Desk", "dodaj zdjęcia do integracji z Tribune Desk", "sprawdź integrację z Tribune Desk". It reads the contract from the official documentation, builds level by level and tests against a local mock of Tribune Desk (tdkit). It does not order tokens or secrets from Tribune Desk and does not deploy to production.
 ---
 
 # Tribune Desk integration
@@ -42,7 +42,7 @@ mock on `127.0.0.1` and calls the integration's own developer commands.
 Say this to the user, in their language, in two sentences, as the first lines of the last
 message of your first turn (text earlier in a turn may not reach them):
 
-> I will build (or update, or check) your Tribune Desk integration in this project and test it
+> I will build (or extend, update or check) your Tribune Desk integration in this project and test it
 > against a local mock of Tribune Desk, telling you what I do at each stage. I will not order
 > tokens or secrets from Tribune Desk for you, and I will not deploy anything to production:
 > I prepare a ready message for your Tribune Desk contact and a list of launch steps.
@@ -52,12 +52,18 @@ message of your first turn (text earlier in a turn may not reach them):
 Look at the project root before asking anything:
 
 - **build**: there is no `tribunedesk.json`.
+- **extend**: `tribunedesk.json` exists and the user asks for something it does not list: a new
+  level ("add photos", "add the link back"), read mode or webhook instead of the other, a level 4
+  option, categories and tags. See section 6.
 - **update**: `tribunedesk.json` exists and its `contract` is older than the newest contract tag
   (`TDKIT docs` prints the newest tag as `tag`).
-- **check**: the user asks for a test, or the manifest's `contract` is the newest tag.
+- **check**: the user asks for a test, or the manifest's `contract` is the newest tag and the
+  request adds nothing.
 
-When the request and the repository disagree (the user says "update" but there is no manifest),
-say what you found and recommend the mode that fits the repository.
+A request to add something is never check mode, even when the manifest is current. When the
+manifest is out of date and the user asks to add something, update first and extend after, in
+one plan. When the request and the repository disagree (the user says "update" but there is no
+manifest), say what you found and recommend the mode that fits the repository.
 
 ## 3. Ground rules (every mode)
 
@@ -78,6 +84,12 @@ say what you found and recommend the mode that fits the repository.
   or any secret store: check only whether a variable is set.
 - **Answer in the user's language** (Polish to a Polish speaker, English otherwise). These
   instructions stay in English.
+- **The plan before code (one rule, every mode that changes code).** Before the first edit of
+  integration code, write the plan: the files to add and change, per level, and where the
+  secret and the token live. Without pre-approval it is the last message of the turn and you
+  stop there for approval. With pre-approval it is a short progress line (the file list) and you
+  go on; the final message then carries the plan as built. Never write code before the plan
+  exists in the conversation.
 - **Pre-approval.** If the user approved the plan in the request, or told you not to ask ("do
   everything, don't ask"), do not stop for approval, and stop only on a red `TDKIT check` you
   cannot fix. Between stages write only short progress lines; the final message carries the rest
@@ -85,7 +97,8 @@ say what you found and recommend the mode that fits the repository.
   Never say you showed something you did not.
 - **PHP CMS: use the library.** For Drupal, Laravel, Joomla or any PHP project use
   `tribunedesk/cms-protocol` instead of writing the protocol again; see
-  `references/php-library.md`.
+  `references/php-library.md`, which also says what to do without Composer and on PHP older
+  than the library needs.
 - **Scope is the user's.** Build only the levels they chose; never add one because it is easy.
 
 ### Stage summary template
@@ -131,7 +144,7 @@ tell the user which contract version you build against.
 - **Read:** `references/scope.md` and the table "Integration levels" in the downloaded
   `README.md`.
 - **Do:** ask one open question: "What should happen between Tribune Desk and your CMS?" Map the
-  answer to levels and show the dependencies (section 6). No public `https` endpoint means read
+  answer to levels and show the dependencies (section 8). No public `https` endpoint means read
   mode; Ghost means a bridge or read mode. If the CMS cannot do something (Ghost has no media
   library), say so now and do not promise it.
 - **Photos only (level 4):** build the core from `guide/4-media-library.md` and ask whether the
@@ -160,8 +173,11 @@ tell the user which contract version you build against.
   - the developer commands `inspect`, `publish` (levels 2-3), `poll` (read mode) and
     `taxonomy-sync` (level 3, when the CMS has categories or tags) that
     `TDKIT check` needs, in the CMS's idiom (see the CMS reference, section 7);
-  - tests in the project's own test runner for the signature check and the upsert.
-- **Stop:** wait for approval, unless the user pre-approved (section 3).
+  - tests in the project's own test runner for the signature check and the upsert;
+  - the scheduled jobs the scope needs (link back retries, scheduled posts, the daily full run
+    of categories and tags, the level 4 sync) and what runs them (cron, the CMS's scheduler or
+    a worker).
+- **Stop:** wait for approval, unless the user pre-approved ("The plan before code", section 3).
 
 ### Stage 5. Build level by level
 
@@ -201,8 +217,13 @@ Give the user the numbered list for the scope chosen in stage 2, and only that l
 2. Give the Tribune Desk contact the webhook address.
 3. Keep the server clock in sync (NTP): a clock more than 5 minutes off makes the signature check
    fail (`guide/1-article-delivery.md`, Article delivery webhook, "Your answer").
-4. Ask for the integration to be enabled where the README table says it is needed.
-5. Make a first real "Send to CMS" and open "Edit in CMS" from Tribune Desk.
+4. Schedule the jobs you built (cron, the CMS's scheduler or a worker) and check they run: the
+   publication of scheduled posts (`guide/1-article-delivery.md`, when the CMS has no scheduler
+   of its own), the link back retries (`guide/2-link-back.md`, "When a report fails") and the
+   daily full run of categories and tags (`guide/3-full-content.md`). Without them a scheduled
+   post never goes public or is never reported, and a failed link back is never sent again.
+5. Ask for the integration to be enabled where the README table says it is needed.
+6. Make a first real "Send to CMS" and open "Edit in CMS" from Tribune Desk.
 
 **Read mode (levels 1-3 without a public address):**
 
@@ -243,14 +264,45 @@ new contract version, ask me to update the integration."
 
 If the list is empty, say so, run the check, and bump the manifest.
 
-## 6. Check mode
+## 6. Extend mode
+
+The integration exists and the user wants more of it ("add photos", "now the full content too",
+"switch to read mode"). Build only the addition, on top of what is there.
+
+1. `TDKIT manifest validate`, then `TDKIT docs`. If the manifest's `contract` is older than the
+   tag, run update mode first (section 5) and put both in one plan.
+2. **Know what is built (no questions):** the manifest's levels and delivery, the code of each
+   level, the developer commands, where the secret and the token live, the scheduled jobs.
+   Reuse them; never write a second webhook route, client or token setting.
+3. **Scope of the addition** (stage 2): map the request to levels and options with
+   `references/scope.md` and say what it depends on (level 3 needs level 1; reusing library
+   images in deliveries is 4 + 1). Say what stays as it is.
+4. **What to ask Tribune Desk for** (stage 3): only what the addition needs and the integration
+   does not have yet, such as new token scopes (`media:read`, `media:write` for level 4) or read
+   mode switched on.
+5. **Plan** (stage 4, "The plan before code"): the files to add and change for the addition
+   only, the new developer commands and scheduled jobs.
+6. **Build** the new levels as in stage 5, each with its own `TDKIT check --levels <new level>`.
+7. **Conformance of everything** (stage 6): `TDKIT check --docs <path>` for the old and the new
+   levels together, so the addition broke nothing, then `TDKIT manifest write` with all the
+   levels (and the new `--delivery`, if it changed) and `TDKIT manifest validate`.
+8. **Launch steps** (stage 7): only the steps the addition brings (level 4 added to levels 1-3:
+   steps 3-5 of the level 4 list; read mode instead of webhook: the read mode list).
+
+## 7. Check mode
 
 Run `TDKIT check --docs <path>` for the levels and mode in the manifest, or the
 ones the user names. Report
 what passes and what fails; for each failure give the guide point the report cites and the
-likely cause in their code. Do not change code in check mode unless the user asks.
+likely cause in their code. Do not change code in check mode unless the user asks; when they
+ask for a fix, show the plan first ("The plan before code"), and when they ask for something
+new, that is extend mode.
 
-## 7. Scope in short
+A manifest whose `contract` this tdkit no longer supports ends `TDKIT docs` and `TDKIT check`
+with exit code 2. Say so, and offer update mode; to test the integration on its own contract
+first, the kit README's "Which contract" names the tdkit release that supports it.
+
+## 8. Scope in short
 
 - Level 1 (article delivery) stands alone; levels 2 (link back) and 3 (full content) need it.
 - Level 4 (media library) works on its own; reusing library images in deliveries is 4 + 1.
@@ -259,7 +311,7 @@ likely cause in their code. Do not change code in check mode unless the user ask
   core, and the import with `--backfill`.
 - Details and examples of mapping answers to levels: `references/scope.md`.
 
-## 8. References
+## 9. References
 
 Read each file only in the stage that needs it.
 

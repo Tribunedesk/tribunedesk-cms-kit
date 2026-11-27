@@ -43,6 +43,27 @@ def test_unsupported_contract_is_usage_error(tmp_path: Path) -> None:
         resolve_docs(None, root)
 
 
+def test_older_contract_points_to_update_mode_and_the_old_release() -> None:
+    """Audit 2026-11-27: "update the plugin" misled an integrator still on 3.6."""
+    from tdkit.docs import unsupported_message
+
+    message = unsupported_message("3.6.1-draft")
+    assert "update the plugin" not in message
+    assert "update mode" in message
+    assert "tribunedesk-cms-kit@v1.5.1" in message
+    assert "update the plugin" in unsupported_message("9.0.0")
+
+
+def test_every_older_minor_names_its_last_release() -> None:
+    from tdkit import docs
+
+    oldest = min(docs.LAST_RELEASE_FOR_MINOR)
+    newest = min(docs.SUPPORTED_MINORS)
+    assert oldest[0] == newest[0]
+    for minor in range(oldest[1], newest[1]):
+        assert (oldest[0], minor) in docs.LAST_RELEASE_FOR_MINOR, minor
+
+
 def test_contract_tag_must_match_local_copy() -> None:
     with pytest.raises(UsageError, match=r"3.4.0-draft"):
         resolve_docs("v3.4.0-draft", FIXTURE)

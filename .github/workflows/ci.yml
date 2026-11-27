@@ -156,8 +156,8 @@ jobs:
         run: |
           composer create-project --no-interaction -q drupal/recommended-project:^11 "$SITE"
           cd "$SITE"
-          composer config repositories.tribunedesk-cms-php vcs https://github.com/Tribunedesk/tribunedesk-cms-php
-          composer require --no-interaction -q drush/drush tribunedesk/cms-protocol:^1.0
+          composer config repositories.tribunedesk-cms-php git https://github.com/Tribunedesk/tribunedesk-cms-php.git
+          composer require --no-interaction -q drush/drush tribunedesk/cms-protocol:^1.4
           vendor/bin/drush site:install standard -y -q --db-url=sqlite://sites/default/files/.ht.sqlite
           # Since Drupal 11.4 the standard profile no longer creates the article type.
           vendor/bin/drush recipe "$SITE/web/core/recipes/article_content_type" -y
@@ -182,7 +182,17 @@ jobs:
           uv run --project "$GITHUB_WORKSPACE" tdkit check --levels 1,2 --mode webhook --contract "$CONTRACT_TAG" \
             --webhook http://127.0.0.1:8888/td/webhook \
             --inspect-cmd "vendor/bin/drush td:inspect {article_id}" \
-            --publish-cmd "vendor/bin/drush td:publish {article_id}"
+            --publish-cmd "vendor/bin/drush td:publish {article_id}" \
+            --json "$RUNNER_TEMP/reference-drupal-report.json"
+      # The report the reference's tribunedesk.json is written from (`tdkit manifest write
+      # --conformance`): the Drupal site is not built on a developer's machine.
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-drupal-report
+          path: ${{ runner.temp }}/reference-drupal-report.json
+          if-no-files-found: ignore
 
   plugin:
     # The marketplace and the plugin must pass Claude Code's own validator (warnings fail).

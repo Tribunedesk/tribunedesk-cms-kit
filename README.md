@@ -32,6 +32,7 @@ Then, in your CMS project, ask for example:
 
 - "Build me an integration with Tribune Desk: articles and links back."
 - "Our CMS is not reachable from the internet; integrate it with Tribune Desk."
+- "Add photos to our Tribune Desk integration." (adds level 4 to an existing integration)
 - "Update my Tribune Desk integration to the newest contract."
 - "Check my Tribune Desk integration."
 
@@ -61,7 +62,8 @@ W Claude Code:
 ```
 
 Potem w projekcie CMS-a napisz na przykład „Zbuduj mi integrację z Tribune Desk: artykuły i linki
-zwrotne”, „Zaktualizuj integrację z Tribune Desk” albo „Sprawdź integrację z Tribune Desk”.
+zwrotne”, „Dodaj zdjęcia do integracji z Tribune Desk”, „Zaktualizuj integrację z Tribune Desk”
+albo „Sprawdź integrację z Tribune Desk”.
 Skill rozpozna projekt, zapyta o zakres, przygotuje wiadomość do kontaktu w Tribune Desk,
 zbuduje integrację poziom po poziomie i przetestuje ją lokalną atrapą (`tdkit check`). Nie
 zamawia tokenów, nie wdraża na produkcję i nie wpisuje sekretów do repozytorium. Wymaga `uv`
@@ -85,9 +87,25 @@ first found:
 3. its cache, `~/.cache/tdkit/cms-api@<tag>`;
 4. `git clone --depth 1 --branch <tag>` of `tribunedesk-cms-api` into that cache.
 
-`--contract v3.5.0-draft` picks a tag; without it `tdkit` takes the newest `v*` tag. A contract
+`--contract v3.8.1-draft` picks a tag; without it `tdkit` takes the newest `v*` tag. A contract
 outside the supported range ends with exit code 2 and `contract <v> is not supported by tdkit
-<version>; update the plugin`.
+<version> (it supports <minors>)`, followed by what to do:
+
+- a **newer** contract: `update the plugin` (`/plugin update` in Claude Code), which brings a
+  tdkit that knows it;
+- an **older** contract: update the integration (the skill's update mode); to check it on its own
+  contract first, use the last release that supports it:
+
+| Contract | Last tdkit release for it |
+|---|---|
+| 3.4 | `v1.3.2` |
+| 3.5 | `v1.4.1` |
+| 3.6 | `v1.5.1` |
+| 3.7 | `v1.6.1` |
+| 3.8 | this release |
+
+For example `uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.5.1 tdkit check
+--contract v3.6.1-draft …` for an integration on 3.6.
 
 ## `tdkit mock`
 
@@ -321,7 +339,7 @@ In read mode the webhook-only `l1-*` scenarios are skipped and the report says s
 **Your clock.** `check` cannot see your server's clock. A receiver more than 5 minutes off
 answers `401` to real deliveries and loses articles: keep it in sync.
 
-## Limits of 1.3
+## Limits
 
 - `check` sends each delivery attempt itself; the mock's retries are for `tdkit mock`.
 - `push-existing` and `PUT /settings` work in the mock but have no scenario: both are an
@@ -329,6 +347,10 @@ answers `401` to real deliveries and loses articles: keep it in sync.
 - The screens for held batches and the resync preview are a person's: `check` proves the sync
   never decides them, not how they look.
 - No rate limit (`429`) and no frozen organization (`project_deactivated`).
+- `l1-embeds` checks `script` and `iframe` only: event attributes (`onerror`) and `javascript:`
+  links in `html` are your content filter's job, tested by your own tests.
+- `l1-overlapping-attempts` proves the lock only when your server answers requests in parallel
+  (PHP's `php -S` does not by default).
 
 ## How close the mock is to production
 
@@ -384,17 +406,20 @@ set `TDKIT_CMD="uv run --project <this checkout> tdkit" (`--project`, not `--dir
 
 ## Evals
 
-Nine scenarios check the skill on real projects (`evals/scenarios/`): a Django blog with levels 1
-and 2 in Polish, the same on Drupal 11 in English with the PHP library, a photos-only site, a
-site on an intranet (read mode), an update from contract 3.2.0-draft, a Ghost(Pro) site, and
-three clean-room parity runs (`parity-django`, `parity-laravel`, `parity-node`): everything the
-official WordPress plugin does, levels 1-4, built from the skill and the public documentation
-alone. The parity runs come with every kit minor. Run
+Fourteen scenarios check the skill on real projects (`evals/scenarios/`): a Django blog with
+levels 1 and 2 in Polish, the same on Drupal 11 in English with the PHP library, a photos-only
+site, a site on an intranet (read mode), updates from contracts 3.2.0-draft and 3.6.0-draft, a
+Ghost(Pro) site, a blog with categories and tags (level 3), adding photos to an existing
+integration (extend mode), a hand-written PHP site with no framework (`custom-php`, the general
+case), and four clean-room parity runs (`parity-django`, `parity-laravel`, `parity-node`,
+`parity-drupal`): everything the official WordPress plugin does, levels 1-4, built from the
+skill and the public documentation alone. The parity runs come with every kit minor. Run
 one with `uv run python evals/run.py <scenario>`; it works on Windows, macOS and Linux and needs
 Claude Code, uv and git (and PHP 8.3 with Composer for Drupal). See [`evals/README.md`](evals/README.md).
 
-Last runs, 2026-11-12 (Claude Code 2.1.293, one run per scenario; later edits of the skill only
-reconcile its wording):
+Runs, oldest first, one run per scenario per row. A row without a date is from 2026-11-12
+(Claude Code 2.1.293, contract 3.4.1-draft); every other row names its date, kit and contract.
+A scenario's newest row is its current result:
 
 | Scenario | Automatic checks | Review | Cost |
 |---|---|---|---|

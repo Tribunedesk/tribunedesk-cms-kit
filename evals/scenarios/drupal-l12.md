@@ -13,7 +13,9 @@ Judged by reading the run (the runner prints the files and the final message).
 ### conduct (the whole session)
 
 PASS if all of these hold in the session:
-- the user approved the plan in advance, and the assistant did not stop to wait for approval;
+- plan before code (SKILL.md, "The plan before code"): before its first edit of integration
+  code the assistant wrote the plan (files to add and change) as a progress line, and did
+  not stop to wait for approval;
 - the final message carries the plan as built (files added and changed, per level) and a table
   of the stages with the result of each; short progress lines between stages are enough;
 - it wrote to the user in English;

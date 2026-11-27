@@ -38,7 +38,9 @@ Contract rules come from the downloaded guide; this file is only how to do them 
 ## 5. Edit URL
 
 Build it without request context: `settings.SITE_URL + reverse("admin:blog_post_change",
-args=[post.pk])` (or the CMS's own editor route). `request.user` does not exist in a delivery.
+args=[post.pk])` (or the CMS's own editor route), with the setting `settings.SITE_URL` read from
+the environment variable `TD_SITE_URL` (the kit's name, `references/cms/generic.md`, section 5). `request.user`
+does not exist in a delivery.
 
 ## 6. Images
 

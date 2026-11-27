@@ -20,6 +20,20 @@ what the user says onto them.
 When the answer is vague, recommend 1 + 2: it is what most newsrooms need first, and the other
 levels can be added later without rework.
 
+## Adding to an existing integration (extend mode)
+
+Read the manifest's `levels` and `delivery` first; the addition is the difference.
+
+| The user says, with the manifest at | Add | Notes |
+|---|---|---|
+| "Add photos" / "sync our media library", levels 1 (+2, +3) | 4 | Ask one question first: the media library (level 4), or better images in delivered articles (level 1 already downloads them; nothing to add)? Level 4 needs new scopes (`media:read`, `media:write`); recommend 1 + 4 body images too. |
+| "Add the link back", level 1 | 2 | Needs the publish hook and a retry job. |
+| "Add the full content" / "SEO, read more, AI label", levels 1 + 2 | 3 | Categories and tags too, when the CMS has them (`taxonomy-sync`, a daily job). |
+| "Articles too", level 4 only | 1 (+2) | A webhook or read mode, and new token scopes: the downloaded `README.md`, "What to ask Tribune Desk for", rows of the new levels. |
+| "We lost the public address" / "move behind the VPN", webhook | read | Same levels; the webhook route goes once the read mode client passes. |
+
+A request for a level the manifest already has is check mode, or a fix: say so.
+
 ## Showing dependencies
 
 Show the chosen set with what each level needs, for example:
