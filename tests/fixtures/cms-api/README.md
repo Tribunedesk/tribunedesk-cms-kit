@@ -16,7 +16,9 @@ Each level works without the higher ones. Start with level 1, which is a day of 
 | [2. Link back](guide/2-link-back.md) | reports the address and date of publication | `POST /v3/cms/articles/published` | the link in Tribune Desk; the article becomes a link target |
 | [3. Full content](guide/3-full-content.md) | resolves internal links, keeps the “read more” box, SEO, author, language, AI label | the level 3 fields of the delivery | full publishing quality |
 | [4. Media library](guide/4-media-library.md) | syncs files and their descriptions both ways | the media, settings, held, resync and backfill routes | one library |
-| [5. Archive](guide/5-archive.md) | sends older articles | planned | links to the archive |
+| [5. Archive](guide/5-archive.md) | sends older articles | not available yet: ask your Tribune Desk contact | links to the archive |
+
+Once the levels you chose work, [A complete integration in any CMS](guide/complete-integration.md) lists what a production integration adds around them: background jobs, the HTML filter, what each new send changes in a post, and the edge cases of images, the link back and categories. It is what the WordPress plugin does, written for any CMS.
 
 The contract is described by the [OpenAPI document](openapi.json) (also served at `https://api.tribunedesk.com/v3/cms/openapi.json`). How versions change: [Versioning](VERSIONING.md). What changed: [CHANGELOG](CHANGELOG.md). Working clients in Python: [level 1](examples/python/level1_receiver.py) and [level 2](examples/python/level2_link_back.py).
 
@@ -64,7 +66,7 @@ curl -sS https://api.tribunedesk.com/v3/cms/status \
 ```
 
 ```
-{"org_code":"example-org","contract_version":"3.8.0-draft","scopes":["media:read"],"state":"active", ...}
+{"org_code":"example-org","contract_version":"3.9.0-draft","scopes":["media:read"],"state":"active", ...}
 ```
 
 ## What to ask Tribune Desk for

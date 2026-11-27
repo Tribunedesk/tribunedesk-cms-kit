@@ -2,6 +2,44 @@
 
 Changes of the Tribune Desk CMS API contract, newest first. Versions follow [Versioning](VERSIONING.md).
 
+## 3.9.0-draft – 2026-11-27
+
+- New chapter [A complete integration in any CMS](guide/complete-integration.md): what a production integration adds around the levels, written so that any CMS can match the WordPress plugin. The background jobs (image retries, link back retries, bulk and scheduled publishing, image hosts, the daily category run); a full HTML filter with unsafe and safe samples; what each new send changes in a new, a not yet public and a public post; publication dates and a site-side switch that keeps Tribune Desk from publishing; finding images before downloading them, time budgets, file names; the steps when a post becomes public; the send cycle of categories and tags; settings and the delivery log. Documentation only: no shape changes.
+- Guide 2: a failed link back is retried at least once, better more often with growing gaps, also when bulk publishing queued it.
+- Guide 1 points to the full HTML filter.
+- Guide 3 says that a page of an abandoned full run answers `409 state_conflict`, and guide 1 (read mode) what a repeated result answers; both behave so since 3.8.2-draft.
+- `examples/python/level1_receiver.py` filters `html` with an allow list on the standard library's HTML parser (`filter_html`), as the new chapter asks; it replaces `filter_embeds` of 3.8.2-draft, which handled only `script` and `iframe`.
+- Level 5 (archive) is no longer called planned: it is not available yet and has no date; ask your Tribune Desk contact if you need it.
+- Versioning: a version overwritten in the docs sync PR before it was merged has no tag of its own; the next tag carries it.
+- The AI label: `ai_provenance` is the source of truth to store and render; the block at the end of `html` stays as a copy for integrations that publish `html` as it is.
+
+**Integrators:**
+
+- `L1`: if you copied the filter of `examples/python/level1_receiver.py`, replace it with `filter_html`.
+- `L1`: filter `html` as [Filtering the HTML](guide/complete-integration.md#filtering-the-html) says (no `on*` attributes, no `javascript:` or `data:` addresses, embeds by parsed host and path) and run the image retry in the background.
+- `L1`: change a post on a new send as [What each send changes](guide/complete-integration.md#what-each-send-changes) says, and let the site keep Tribune Desk from publishing (off by default; on, `publish` and `schedule` count as a missing `publication`).
+- `L2`: retry a failed link back at least once, bulk publishing and scheduled posts included.
+- `L3`: run the full category run daily and the queue of single changes, one run at a time, as [Sending and setting terms](guide/complete-integration.md#sending-and-setting-terms) says.
+
+## 3.8.2-draft – 2026-11-27
+
+- `POST /v3/cms/taxonomy/terms`: a page of a full run that a newer `run_id` abandoned answers `409 state_conflict` and stores nothing. Before, it took the run back, and its last page removed the terms the newer run had just sent.
+- `POST /v3/cms/articles/{article_id}/result` with the `delivery_id` of a send already delivered answers as before and stores nothing again (before, the fields were stored a second time); with the `delivery_id` of a webhook send waiting for its retry it answers `409 state_conflict`. A result no longer ends in `500` when the article cannot be expressed in the contract.
+- `examples/python/level1_receiver.py`: the embed filter parses each `iframe` tag and its `src` address (exact host and path), drops an `iframe` without `</iframe>`, ignores a `src` written inside another attribute, rebuilds a kept `iframe` from the attributes guide 1 allows, and runs until nothing changes, so a split tag such as `<scr<script></script>ipt>` cannot form a script.
+
+**Integrators:**
+
+- `L3`: when a page of your full run answers `409`, start a new run with a new `run_id`; do not send more pages of the old one.
+- `L1`: if you copied the embed filter of `examples/python/level1_receiver.py`, replace it with the new one.
+
+## 3.8.1-draft – 2026-11-26
+
+- The intro of guide 3 no longer says level 3 needs no new route: it points to `POST /v3/cms/taxonomy/terms`, added in 3.8.0-draft. Documentation only.
+
+**Integrators:**
+
+- Nothing to do.
+
 ## 3.8.0-draft – 2026-11-25
 
 - `POST /v3/cms/taxonomy/terms` (`articles:write`): your CMS sends its categories and tags, up to 1000 per request; a full run (`run_id`, `is_last`) also removes the terms your CMS no longer has; run one full run at a time, since a page with a new `run_id` abandons the previous run. `GET /v3/cms/status` shows `taxonomy`.

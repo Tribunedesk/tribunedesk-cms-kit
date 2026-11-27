@@ -191,3 +191,86 @@ handled_by = ["scenario:l1-publication"]
 version = "3.8.0-draft"
 action = "send your categories and tags to `POST /v3/cms/taxonomy/terms` (a full run daily, single changes as they happen); set the terms a delivery names in `taxonomy` (by `cms_term_id`, else by name; never create terms) and answer with `taxonomy`."
 handled_by = ["scenario:l3-taxonomy-sync", "scenario:l3-taxonomy", "skill:references/scope.md"]
+
+# Contract 3.9.0-draft: guide/complete-integration.md (tdkit 1.8).
+
+[[done_when]]
+guide = "guide/complete-integration.md"
+point = "A background job runs the image retries, the link back retries, the reports of bulk and scheduled publishing, the hourly image hosts and the daily category run."
+reason = "tdkit cannot see an integration's scheduler; the skill plans the jobs (SKILL.md, stage 4) and names them in the launch steps (stage 7)"
+
+[[done_when]]
+guide = "guide/complete-integration.md"
+point = "Two overlapping attempts of one send, tested on a server with several workers, make one post."
+scenarios = ["l1-overlapping-attempts"]
+
+[[done_when]]
+guide = "guide/complete-integration.md"
+point = "None of the unsafe samples in [Filtering the HTML](#filtering-the-html) reaches the post, and the safe ones survive; the delivery filters the same with no user logged in."
+scenarios = ["l1-embeds"]
+
+[[done_when]]
+guide = "guide/complete-integration.md"
+point = "A new send changes each part of the post as [the table](#what-each-send-changes) says; a published post gets a late featured image and empty SEO fields filled, and keeps its title, body and author."
+reason = "tdkit tests a new send of a draft (l1-resend-updates) and that a published post is never unpublished (l1-publication); the other cells of the table are the project's own tests, which the skill asks for"
+
+[[done_when]]
+guide = "guide/complete-integration.md"
+point = "A scheduled post published by your scheduler is reported with the link back and its placeholders are resolved; no public page links to a placeholder."
+reason = "tdkit cannot wait for an integration's scheduler; l2-reports-url and l3-placeholder-resolved-later test the same steps when the post is published by --publish-cmd"
+
+[[done_when]]
+guide = "guide/complete-integration.md"
+point = "An image already in your library is reused, not downloaded again; a hint naming a file that is not that image is ignored."
+reason = "l4-body-image tests that a paired library file is not downloaded; a wrong hint needs a library state tdkit does not set up"
+
+[[done_when]]
+guide = "guide/complete-integration.md"
+point = "A failed link back is sent again later, also one from bulk publishing."
+reason = "tdkit cannot hold an integration for minutes; when to try again is the integration's choice (as the same point of guide 2)"
+
+[[done_when]]
+guide = "guide/complete-integration.md"
+point = "An interrupted category run goes on from its last accepted page, and a run left open starts over before 24 hours pass."
+reason = "tdkit runs one --taxonomy-sync-cmd at a time and cannot interrupt it or wait 24 hours; l3-taxonomy-sync tests one complete run"
+
+[[done_when]]
+guide = "guide/complete-integration.md"
+point = "The settings let the site keep Tribune Desk from publishing: `publish` and `schedule` then count as a missing `publication`, and the answer reports the post's real state."
+reason = "the switch is off by default and set by an operator; tdkit tests the default (l1-publication), the skill builds the setting from the guide"
+
+[[integrators]]
+version = "3.9.0-draft"
+action = "if you copied the filter of `examples/python/level1_receiver.py`, replace it with `filter_html`."
+handled_by = ["scenario:l1-embeds"]
+
+[[integrators]]
+version = "3.9.0-draft"
+action = "filter `html` as [Filtering the HTML](guide/complete-integration.md#filtering-the-html) says (no `on*` attributes, no `javascript:` or `data:` addresses, embeds by parsed host and path) and run the image retry in the background."
+handled_by = ["scenario:l1-embeds", "skill:references/cms/generic.md"]
+
+[[integrators]]
+version = "3.9.0-draft"
+action = "change a post on a new send as [What each send changes](guide/complete-integration.md#what-each-send-changes) says, and let the site keep Tribune Desk from publishing (off by default; on, `publish` and `schedule` count as a missing `publication`)."
+handled_by = ["scenario:l1-publication", "skill:SKILL.md"]
+
+[[integrators]]
+version = "3.9.0-draft"
+action = "retry a failed link back at least once, bulk publishing and scheduled posts included."
+handled_by = ["skill:SKILL.md"]
+
+[[integrators]]
+version = "3.9.0-draft"
+action = "run the full category run daily and the queue of single changes, one run at a time, as [Sending and setting terms](guide/complete-integration.md#sending-and-setting-terms) says."
+handled_by = ["scenario:l3-taxonomy-sync", "skill:SKILL.md"]
+
+[[integrators]]
+version = "3.8.2-draft"
+action = "when a page of your full run answers `409`, start a new run with a new `run_id`; do not send more pages of the old one."
+handled_by = ["none"]
+reason = "the guide says it and the skill reads the guide live; tdkit cannot keep a run open for 24 hours to get the 409"
+
+[[integrators]]
+version = "3.8.2-draft"
+action = "if you copied the embed filter of `examples/python/level1_receiver.py`, replace it with the new one."
+handled_by = ["scenario:l1-embeds"]

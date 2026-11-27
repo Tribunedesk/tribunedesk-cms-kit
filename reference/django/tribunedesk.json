@@ -1,16 +1,16 @@
 {
-  "contract": "3.8.1-draft",
+  "contract": "3.9.0-draft",
   "levels": [
     1,
     2
   ],
   "delivery": "webhook",
   "cms": "django",
-  "kit": "1.7.0",
+  "kit": "1.8.0",
   "conformance": {
     "date": "2026-11-27",
-    "kit": "1.7.0",
-    "contract": "3.8.1-draft",
+    "kit": "1.8.0",
+    "contract": "3.9.0-draft",
     "passed": [
       1,
       2
