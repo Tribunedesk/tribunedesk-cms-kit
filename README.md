@@ -74,12 +74,12 @@ i gita.
 You need [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer. No installation:
 
 ```bash
-uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.7.0 tdkit --help
+uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.7.1 tdkit --help
 ```
 
 ### Which contract
 
-`tdkit` supports every patch of contract 3.8 (`3.8.0-draft` and later patches). A release for a new minor also takes the previous one, until the release after the new tag. It takes the documentation from,
+`tdkit` supports every patch of contracts 3.8 and 3.9 (`3.8.0-draft`, `3.9.0-draft` and later patches). A release for a new minor also takes the previous one, until the release after the new tag. It takes the documentation from,
 first found:
 
 1. `--docs DIR`, a checkout of `tribunedesk-cms-api`;
@@ -102,7 +102,7 @@ outside the supported range ends with exit code 2 and `contract <v> is not suppo
 | 3.5 | `v1.4.1` |
 | 3.6 | `v1.5.1` |
 | 3.7 | `v1.6.1` |
-| 3.8 | this release |
+| 3.8, 3.9 | this release |
 
 For example `uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.5.1 tdkit check
 --contract v3.6.1-draft …` for an integration on 3.6.
@@ -274,7 +274,7 @@ stdout; for a failed scenario it quotes the guide's point and names the guide fi
 also writes:
 
 ```json
-{"tdkit": "1.7.0", "contract": "3.8.0-draft", "levels": [1, 2], "mode": "webhook",
+{"tdkit": "1.7.1", "contract": "3.8.0-draft", "levels": [1, 2], "mode": "webhook",
  "results": [{"id": "l1-creates-draft", "level": 1, "done_when": "An editor's …",
               "guide": "guide/1-article-delivery.md#done-when", "passed": true, "detail": "…"}]}
 ```
