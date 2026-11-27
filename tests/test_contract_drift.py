@@ -49,6 +49,19 @@ def test_open_step_reads_the_pin_only_with_an_open_pull_request() -> None:
     assert "GH_TOKEN: ${{ github.token }}" in step
 
 
+def test_push_step_fails_loudly_without_its_pull_request() -> None:
+    """2026-11-25: `gh pr create` failed on a GraphQL error and the run was as red as a plain
+    "pin behind"; the step retries and then says that no pull request exists."""
+    text = (PIN_FILE.parent.parent / ".github" / "workflows" / "contract-drift.yml").read_text(
+        encoding="utf-8"
+    )
+    step = text[text.index("- name: Push contract/latest") : text.index("- name: Approve")]
+    assert "for try in 1 2 3" in step
+    assert "NOT opened or updated" in step
+    assert step.index("NOT opened") < step.index("exit 1") < step.index("gh workflow run")
+    assert "/ship" not in text
+
+
 def test_compare_orders_versions() -> None:
     assert drift.compare("v3.4.1-draft", "v3.4.2-draft") == "behind"
     assert drift.compare("v3.4.2-draft", "v3.5.0-draft") == "behind"
