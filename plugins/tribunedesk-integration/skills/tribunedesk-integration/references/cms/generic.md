@@ -53,10 +53,9 @@ post goes public, from the scheduler's own event or the first job after that tim
 asks for the report once the post is public. Take the address from the post as it is then, not
 from the scheduled time.
 
-**Jobs without a framework.** A site with no queue and no scheduler still needs three periodic
-jobs, whichever its scope has: link back retries (guide 2, "When a report fails"), publishing
-scheduled posts whose time has come (when the CMS does not), and the daily full run of
-categories and tags (level 3). Build them as:
+**Jobs without a framework.** A site with no queue and no scheduler still needs the jobs of
+`guide/complete-integration.md`, "Background jobs", whichever its scope has (image retries,
+link back retries, scheduled publishing, image hosts, the daily category run). Build them as:
 
 - a queue table (`job`, `payload`, `attempts`, `next_attempt_at`, `last_error`), written in the
   same transaction as the change that needs the job;
@@ -82,10 +81,10 @@ through the text filter your CMS applies to editor content, chosen for the syste
 no user to take it from; check that it keeps the elements listed in guide 1, "The HTML body".
 
 **No filter in the CMS.** A hand-written site may print the body as it is. Then add a maintained
-sanitizer with an allow-list (PHP: `references/php-library.md`, "The HTML filter"; Python:
-`nh3`; Node: `sanitize-html`), never a regular expression: event attributes (`onerror`) and
-`javascript:` links must go too, and `TDKIT check` tests only `script` and `iframe`
-(`l1-embeds`), so add the project's own test for them.
+sanitizer configured as `guide/complete-integration.md`, "Filtering the HTML", says (PHP:
+`references/php-library.md`, "The HTML filter"), never a regular expression. `TDKIT check` tests
+only `script` and `iframe` (`l1-embeds`): put the guide's unsafe and safe samples into the
+project's own tests.
 
 ## 6. Images
 

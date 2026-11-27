@@ -77,14 +77,13 @@ Say which one you used when you report `l1-overlapping-attempts`.
 ## The HTML filter
 
 Guide 1 ("The HTML body") asks you to pass `html` through the filter your CMS applies to editor
-content. A hand-written PHP site often has none. Then use a maintained sanitizer, for example
-HTML Purifier (`ezyang/htmlpurifier`, also usable without Composer from its standalone
-download), with an allow-list: the usual elements of guide 1, `figure`/`img`/`figcaption` with
-the `data-td-*` attributes, `a` with `href`, `target`, `rel`, the trusted `iframe` players with
-the attributes guide 1 lists, and nothing else. A regular expression or `strip_tags` is not a
-filter: they leave event attributes (`onerror`, `onclick`) and `javascript:` addresses through,
-which `TDKIT check` does not test (`l1-embeds` checks only `script` and `iframe`). Add the
-project's own test for them.
+content. A hand-written PHP site often has none. Then configure a maintained sanitizer as
+`guide/complete-integration.md`, "Filtering the HTML", says (its allow list and its unsafe and
+safe samples): `symfony/html-sanitizer`, or HTML Purifier (`ezyang/htmlpurifier`, also usable
+without Composer from its standalone download). A regular expression or `strip_tags` is not a
+filter: they leave event attributes (`onerror`) and `javascript:` addresses through, which
+`TDKIT check` does not test (`l1-embeds` checks only `script` and `iframe`). Put the guide's
+samples into the project's own tests.
 
 ## Which class for what
 

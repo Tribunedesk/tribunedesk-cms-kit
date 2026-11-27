@@ -350,3 +350,14 @@ def test_reference_integrations_are_on_a_supported_contract() -> None:
         assert f"--contract v{manifest['contract']}" in reference, name
         readme = (ROOT / "reference" / "README.md").read_text(encoding="utf-8")
         assert f"| {manifest['contract']} |" in readme, name
+
+
+def test_skill_reads_the_complete_integration_chapter() -> None:
+    """Contract 3.9: guide/complete-integration.md is what makes a build match the WP plugin."""
+    text = skill_text()
+    stage5 = text.split("### Stage 5.", 1)[1].split("###", 1)[0]
+    assert "guide/complete-integration.md" in stage5
+    for name in ("generic.md",):
+        assert "guide/complete-integration.md" in (REFERENCES / "cms" / name).read_text(
+            encoding="utf-8"
+        )

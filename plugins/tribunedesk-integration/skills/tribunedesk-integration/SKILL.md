@@ -174,17 +174,21 @@ tell the user which contract version you build against.
     `taxonomy-sync` (level 3, when the CMS has categories or tags) that
     `TDKIT check` needs, in the CMS's idiom (see the CMS reference, section 7);
   - tests in the project's own test runner for the signature check and the upsert;
-  - the scheduled jobs the scope needs (link back retries, scheduled posts, the daily full run
-    of categories and tags, the level 4 sync) and what runs them (cron, the CMS's scheduler or
-    a worker).
+  - the scheduled jobs the scope needs (`guide/complete-integration.md`, Background jobs) and
+    what runs them (cron, the CMS's scheduler or a worker);
+  - the HTML sanitizer, built on a parser (`guide/complete-integration.md`, Filtering the HTML).
 - **Stop:** wait for approval, unless the user pre-approved ("The plan before code", section 3).
 
 ### Stage 5. Build level by level
 
 - **Goal:** each level works before the next starts.
 - **Read:** the guide chapter of the level (`guide/1-article-delivery.md`, `guide/2-link-back.md`,
-  `guide/3-full-content.md`, `guide/4-media-library.md`), the CMS reference (level 4: its
-  section 10, and section 10 of `references/cms/generic.md`), `references/tdkit.md`.
+  `guide/3-full-content.md`, `guide/4-media-library.md`), and for levels 1-3 always
+  `guide/complete-integration.md` ("A complete integration in any CMS": background jobs, the HTML
+  filter with its unsafe samples, what each new send changes, its own "Done when"), the CMS
+  reference (level 4: its section 10, and section 10 of `references/cms/generic.md`),
+  `references/tdkit.md`. `TDKIT check` does not test every point of that chapter: test the rest
+  in the project's own tests and list in the final message which points tdkit did not cover.
 - **Do, per level:**
   1. Write the code and the project's own tests.
   2. Add or extend the developer commands; their exact contract (keys printed by `inspect` per
@@ -218,10 +222,9 @@ Give the user the numbered list for the scope chosen in stage 2, and only that l
 3. Keep the server clock in sync (NTP): a clock more than 5 minutes off makes the signature check
    fail (`guide/1-article-delivery.md`, Article delivery webhook, "Your answer").
 4. Schedule the jobs you built (cron, the CMS's scheduler or a worker) and check they run: the
-   publication of scheduled posts (`guide/1-article-delivery.md`, when the CMS has no scheduler
-   of its own), the link back retries (`guide/2-link-back.md`, "When a report fails") and the
-   daily full run of categories and tags (`guide/3-full-content.md`). Without them a scheduled
-   post never goes public or is never reported, and a failed link back is never sent again.
+   table "Background jobs" of `guide/complete-integration.md` lists them (image retries, link
+   back retries, scheduled publishing, image hosts, the daily category run). Without them a
+   scheduled post is never reported and a failed link back is never sent again.
 5. Ask for the integration to be enabled where the README table says it is needed.
 6. Make a first real "Send to CMS" and open "Edit in CMS" from Tribune Desk.
 
