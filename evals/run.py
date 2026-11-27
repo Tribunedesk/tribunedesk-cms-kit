@@ -304,7 +304,7 @@ def _norm(text: str) -> str:
 
 
 SIBLINGS = re.compile(
-    r"(?<!github\.com/tribunedesk/)(?<![\w.-])(?:tribunedesk-wordpress|tribunedesk-cms-php"
+    r"(?<!github\.com/tribunedesk/)(?<!/repos/tribunedesk/)(?<![\w.-])(?:tribunedesk-wordpress|tribunedesk-cms-php"
     r"|headlinesforge)(?:/|\b)"
 )
 

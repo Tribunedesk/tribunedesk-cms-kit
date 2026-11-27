@@ -269,6 +269,8 @@ def test_no_local_sources_allows_public_github_urls(tmp_path: Path) -> None:
     )
     run = make_run(tmp_path, _calls(("Bash", {"command": command})))
     assert runner.no_local_sources(run)[0]
+    api = "curl -s https://api.github.com/repos/tribunedesk/tribunedesk-cms-php/tags | head -30"
+    assert runner.no_local_sources(make_run(tmp_path, _calls(("Bash", {"command": api}))))[0]
 
 
 def test_no_local_sources_flags_bash_into_the_kit(tmp_path: Path) -> None:
