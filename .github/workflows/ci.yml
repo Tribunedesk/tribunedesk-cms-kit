@@ -156,7 +156,6 @@ jobs:
         run: |
           composer create-project --no-interaction -q drupal/recommended-project:^11 "$SITE"
           cd "$SITE"
-          composer config repositories.tribunedesk-cms-php git https://github.com/Tribunedesk/tribunedesk-cms-php.git
           composer require --no-interaction -q drush/drush tribunedesk/cms-protocol:^1.4
           vendor/bin/drush site:install standard -y -q --db-url=sqlite://sites/default/files/.ht.sqlite
           # Since Drupal 11.4 the standard profile no longer creates the article type.

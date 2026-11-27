@@ -9,22 +9,12 @@ https://github.com/Tribunedesk/tribunedesk-cms-php#readme . Read it before writi
 
 PHP 8.3 or newer, no runtime dependencies. Take the newest release (its tags:
 https://github.com/Tribunedesk/tribunedesk-cms-php/tags) and require that minor, for example
-`^1.4` for 1.4.x; an older minor may not know the contract you downloaded. Once the package is on
-Packagist:
+`^1.4` for 1.4.x; an older minor may not know the contract you downloaded. The package is on
+Packagist (https://packagist.org/packages/tribunedesk/cms-protocol):
 
 ```
 composer require tribunedesk/cms-protocol:^1.4
 ```
-
-Until then (check https://packagist.org/packages/tribunedesk/cms-protocol), add the repository
-to the project's `composer.json` first, then require it:
-
-```
-composer config repositories.tribunedesk-cms-php git https://github.com/Tribunedesk/tribunedesk-cms-php.git
-```
-
-Use the `git` type with the `https` address: with the `vcs` type and no GitHub token, Composer
-may fall back to cloning over SSH, which fails without an SSH key on GitHub.
 
 Record the version Composer installed (`composer show tribunedesk/cms-protocol`) in the manifest:
 `TDKIT manifest write … --protocol <that version>`.

@@ -8,7 +8,7 @@ own with the skill, against your CMS and the current contract.
 | Folder | CMS | Built in run | Checked on contract |
 |---|---|---|---|
 | `django/` | a small Django 5.2 blog (the whole project) | `django-l12`, 2026-11-12 | 3.8.1-draft |
-| `drupal/` | Drupal 11: the custom module, settings and Composer lines | `drupal-l12`, 2026-11-12 | 3.8.1-draft |
+| `drupal/` | Drupal 11: the custom module, settings and Composer lines | `drupal-l12`, 2026-11-12 | 3.8.0-draft |
 
 Both were built on contract 3.4.1-draft and changed since by hand for 3.5 (the embed filter) and
 3.7 (the publication mode); each folder's `REFERENCE.md` lists the changes. "Checked on contract"
