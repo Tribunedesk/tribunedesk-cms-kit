@@ -24,6 +24,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tarfile
 import tempfile
 import threading
 from collections.abc import Callable, Mapping
@@ -185,6 +186,20 @@ def report_green(levels: list[int], mode: str, contract: str = CONTRACT) -> Chec
             f"levels {report.get('levels')}, mode "
             f"{report.get('mode')}, passed {outcomes.count(True)}, failed {outcomes.count(False)}"
         )
+
+    return check
+
+
+def scenarios_passed(*ids: str) -> Check:
+    """These scenarios of the report passed (not failed, not skipped)."""
+
+    def check(run: Run) -> tuple[bool, str]:
+        text = run.text(".tribunedesk/tdkit-report.json")
+        if text is None:
+            return False, "no .tribunedesk/tdkit-report.json"
+        results = {r.get("id"): r.get("passed") for r in json.loads(text).get("results", [])}
+        missing = [i for i in ids if results.get(i) is not True]
+        return not missing, f"not passed: {missing}" if missing else f"passed: {list(ids)}"
 
     return check
 
@@ -441,6 +456,115 @@ def blog_on_contract_3_2(root: Path) -> None:
     _run(root, str(python), "manage.py", "migrate", "-v", "0")
 
 
+def custom_php(root: Path) -> None:
+    """A hand-written PHP 8.3 site on SQLite: no framework, no Composer, no cron, no filter."""
+    php = shutil.which("php")
+    assert php, "PHP 8.3 is required on PATH"
+    shutil.copytree(KIT / "evals" / "fixtures" / "custom-php", root, dirs_exist_ok=True)
+    _run(root, php, "bin/setup.php")
+
+
+def _python(root: Path) -> Path:
+    return root / ".venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+
+
+def reference_django(root: Path, *, ref: str | None = None) -> Path:
+    """The kit's Django reference project (levels 1+2, webhook), at `ref` of this repository
+    or as checked out; without the kit's own REFERENCE.md. Returns the project's Python."""
+    if ref is None:
+        shutil.copytree(
+            KIT / "reference" / "django",
+            root,
+            dirs_exist_ok=True,
+            ignore=shutil.ignore_patterns("REFERENCE.md", ".venv", "db.sqlite3", "__pycache__"),
+        )
+    else:
+        archive = subprocess.run(
+            ["git", "-C", str(KIT), "archive", "--format=tar", ref, "reference/django"],
+            check=True,
+            capture_output=True,
+        ).stdout
+        with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+            for member in tar.getmembers():
+                name = member.name.removeprefix("reference/django").lstrip("/")
+                if not member.isfile() or not name or name == "REFERENCE.md":
+                    continue
+                source = tar.extractfile(member)
+                assert source is not None
+                target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(source.read())
+    uv = shutil.which("uv")
+    assert uv, "uv is required"
+    _run(root, uv, "venv", "-q", "--python", "3.12", ".venv")
+    python = _python(root)
+    _run(root, uv, "pip", "install", "-q", "--python", str(python), "-r", "requirements.txt",
+         "pillow~=11.0")  # fmt: skip
+    return python
+
+
+def extend_photos(root: Path) -> None:
+    """The Django reference (levels 1+2 on the current contract) with a photo library added."""
+    python = reference_django(root)
+    _run(root, str(python), "manage.py", "startapp", "library")
+    _write(root, PHOTO_FILES)
+    settings = root / "blogsite" / "settings.py"
+    settings.write_text(
+        settings.read_text(encoding="utf-8")
+        + '\nINSTALLED_APPS += ["library"]\nMEDIA_ROOT = BASE_DIR / "media"\nMEDIA_URL = "/media/"\n',
+        encoding="utf-8",
+    )
+    with (root / ".gitignore").open("a", encoding="utf-8") as ignore:
+        ignore.write("media/\n")
+    with (root / "README.md").open("a", encoding="utf-8") as readme:
+        readme.write("\nThe photo library is the `library` app (`Photo`); files go to `media/`.\n")
+    _run(root, str(python), "manage.py", "makemigrations", "library", "-v", "0")
+    _run(root, str(python), "manage.py", "migrate", "-v", "0")
+
+
+# The Django reference after the embed filter (3.5) and before the publication mode (3.7).
+REFERENCE_ON_3_6 = "91f4cef"
+
+
+def update_3_6(root: Path) -> None:
+    """The Django reference as it was on contract 3.6, with its manifest on 3.6.0-draft."""
+    python = reference_django(root, ref=REFERENCE_ON_3_6)
+    conformance = {
+        "date": "2026-11-21",
+        "kit": "1.5.0",
+        "contract": "3.6.0-draft",
+        "passed": [1, 2],
+    }
+    manifest_ = {
+        "contract": "3.6.0-draft",
+        "levels": [1, 2],
+        "delivery": "webhook",
+        "cms": "django",
+        "kit": "1.5.0",
+        "conformance": conformance,
+    }
+    (root / "tribunedesk.json").write_text(json.dumps(manifest_, indent=2) + "\n", encoding="utf-8")
+    _run(root, str(python), "manage.py", "migrate", "-v", "0")
+
+
+def taxonomy_blog(root: Path) -> None:
+    """The Django blog whose posts have a category and tags, with a few of each."""
+    django_blog(root)
+    _write(root, TAXONOMY_FILES)
+    python = _python(root)
+    _run(root, str(python), "manage.py", "makemigrations", "blog", "-v", "0")
+    _run(root, str(python), "manage.py", "migrate", "-v", "0")
+    _run(root, str(python), "manage.py", "shell", "-c", TAXONOMY_SEED)
+
+
+def parity_drupal(root: Path) -> None:
+    """The Drupal 11 site with core Media enabled, for a media library."""
+    drupal(root)
+    drush = shutil.which("drush", path=str(root / "vendor" / "bin"))
+    assert drush, "drush is missing from the Drupal template"
+    _run(root, drush, "en", "media", "media_library", "-y", "-q")
+
+
 def drupal(root: Path) -> None:
     """A copy of a Drupal 11 site (standard profile, SQLite) built once into a cache."""
     template = drupal_template()
@@ -605,15 +729,82 @@ SCENARIO: dict[str, Scenario] = {
         drupal,
         {
             **WEBHOOK_L12,
-            "manifest": manifest(
-                contract=CONTRACT,
-                levels=[1, 2],
-                delivery="webhook",
-                passed=[1, 2],
-                protocol="1.0.0",
+            "uses the PHP library": file_matches("composer.json", r'"tribunedesk/cms-protocol"'),
+            "manifest records the library": file_matches(
+                "tribunedesk.json", r'"protocol":\s*"1\.\d+\.\d+"'
             ),
+        },
+    ),
+    "custom-php": Scenario(custom_php, PARITY),
+    "parity-drupal": Scenario(
+        parity_drupal,
+        {
+            **PARITY,
             "uses the PHP library": file_matches("composer.json", r'"tribunedesk/cms-protocol"'),
         },
+    ),
+    "taxonomy": Scenario(
+        taxonomy_blog,
+        {
+            "skill fired": skill_fired,
+            "final message stands alone": final_message_complete,
+            "tdkit check ran": ran(r"\bcheck\s+--"),
+            "manifest written by tdkit from the report": ran(
+                r"\bmanifest write\b[^\n]*--conformance"
+            ),
+            "report and manifest not written by hand": results_from_tdkit,
+            "report green (1-3 webhook)": report_green([1, 2, 3], "webhook"),
+            "taxonomy scenarios passed": scenarios_passed("l3-taxonomy-sync", "l3-taxonomy"),
+            "manifest": manifest(
+                contract=CONTRACT, levels=[1, 2, 3], delivery="webhook", passed=[1, 2, 3]
+            ),
+            "no secret in git": no_secret_in_git,
+            ".env ignored": env_ignored,
+        },
+    ),
+    "extend-photos": Scenario(
+        extend_photos,
+        {
+            "skill fired": skill_fired,
+            "final message stands alone": final_message_complete,
+            "tdkit check ran": ran(r"\bcheck\s+--"),
+            "manifest written by tdkit from the report": ran(
+                r"\bmanifest write\b[^\n]*--conformance"
+            ),
+            "report and manifest not written by hand": results_from_tdkit,
+            "report green (1,2,4 webhook)": report_green([1, 2, 4], "webhook"),
+            "manifest": manifest(
+                contract=CONTRACT, levels=[1, 2, 4], delivery="webhook", passed=[1, 2, 4]
+            ),
+            "one webhook route": file_matches(
+                "blogsite/urls.py", r"(?s)path\([^\n]*webhook.*path\([^\n]*webhook", expected=False
+            ),
+            "no secret in git": no_secret_in_git,
+            ".env ignored": env_ignored,
+        },
+    ),
+    "update-3.6": Scenario(
+        update_3_6,
+        {
+            "skill fired": skill_fired,
+            "change list with a recommendation": file_matches(
+                "tribunedesk-update.md", r"(?i)rekomend|recommend"
+            ),
+            "tdkit integrators ran": ran(r"\bintegrators\b"),
+            "manifest written by tdkit from the report": ran(
+                r"\bmanifest write\b[^\n]*--conformance"
+            ),
+            "report and manifest not written by hand": results_from_tdkit,
+            "tdkit check ran": ran(r"\bcheck\s+--"),
+            "report green (1,2 webhook)": report_green([1, 2], "webhook"),
+            "publication mode scenario passed": scenarios_passed("l1-publication"),
+            "manifest": manifest(
+                contract=CONTRACT, levels=[1, 2], delivery="webhook", passed=[1, 2]
+            ),
+            "no secret in git": no_secret_in_git,
+            ".env ignored": env_ignored,
+        },
+        review_files=("tribunedesk-update.md",),
     ),
     "update-3.2": Scenario(
         blog_on_contract_3_2,
@@ -926,6 +1117,80 @@ A small Django 5.2 blog on SQLite. Posts are written in the Django admin.
 """,
     ".gitignore": "__pycache__/\ndb.sqlite3\n.venv/\n",
 }
+
+TAXONOMY_FILES = {
+    "blog/models.py": """from django.db import models
+from django.urls import reverse
+
+
+class Category(models.Model):
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=200, unique=True)
+
+    class Meta:
+        verbose_name_plural = "categories"
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Tag(models.Model):
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=200, unique=True)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Post(models.Model):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    STATUS_CHOICES = [(DRAFT, "Draft"), (PUBLISHED, "Published")]
+
+    title = models.CharField(max_length=300)
+    slug = models.SlugField(max_length=300, unique=True)
+    excerpt = models.TextField(blank=True)
+    body = models.TextField(help_text="HTML")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=DRAFT)
+    published_at = models.DateTimeField(null=True, blank=True)
+    category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.SET_NULL)
+    tags = models.ManyToManyField(Tag, blank=True)
+
+    class Meta:
+        ordering = ["-published_at"]
+
+    def __str__(self) -> str:
+        return self.title
+
+    def get_absolute_url(self) -> str:
+        return reverse("blog:post_detail", args=[self.slug])
+""",
+    "blog/admin.py": """from django.contrib import admin
+
+from .models import Category, Post, Tag
+
+
+@admin.register(Post)
+class PostAdmin(admin.ModelAdmin):
+    list_display = ["title", "status", "category", "published_at"]
+    prepopulated_fields = {"slug": ["title"]}
+    filter_horizontal = ["tags"]
+
+
+@admin.register(Category, Tag)
+class TermAdmin(admin.ModelAdmin):
+    prepopulated_fields = {"slug": ["name"]}
+""",
+}
+
+TAXONOMY_SEED = (
+    "from blog.models import Category, Tag; "
+    "[Category.objects.get_or_create(slug=s, defaults={'name': n}) for s, n in "
+    "[('politics', 'Politics'), ('sport', 'Sport'), ('culture', 'Culture')]]; "
+    "[Tag.objects.get_or_create(slug=s, defaults={'name': n}) for s, n in "
+    "[('elections', 'Elections'), ('local-government', 'Local government'), "
+    "('football', 'Football')]]"
+)
 
 DRUPAL_FILES = {
     ".gitignore": "/vendor/\n/web/core/\n/web/modules/contrib/\n/web/themes/contrib/\n"

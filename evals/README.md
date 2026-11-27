@@ -1,6 +1,6 @@
 # Trying the Claude Code plugin on real projects
 
-Nine scenarios in `evals/scenarios/` describe what the skill must do on a real project: build,
+Fourteen scenarios in `evals/scenarios/` describe what the skill must do on a real project: build,
 update or only explain an integration. `evals/run.py` runs one of them on this machine, on
 Windows as well: no WSL and no `claude plugin eval` (that command refuses runs with a shell on
 native Windows).
@@ -16,6 +16,11 @@ native Windows).
 | `parity-django` | Django blog with a photo library | clean room: levels 1-4 like the WordPress plugin, Polish |
 | `parity-laravel` | Laravel 12 blog with a photo library | the same in English, with `tribunedesk/cms-protocol` (needs PHP 8.3 and Composer) |
 | `parity-node` | Express 5 blog on `node:sqlite` | the same in English (needs Node 22.13+) |
+| `parity-drupal` | Drupal 11 with core Media | the same in English, with `tribunedesk/cms-protocol` (needs PHP 8.3 and Composer) |
+| `custom-php` | hand-written PHP 8.3 site on SQLite, no framework, no Composer | the general case (`generic.md`): levels 1-4, Polish, "build a Tribune Desk plugin" |
+| `taxonomy` | Django blog with categories and tags | levels 1-3, `l3-taxonomy-sync` and `l3-taxonomy` passed, not skipped |
+| `extend-photos` | the Django reference (levels 1+2, current contract) with a photo library | extend mode: level 4 added, levels 1, 2 and 4 checked together |
+| `update-3.6` | the Django reference as on contract 3.6 | update mode from a contract the current tdkit no longer supports |
 
 ## Running one
 
