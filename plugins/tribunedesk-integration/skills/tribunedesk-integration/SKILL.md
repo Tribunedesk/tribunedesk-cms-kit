@@ -85,8 +85,8 @@ manifest), say what you found and recommend the mode that fits the repository.
   variables or the CMS's secret settings (Drupal `settings.php`, never exported config; no Django
   fixtures). `.env.example` lists variable names only. Never read or print the values in `.env`
   or any secret store: check only whether a variable is set.
-- **Answer in the user's language** (Polish to a Polish speaker, English otherwise). These
-  instructions stay in English.
+- **Answer in the user's language** (Polish to a Polish speaker, English otherwise): every
+  reply, progress lines and the `## Plan` reply included. These instructions stay in English.
 - **The plan before code (one rule, every mode that changes code).** Before the first change
   to the project (any file written or edited other than `tribunedesk-request.md` and
   `tribunedesk-update.md`, and any dependency added), send the plan as a reply of its own whose
