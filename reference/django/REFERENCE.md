@@ -31,7 +31,7 @@ tdkit check --levels 1,2 --mode webhook --contract v3.9.0-draft --webhook http:/
 ```
 
 `tdkit` is the kit's command line tool:
-`uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.8.0 tdkit` (kit README,
+`uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.8.1 tdkit` (kit README,
 "Run it"). The secret and the token above are the mock's public test values (kit README,
 `tdkit mock`).
 
