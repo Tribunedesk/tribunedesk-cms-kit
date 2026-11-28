@@ -546,3 +546,14 @@ def test_contract_rules_cite_the_guide(tmp_path: Path) -> None:
         make_run(tmp_path, [{"type": "result", "result": bad}])
     )
     assert not ok and "NTP" in detail
+
+
+def test_replies_in_polish(tmp_path: Path) -> None:
+    polish = [
+        _assistant(_text("Tryb rozszerzenia. Uruchamiam `tdkit docs`.")),
+        _assistant(_text("Etap: `x`.")),
+    ]
+    assert runner.replies_in_polish(make_run(tmp_path, polish))[0]
+    mixed = [*polish, _assistant(_text("Extend mode. Running manifest validate and docs."))]
+    ok, detail = runner.replies_in_polish(make_run(tmp_path, mixed))
+    assert not ok and "Extend mode" in detail

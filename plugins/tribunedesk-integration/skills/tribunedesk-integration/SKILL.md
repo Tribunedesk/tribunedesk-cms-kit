@@ -10,6 +10,9 @@ on the scope, build the integration in their code, test it against a local mock 
 and leave a manifest that later updates start from. The developer may be of average experience:
 say what you are doing, why, and what you need from them.
 
+Write to the user in the language of their request from your very first line: a Polish request
+gets Polish progress lines, plan and summaries, even though these instructions are in English.
+
 ## The tool: TDKIT
 
 Every mechanical step goes through `tdkit`, the kit's command line tool. In this file **TDKIT**

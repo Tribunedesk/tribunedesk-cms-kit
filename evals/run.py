@@ -205,6 +205,27 @@ def rules_cite_the_guide(run: Run) -> tuple[bool, str]:
     return not bare, f"{len(rules)} rule line(s), without a file: {bare}"
 
 
+POLISH = re.compile(r"[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]")
+ENGLISH = re.compile(r"(?i)\b(?:the|and|now|running|reading|with|is|are|of)\b")
+
+
+def replies_in_polish(run: Run) -> tuple[bool, str]:
+    """SKILL.md, section 3 ("Answer in the user's language"), for a Polish prompt: no reply to
+    the user, progress lines included, is English (ewale 27.11-28.11: "Extend mode. Running
+    manifest validate and docs.")."""
+    english = []
+    for event in run.events:
+        if event.get("type") != "assistant":
+            continue
+        for block in event.get("message", {}).get("content", []):
+            if block.get("type") != "text":
+                continue
+            prose = re.sub(r"`[^`]*`|```.*?```", "", block.get("text", ""), flags=re.S)
+            if not POLISH.search(prose) and len(ENGLISH.findall(prose)) >= 2:
+                english.append(prose.strip()[:60])
+    return not english, f"English replies: {english}" if english else "all Polish"
+
+
 def no_file_matches(glob: str, pattern: str) -> Check:
     """No file under the project matching `glob` contains `pattern`."""
 
@@ -1087,6 +1108,10 @@ def main(argv: list[str] | None = None) -> int:
     if isinstance(sys.stdout, io.TextIOWrapper):
         sys.stdout.reconfigure(encoding="utf-8")  # Polish text in a redirected log
     scenario = SCENARIO[args.scenario]
+    prompt = prompt_of(args.scenario)
+    checks = dict(scenario.checks)
+    if POLISH.search(prompt):
+        checks["replies in Polish"] = replies_in_polish
 
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     base = Path(tempfile.gettempdir()) / "tribunedesk-evals" / f"{args.scenario}-{stamp}"
@@ -1098,7 +1123,7 @@ def main(argv: list[str] | None = None) -> int:
 
     finished = run_claude(
         workspace,
-        prompt_of(args.scenario),
+        prompt,
         base / "transcript.jsonl",
         args.max_budget_usd,
         args.timeout_min,
@@ -1111,7 +1136,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Cost: {result.get('total_cost_usd')} USD, turns: {result.get('num_turns')}, "
           f"stop: {result.get('subtype')}")  # fmt: skip
     failed = int(finished.timed_out)
-    for label, check in scenario.checks.items():
+    for label, check in checks.items():
         ok, detail = check(run)
         failed += not ok
         print(f"{'PASS' if ok else 'FAIL'}  {label}: {detail}")
