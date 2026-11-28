@@ -370,3 +370,17 @@ def test_skill_reads_the_complete_integration_chapter() -> None:
         assert "guide/complete-integration.md" in (REFERENCES / "cms" / name).read_text(
             encoding="utf-8"
         )
+
+
+def test_plan_is_a_marked_reply_even_with_pre_approval() -> None:
+    """Ewale 27.11: 9/9 runs took "do everything" as leave to skip the plan. The plan is a reply
+    headed `## Plan` (the runner's "plan before code" looks for it), pre-approval or not; and
+    contract rules name their guide file everywhere, the launch steps too."""
+    text = skill_text()
+    rule = text.split("**The plan before code (one rule", 1)[1].split("\n- **", 1)[0]
+    for needle in ("`## Plan`", "never\n  whether you write it", "is not the plan"):
+        assert needle in rule, needle
+    stage4 = text.split("### Stage 4.", 1)[1].split("\n### ", 1)[0]
+    assert "`## Plan`" in stage4
+    ground = text.split("## 3. Ground rules", 1)[1].split("\n### ", 1)[0]
+    assert "This holds everywhere" in ground

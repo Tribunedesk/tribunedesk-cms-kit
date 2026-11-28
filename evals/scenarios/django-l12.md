@@ -14,8 +14,8 @@ Judged by reading the run (the runner prints the files and the final message).
 
 PASS if all of these hold in the session:
 - plan before code (SKILL.md, "The plan before code"): before its first edit of integration
-  code the assistant wrote the plan (files to add and change) as a progress line, and did
-  not stop to wait for approval;
+  code the assistant sent a reply headed `## Plan` with the files to add and change, and did
+  not stop to wait for approval (the runner checks this: "plan before code");
 - the final message carries the plan as built (files added and changed, per level) and a table
   of the stages with the result of each; short progress lines between stages are enough;
 - it wrote to the user in Polish;

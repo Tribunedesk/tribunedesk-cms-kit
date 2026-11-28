@@ -70,8 +70,11 @@ manifest), say what you found and recommend the mode that fits the repository.
 - **The documentation is the only source of truth.** Run `TDKIT docs` early; it puts the
   contract documentation of a tag into `.tribunedesk/cms-api@<tag>/` and adds `.tribunedesk/` to
   `.gitignore` when the project has a `.gitignore` or is a git repository. Read fields, routes, error codes, retry rules and "Done when" points from there,
-  never from memory. Whenever you state a rule of the contract, cite the file and section, for
-  example "`guide/1-article-delivery.md`, Verifying the signature". If the documentation does
+  never from memory. Whenever you state a rule of the contract (a time limit such as the
+  signature's 5 minutes, a header, a status code, a retry, idempotency or ordering rule), name
+  the file and section in the same sentence or table row, for example "(`guide/1-article-delivery.md`,
+  Verifying the signature)". This holds everywhere: progress lines, the plan, code comments you
+  quote, the final message and its launch steps. If the documentation does
   not answer something, say so plainly and choose the safer behaviour; do not invent.
 - **One question at a time, with your recommendation** and the reason for it.
 - **Ask only what the code cannot tell you.** Find the CMS, language, framework, database, how
@@ -84,17 +87,25 @@ manifest), say what you found and recommend the mode that fits the repository.
   or any secret store: check only whether a variable is set.
 - **Answer in the user's language** (Polish to a Polish speaker, English otherwise). These
   instructions stay in English.
-- **The plan before code (one rule, every mode that changes code).** Before the first edit of
-  integration code, write the plan: the files to add and change, per level, and where the
-  secret and the token live. Without pre-approval it is the last message of the turn and you
-  stop there for approval. With pre-approval it is a short progress line (the file list) and you
-  go on; the final message then carries the plan as built. Never write code before the plan
-  exists in the conversation.
+- **The plan before code (one rule, every mode that changes code).** Before the first change
+  to the project (any file written or edited other than `tribunedesk-request.md` and
+  `tribunedesk-update.md`, and any dependency added), send the plan as a reply of its own whose
+  first line is the heading `## Plan` (the same word in Polish). Under it list: the files to add
+  and change, per level; what each level depends on (libraries, scheduled jobs, the levels it
+  needs); where the signing secret and the token live. The developer reads this list before
+  you touch their code, and the kit's evals look for the `## Plan` heading in the conversation
+  before the first edit. Pre-approval decides only whether you stop after the plan, never
+  whether you write it: without pre-approval it is the last message of the turn and you stop
+  for approval; with pre-approval ("build everything, don't ask") you send it in full and go
+  on. A progress line such as "now I write the code" is not the plan.
+  Never write code before the plan exists in the conversation. The final message carries the
+  plan as built.
 - **Pre-approval.** If the user approved the plan in the request, or told you not to ask ("do
   everything, don't ask"), do not stop for approval, and stop only on a red `TDKIT check` you
-  cannot fix. Between stages write only short progress lines; the final message carries the rest
-  (see "The last message of a turn").
-  Never say you showed something you did not.
+  cannot fix. Between stages write only short progress lines (the `## Plan` reply is not one of
+  them: it always comes in full); the final message carries the rest (see "The last message of
+  a turn"). Never say you showed something you did not: the stage table marks the plan done
+  only when the `## Plan` reply came before the first edit.
 - **PHP CMS: use the library.** For Drupal, Laravel, Joomla or any PHP project use
   `tribunedesk/cms-protocol` instead of writing the protocol again; see
   `references/php-library.md`, which also says what to do without Composer and on PHP older
@@ -117,7 +128,8 @@ Text written between tool calls may not reach the user; the last message of a tu
 So the last message of every turn stands alone and carries, for the stages done in that turn:
 a table of the stages with the result of each, the plan as built (files added and changed per
 level, where the secret and the token live) and, when the build ends, the launch steps of stage 7.
-The last message of the first turn also opens with the two sentences of section 1.
+Every contract rule in it names its guide file (section 3), the clock step of the launch steps
+too. The last message of the first turn also opens with the two sentences of section 1.
 
 ## 4. Build mode
 
@@ -162,10 +174,11 @@ tell the user which contract version you build against.
   of those rows. Say that building and testing on the mock go on without waiting for the answer.
 - **Summary:** the message, ready to send.
 
-### Stage 4. Plan (stop here)
+### Stage 4. Plan (the `## Plan` reply, before any code)
 
 - **Goal:** the user approves what changes in their repository.
-- **Do:** list files to add and change, per level, including:
+- **Do:** send the `## Plan` reply ("The plan before code", section 3): files to add and
+  change, per level, including:
   - where the signing secret and the token live (environment variables or `settings.php`,
     never the repository or exported configuration), and the variable names for `.env.example`;
   - a configurable API base address (`TD_API_BASE`), so tests run against the mock;
@@ -177,7 +190,8 @@ tell the user which contract version you build against.
   - the scheduled jobs the scope needs (`guide/complete-integration.md`, Background jobs) and
     what runs them (cron, the CMS's scheduler or a worker);
   - the HTML sanitizer, built on a parser (`guide/complete-integration.md`, Filtering the HTML).
-- **Stop:** wait for approval, unless the user pre-approved ("The plan before code", section 3).
+- **Stop:** wait for approval, unless the user pre-approved; then send the plan all the same and
+  go on to stage 5 ("The plan before code", section 3).
 
 ### Stage 5. Build level by level
 
@@ -260,7 +274,8 @@ new contract version, ask me to update the integration."
    --mode <manifest delivery>`: the actions the CHANGELOG lists for integrators, filtered to what
    this integration built.
 4. Present the list as `references/update-mode.md` describes, with a recommendation per item.
-   Stop for approval (unless pre-approved).
+   Then send the `## Plan` reply for the changes ("The plan before code", section 3) and stop
+   for approval (unless pre-approved).
 5. Change the code, with tests.
 6. Run `TDKIT check --docs <path>` (new docs) for the manifest's levels, then
    `TDKIT manifest write ...` with the new contract and report.
