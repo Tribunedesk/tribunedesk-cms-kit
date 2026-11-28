@@ -35,7 +35,9 @@ The runner:
    settings, hooks or CLAUDE.md (`--setting-sources local`), with `TDKIT_CMD` pointing at a
    `tdkit` wheel built from this checkout into the run's folder (`uvx --from <wheel> tdkit`),
    and saves the transcript next to the project;
-3. prints the cost and the automatic checks: the skill fired, `tdkit check` ran, the report it
+3. prints the cost and the automatic checks: the skill fired, a reply headed `## Plan` listing
+   the files came before the first change to the project's code, every contract rule in the final
+   message names its guide file, every reply is in Polish when the prompt is, `tdkit check` ran, the report it
    wrote is green, the manifest is right, no signing secret is in a file git would commit, `.env`
    is ignored; for the `parity-*` runs also that the agent read no local source (this kit,
    the WordPress plugin, the PHP library, headlinesforge): a clean room;

@@ -74,7 +74,7 @@ i gita.
 You need [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer. No installation:
 
 ```bash
-uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.8.1 tdkit --help
+uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.8.2 tdkit --help
 ```
 
 ### Which contract
@@ -275,7 +275,7 @@ stdout; for a failed scenario it quotes the guide's point and names the guide fi
 also writes:
 
 ```json
-{"tdkit": "1.8.1", "contract": "3.9.0-draft", "levels": [1, 2], "mode": "webhook",
+{"tdkit": "1.8.2", "contract": "3.9.0-draft", "levels": [1, 2], "mode": "webhook",
  "results": [{"id": "l1-creates-draft", "level": 1, "done_when": "An editor's …",
               "guide": "guide/1-article-delivery.md#done-when", "passed": true, "detail": "…"}]}
 ```
@@ -458,6 +458,9 @@ A scenario's newest row is its current result:
 | `taxonomy` | tdkit 1.8, contract 3.9.0-draft, levels 1-3, 22 passed, 0 failed (`l3-taxonomy-sync` and `l3-taxonomy` included); `final message stands alone` fails — its last message answered only the notice of a background server it had stopped (run 2026-11-27, Claude Code 2.1.323) | taxonomy code and request pass; fail: summary (the taxonomy scenarios not named), conduct (no plan before code) | 4.30 USD |
 | `extend-photos` | all pass: tdkit 1.8, contract 3.9.0-draft, level 4 added to levels 1-2, 29 passed, 0 failed, one webhook route (run 2026-11-27, Claude Code 2.1.323) | extended, not rebuilt; summary and request pass; fail: conduct (no plan before code although its stage table says so, English progress lines) | 3.19 USD |
 | `photos-only` | all pass: tdkit 1.8, contract 3.9.0-draft, level 4, 14 passed, 0 failed (run 2026-11-27, Claude Code 2.1.323) | pass; its stage table says the plan came before the code, it did not; it made a branch and committed unasked | 2.52 USD |
+| `extend-photos` | all pass, the new `plan before code` and `contract rules cite the guide` included: tdkit 1.8.0, skill 1.8.2, contract 3.9.0-draft, level 4 added to levels 1-2, 29 passed, 0 failed, one webhook route; `replies in Polish` (added after this run, replayed) fails on its first three progress lines (run 2026-11-28, Claude Code 2.1.323) | extended, not rebuilt; summary and request pass; conduct: `## Plan` reply with files, dependencies and secrets before the first edit, rules with their guide file; fail: three English progress lines (the language rule moved to the top of `SKILL.md` after this run) | 2.78 USD |
+| `parity-django` | all pass: tdkit 1.8.0, skill 1.8.2, contract 3.9.0-draft, levels 1-4, 36 passed, 0 failed, nh3; plan before code, rules cite the guide, replies in Polish; clean room (run 2026-11-28, Claude Code 2.1.323) | pass: conduct (`## Plan` before the first change, Polish throughout, rules with their guide file), summary and request | 4.80 USD |
+| `custom-php` | all pass: tdkit 1.8.0, skill 1.8.2, contract 3.9.0-draft, levels 1-4, 37 passed, 0 failed; protocol copied with an autoloader (no Composer), HTML Purifier, one cron entry point; plan before code, rules cite the guide, replies in Polish; clean room (run 2026-11-28, Claude Code 2.1.323) | pass: conduct (`## Plan` before the first change, general case named, rules with their guide file; one progress line began with a stray Cyrillic word), plain-php, summary and request | 4.94 USD |
 
 The integrations of the Django and Drupal runs are in [`reference/`](reference/README.md).
 

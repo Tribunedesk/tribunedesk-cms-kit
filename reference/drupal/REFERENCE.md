@@ -57,7 +57,7 @@ container and every request to the module answers 500 "controller not callable" 
 run of 2026-11-27, found on 2026-11-28; skill, `references/cms/drupal.md`).
 
 `tdkit` is the kit's command line tool:
-`uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.8.1 tdkit` (kit README,
+`uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.8.2 tdkit` (kit README,
 "Run it"). The secret and the token above are the mock's public test values.
 
 Last checked 2026-11-27 in CI (job `reference-drupal`, Ubuntu, PHP 8.3, Drupal 11,
