@@ -121,6 +121,90 @@ def no_code_written(run: Run) -> tuple[bool, str]:
     return not writes, f"writes: {[w[:60] for w in writes]}" if writes else "none"
 
 
+# SKILL.md, "The plan before code": a reply whose heading is `## Plan` (the same word in Polish
+# and English) lists the files before the first change to the project.
+PLAN_HEADING = re.compile(r"(?m)^\s*#{1,4}\s*\**Plan\b")
+FILE_PATH = re.compile(
+    r"[\w/.-]+\.(?:py|php|js|mjs|ts|sql|md|json|example|ya?ml|toml|ini|twig|html)(?!\w)"
+)
+# Files the skill writes before the plan: the message for Tribune Desk (stage 3) and the update
+# change list (update mode, step 4), and tdkit's own folder.
+BEFORE_PLAN = ("tribunedesk-request.md", "tribunedesk-update.md", ".tribunedesk/")
+# Bash that changes the project: a dependency added, a file edited in place, output written to a
+# file. Writes into a scratch or temp folder do not count.
+CHANGES_PROJECT = re.compile(
+    r"\bcomposer\s+require\b|\bnpm\s+(?:install|i|add)\s+[\w@]|\buv\s+add\b|\bpip\s+install\b"
+    r"|\bsed\s+-i\b|\bcat\s*>|\btee\b|(?i:Set-Content|Out-File|Add-Content)"
+)
+OUTSIDE = re.compile(r"(?i)scratchpad|/tmp/|\\temp\\claude|/temp/claude")
+
+
+def _project_file(workspace: Path, name: str) -> str | None:
+    """`name` relative to the project with forward slashes, or None outside it."""
+    norm = name.replace("\\", "/")
+    root = str(workspace).replace("\\", "/").rstrip("/") + "/"
+    if norm.lower().startswith(root.lower()):
+        return norm[len(root) :]
+    return None if re.match(r"^(?:[A-Za-z]:)?/", norm) else norm
+
+
+def _first_change(run: Run, block: dict[str, Any]) -> str | None:
+    """What `block` changes in the project, if it is a change of integration code."""
+    if block.get("type") != "tool_use":
+        return None
+    name, data = block.get("name"), block.get("input", {})
+    if name in ("Write", "Edit", "NotebookEdit"):
+        rel = _project_file(run.workspace, data.get("file_path") or data.get("notebook_path", ""))
+        if rel is None or rel.startswith(BEFORE_PLAN):
+            return None
+        return f"{name} {rel}"
+    if name == "Bash":
+        command = data.get("command", "")
+        if CHANGES_PROJECT.search(command) and not OUTSIDE.search(command):
+            return f"Bash {command[:80]}"
+    return None
+
+
+def plan_before_code(run: Run) -> tuple[bool, str]:
+    """SKILL.md, "The plan before code": a reply with the heading `## Plan` and at least three
+    file paths comes before the first change to the project's code (Write or Edit of a file other
+    than the message for Tribune Desk or the update list, or a Bash command that adds a dependency
+    or writes a file)."""
+    plan = False
+    for event in run.events:
+        if event.get("type") != "assistant":
+            continue
+        for block in event.get("message", {}).get("content", []):
+            text = block.get("text", "") if block.get("type") == "text" else ""
+            if PLAN_HEADING.search(text) and len(set(FILE_PATH.findall(text))) >= 3:
+                plan = True
+            change = _first_change(run, block)
+            if change:
+                return (
+                    plan,
+                    f"plan {'before' if plan else 'missing before'} the first change: {change}",
+                )
+    return True, "no code changed"
+
+
+# Contract rules the conduct review saw stated without their source (2026-11-27): the signature's
+# time window and the clock (not a cron interval, "co 5 minut"), HMAC, idempotency, status codes the guide gives meaning to.
+CONTRACT_RULE = re.compile(
+    r"(?i)(?<!co )(?<!every )\b(?:5|pięć|five)[\s-]*min|\bNTP\b|\bHMAC\b|idempoten|\bRetry-After\b"
+    r"|\b(?:401|409|410|422|429)\b"
+)
+GUIDE_FILE = re.compile(r"\b(?:guide/)?[\w-]+\.md\b")
+
+
+def rules_cite_the_guide(run: Run) -> tuple[bool, str]:
+    """SKILL.md, section 3: a line of the final message that states a contract rule names the
+    documentation file it comes from (`guide/1-article-delivery.md`, ...)."""
+    text = run.result.get("result", "") or ""
+    rules = [line for line in text.splitlines() if CONTRACT_RULE.search(line)]
+    bare = [line.strip()[:70] for line in rules if not GUIDE_FILE.search(line)]
+    return not bare, f"{len(rules)} rule line(s), without a file: {bare}"
+
+
 def no_file_matches(glob: str, pattern: str) -> Check:
     """No file under the project matching `glob` contains `pattern`."""
 
@@ -663,6 +747,8 @@ class Scenario:
 
 WEBHOOK_L12: dict[str, Check] = {
     "skill fired": skill_fired,
+    "plan before code": plan_before_code,
+    "contract rules cite the guide": rules_cite_the_guide,
     "final message stands alone": final_message_complete,
     "tdkit check ran": ran(r"\bcheck\s+--"),
     "manifest written by tdkit from the report": ran(r"\bmanifest write\b[^\n]*--conformance"),
@@ -675,6 +761,8 @@ WEBHOOK_L12: dict[str, Check] = {
 
 PARITY: dict[str, Check] = {
     "skill fired": skill_fired,
+    "plan before code": plan_before_code,
+    "contract rules cite the guide": rules_cite_the_guide,
     "final message stands alone": final_message_complete,
     "tdkit check ran": ran(r"\bcheck\s+--"),
     "manifest written by tdkit from the report": ran(r"\bmanifest write\b[^\n]*--conformance"),
@@ -698,6 +786,8 @@ SCENARIO: dict[str, Scenario] = {
         lambda root: django_blog(root, photos=True),
         {
             "skill fired": skill_fired,
+            "plan before code": plan_before_code,
+            "contract rules cite the guide": rules_cite_the_guide,
             "final message stands alone": final_message_complete,
             "manifest written by tdkit": ran(r"\bmanifest write\b"),
             "report and manifest not written by hand": results_from_tdkit,
@@ -713,6 +803,8 @@ SCENARIO: dict[str, Scenario] = {
         intranet,
         {
             "skill fired": skill_fired,
+            "plan before code": plan_before_code,
+            "contract rules cite the guide": rules_cite_the_guide,
             "final message stands alone": final_message_complete,
             "tdkit check in read mode": ran(r"\bcheck\s[^\n]*--mode[=\s]+read\b"),
             "manifest written by tdkit from the report": ran(
@@ -747,6 +839,8 @@ SCENARIO: dict[str, Scenario] = {
         taxonomy_blog,
         {
             "skill fired": skill_fired,
+            "plan before code": plan_before_code,
+            "contract rules cite the guide": rules_cite_the_guide,
             "final message stands alone": final_message_complete,
             "tdkit check ran": ran(r"\bcheck\s+--"),
             "manifest written by tdkit from the report": ran(
@@ -766,6 +860,8 @@ SCENARIO: dict[str, Scenario] = {
         extend_photos,
         {
             "skill fired": skill_fired,
+            "plan before code": plan_before_code,
+            "contract rules cite the guide": rules_cite_the_guide,
             "final message stands alone": final_message_complete,
             "tdkit check ran": ran(r"\bcheck\s+--"),
             "manifest written by tdkit from the report": ran(
@@ -787,6 +883,8 @@ SCENARIO: dict[str, Scenario] = {
         update_3_6,
         {
             "skill fired": skill_fired,
+            "plan before code": plan_before_code,
+            "contract rules cite the guide": rules_cite_the_guide,
             "change list with a recommendation": file_matches(
                 "tribunedesk-update.md", r"(?i)rekomend|recommend"
             ),
@@ -810,6 +908,8 @@ SCENARIO: dict[str, Scenario] = {
         blog_on_contract_3_2,
         {
             "skill fired": skill_fired,
+            "plan before code": plan_before_code,
+            "contract rules cite the guide": rules_cite_the_guide,
             "change list with a recommendation": file_matches(
                 "tribunedesk-update.md", r"(?i)rekomend|recommend"
             ),
@@ -838,6 +938,8 @@ SCENARIO: dict[str, Scenario] = {
         ghost,
         {
             "skill fired": skill_fired,
+            "plan before code": plan_before_code,
+            "contract rules cite the guide": rules_cite_the_guide,
             "no code written": no_code_written,
             "welcome in the final message": welcome_in_final,
         },

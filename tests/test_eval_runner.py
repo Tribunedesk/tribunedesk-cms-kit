@@ -488,3 +488,61 @@ def test_parity_flags_fetching_the_plugin_code(tmp_path: Path) -> None:
         run = make_run(tmp_path, _calls(("Bash", {"command": command})))
         assert runner.no_plugin_code(run)[0], command
     assert runner.PARITY["no plugin code"] is runner.no_plugin_code
+
+
+def _assistant(*blocks: dict) -> dict:
+    return {"type": "assistant", "message": {"content": list(blocks)}}
+
+
+def _text(text: str) -> dict:
+    return {"type": "text", "text": text}
+
+
+def _tool(name: str, **data: str) -> dict:
+    return {"type": "tool_use", "name": name, "input": data}
+
+
+PLAN = "## Plan\n- `blog/tribunedesk.py`\n- `blog/views.py`\n- `.env.example`\n"
+
+
+def test_plan_before_the_first_code_change(tmp_path: Path) -> None:
+    """Ewale 27.11: 9/9 changed code with no plan in the conversation (SKILL.md, "The plan
+    before code"). The message for Tribune Desk may come first; code may not."""
+    request = _tool("Write", file_path=str(tmp_path / "tribunedesk-request.md"))
+    code = _tool("Edit", file_path=str(tmp_path / "blog" / "views.py"))
+    scratch = _tool("Write", file_path="C:/elsewhere/scratchpad/notes.py")
+    good = [_assistant(request, scratch), _assistant(_text(PLAN)), _assistant(code)]
+    assert runner.plan_before_code(make_run(tmp_path, good))[0]
+    bad = [_assistant(request), _assistant(code), _assistant(_text(PLAN))]
+    ok, detail = runner.plan_before_code(make_run(tmp_path, bad))
+    assert not ok and "blog/views.py" in detail
+    one_line = [_assistant(_text("Plan: piszę kod w `blog/`.")), _assistant(code)]
+    assert not runner.plan_before_code(make_run(tmp_path, one_line))[0]
+    assert runner.plan_before_code(make_run(tmp_path, [_assistant(request)]))[0]
+
+
+def test_a_dependency_added_in_bash_is_a_code_change(tmp_path: Path) -> None:
+    events = [
+        _assistant(_tool("Bash", command="npm install sanitize-html@2.17.0")),
+        _assistant(_text(PLAN)),
+    ]
+    assert not runner.plan_before_code(make_run(tmp_path, events))[0]
+    reading = [
+        _assistant(_tool("Bash", command="python - <<'EOF'\nprint(1)\nEOF")),
+        _assistant(_text(PLAN)),
+    ]
+    assert runner.plan_before_code(make_run(tmp_path, reading))[0]
+
+
+def test_contract_rules_cite_the_guide(tmp_path: Path) -> None:
+    good = (
+        "3. Zsynchronizuj zegar (NTP): odchyłka ponad 5 minut odrzuca podpis "
+        "(`guide/1-article-delivery.md`, Verifying the signature).\n"
+        "4. Uruchamiaj `td_sync` co 5 minut z crona.\n"
+    )
+    assert runner.rules_cite_the_guide(make_run(tmp_path, [{"type": "result", "result": good}]))[0]
+    bad = "3. Keep the server clock in sync (NTP). A clock more than 5 minutes off fails.\n"
+    ok, detail = runner.rules_cite_the_guide(
+        make_run(tmp_path, [{"type": "result", "result": bad}])
+    )
+    assert not ok and "NTP" in detail
