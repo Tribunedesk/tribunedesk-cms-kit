@@ -96,6 +96,21 @@ container (`ddev exec`), and then `tdkit` must run where the site can reach it.
 - **Local runs with `php -S`:** start it from the `web/` directory (the document root), with
   `.ht.router.php` as the router, or Drupal's routes give 404. It serves one request at a time
   by default (`references/php-library.md`, "Running it locally").
+- **Windows: one container for drush and the web server.** Drupal caches its service container
+  under a key built from the paths in `$settings['container_yamls']`. The web server spells them
+  with backslashes (`C:\site\web/sites/...`), drush with forward slashes, so the site keeps two
+  cached containers and `drush en` or `drush cr` refreshes only drush's. Web requests then run
+  without the new module and every route of it answers 500 "The controller ... is not callable"
+  while drush loads the module fine. Before enabling the module, add this line to
+  `web/sites/default/settings.local.php` (local only, not committed; make sure `settings.php`
+  includes it) or to the end of `settings.php`:
+
+  ```php
+  $settings['container_yamls'] = array_map(fn ($p) => str_replace(DIRECTORY_SEPARATOR, '/', $p), $settings['container_yamls']);
+  ```
+
+  It does nothing on Linux or macOS. If the 500 is already there, add the line and run
+  `drush cr` once more.
 
 ## 10. Level 4 (media library)
 

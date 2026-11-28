@@ -180,6 +180,15 @@ def test_drupal_reference_points_to_the_kit_reference() -> None:
     assert "reference/drupal" in drupal
 
 
+def test_drupal_reference_gives_windows_one_container_cache_key() -> None:
+    """Eval 2026-11-27: on Windows drush and the web server cached two containers, web got 500."""
+    drupal = (REFERENCES / "cms" / "drupal.md").read_text(encoding="utf-8")
+    assert "str_replace(DIRECTORY_SEPARATOR, '/', $p)" in drupal
+    reference = (ROOT / "reference" / "drupal" / "REFERENCE.md").read_text(encoding="utf-8")
+    assert "str_replace(DIRECTORY_SEPARATOR, '/', $p)" in reference
+    assert "cause was not found" not in reference
+
+
 def test_php_library_reference_names_the_secret_variables() -> None:
     php = (REFERENCES / "php-library.md").read_text(encoding="utf-8")
     for name in ("TD_WEBHOOK_SECRET", "TD_CMS_TOKEN", "TD_API_BASE"):

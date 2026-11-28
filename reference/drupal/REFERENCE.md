@@ -40,13 +40,21 @@ tdkit check --levels 1,2 --mode webhook --contract v3.9.0-draft --webhook http:/
   --publish-cmd "vendor/bin/drush td:publish {article_id}"
 ```
 
-Start the PHP server from inside `web/`: started from the project root with `-t web` it answered
-500 once the module was enabled (found in the run). `php -S` answers one request at a time, so
-`l1-overlapping-attempts` passes there without proving the lock; on Linux or macOS add
-`PHP_CLI_SERVER_WORKERS=4` before `php -S`, elsewhere check on the site's real server (skill,
-`references/php-library.md`, "Running it locally"). On Windows run `vendor\bin\drush.bat`; on
-2026-11-27 the module was enabled for drush but not loaded in requests to `php -S` on Windows
-(the cause was not found), so check it on Linux, macOS or the site's real server.
+`php -S` answers one request at a time, so `l1-overlapping-attempts` passes there without proving
+the lock; on Linux or macOS add `PHP_CLI_SERVER_WORKERS=4` before `php -S`, elsewhere check on
+the site's real server (skill, `references/php-library.md`, "Running it locally").
+
+On Windows run `vendor\bin\drush.bat`, and before `drush en` add this line to the end of
+`settings.php` (or to `settings.local.php`):
+
+```php
+$settings['container_yamls'] = array_map(fn ($p) => str_replace(DIRECTORY_SEPARATOR, '/', $p), $settings['container_yamls']);
+```
+
+Drupal caches its container under a key built from those paths; the web server spells them with
+backslashes and drush with forward slashes, so without the line `drush en` refreshes only drush's
+container and every request to the module answers 500 "controller not callable" (the parity-drupal
+run of 2026-11-27, found on 2026-11-28; skill, `references/cms/drupal.md`).
 
 `tdkit` is the kit's command line tool:
 `uvx --from git+https://github.com/Tribunedesk/tribunedesk-cms-kit@v1.8.0 tdkit` (kit README,
